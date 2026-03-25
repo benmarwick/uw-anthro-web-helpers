@@ -20,7 +20,7 @@ This repository contains scripts to create browser bookmarklets to help visualiz
 -   For Chrome, look on the top menu bar for "Bookmarks", select "Bookmark Manager" or click this link <chrome://bookmarks/>
 -   On the top right of the Bookmarks page, click the three dots to show a drop-down menu, click on "Add new bookmark"
 -   For the name field, use 'Time Schedule Viz' or similar for the first bookmarklet (quotes not required)
--   For the URL field, go to the URL where the script is stored, select all the text, and paste it into the URL field.
+-   For the URL field, go to the URL for the bookmarklet script (see below), select all the text, and paste it into the URL field.
 -   Click Save. Look for the new bookmark in the list of bookmarks top menu bar for "Bookmarks" or on your bookmark bar
 
 ## Time Series Dashboard Bookmarklet
@@ -30,6 +30,8 @@ This repository contains scripts to create browser bookmarklets to help visualiz
 For a given quarter, this script collects data from the [UW Time Schedule](https://www.washington.edu/students/timeschd/) pages on ARCHY, ANTH, and BIO A classes and produces a simple dashboard that visualizes current student enrollment numbers for all classes. The script does not use or contain AI and does not use any data other than the Time Schedule pages for the three course prefixes. The script runs entirely in your browser. No data are collected from your computer or stored on your computer. No student-level data or other FERPA-protected data are collected or used by this script.
 
 #### URL for the bookmarklet script:
+
+https://raw.githubusercontent.com/benmarwick/uw-anthro-web-helpers/refs/heads/main/bookmarklet-time-schedule-viz.js
 
 #### How to use:
 
@@ -44,7 +46,9 @@ For a given quarter, this script collects data from the [UW Time Schedule](https
 
 For a given graduate student, this script collects data from [MyGrad's](https://facstaff.grad.uw.edu/mygrad-for-faculty-and-staff/) Student Detail page, the Transcripts page, the Advisors / Committees page, and the Doctoral Exam Requests page. It structures the data as a single, compact JSON object and pastes the data on the user's clipboard. The pasted data are prefixed by plain text instructions specifically for use with UW's [Microsoft Copilot with commercial data protection](https://itconnect.uw.edu/tools-services-support/software-computers/productivity-platforms/microsoft-productivity-platform/microsoft-copilot/). These instructions tell Copilot to review the relevant UW Anthropology graduate program and Graduate School web pages. Copilot will compare the student's MyGrad data with the published program requirements and summarize findings in a structured summary report. Copilot will return a table indicating the student's progress relative to key milestones of the student's specific Doctoral program, a table of potential issues, and a narrative of the student's current status and recommended next steps. The report is strictly limited to the requirements documented in the department's program website, and the student's record in MyGrad. The script does not collect or use any information about the student outside of MyGrad. The script does not use or contain AI and does not interact directly with Copilot, this is left to you. The data collected by the script are protected by the Family Educational Rights and Privacy Act ([FERPA](https://registrar.washington.edu/staff-faculty/ferpa/)) of 1974 and must not be shared outside of the UW Anthropology advising office without written consent of the student. No data are collected from your computer.
 
-#### URL for the bookmarklet script:
+#### URL for the bookmarklet script: 
+
+https://raw.githubusercontent.com/benmarwick/uw-anthro-web-helpers/refs/heads/main/bookmarklet-mygrad-student-summary.js
 
 #### How to use:
 
@@ -54,11 +58,11 @@ For a given graduate student, this script collects data from [MyGrad's](https://
 -   Click the 'MyGrad Student Summary' bookmark (or whatever you named it when you created it) in your browser and new for a new button to appear at the top center of the Student Detail page
 -   Click the new button and wait for it to turn green to show the script has finished working. Do not leave the page until the script has finished or it will fail. When the button is green, you computer's clipboard is loaded with text ready for the next stepts
 -   Go to https://copilot.microsoft.com/ and log in with your UW Net ID to ensure your data are not shared outside of UW, and start a New Chat,
--   In the lower left of the chat box, change "Smart" to "Thinking", this is important to get a high-quality report
+-   In the lower left of the chat box, change "Smart" to "Thinking", this is essential to get a high-quality report
 -   Click in the chat box and paste in the data from MyGrad. It may show as a plain text or a file, either are ok. Press enter to submit the chat
 -   Wait for copilot to reply and review the report. Do not save, screenshot or copy-paste the report out of Copilot
--   Verify the Output, since copilot may occasionally hallucinate or misinterpret policies, you must manually verify the AI's report against the student's official MyGrad record before taking any advising action or corresponding with the student
--   Immediately delete the chat from Copilot after reviewing the report, and copy to your clipboard a random word from this website to replace the student data. FERPA-protected data may temporarily reside on your computer's clipboard. Some systems maintain clipboard history. Clear clipboard immediately to ensure you do not accidentally paste the student's FERPA-protected JSON data elsewhere.
+-   You must manually verify the AI's report against the student's official MyGrad record before taking any advising action or corresponding with the student. This is important because Copilot may occasionally hallucinate or misinterpret policies or misread the student's data.
+-   Immediately delete the chat from Copilot after reviewing the report. Immediately copy to your clipboard a random word from this website to replace the student data and ensure you do not accidentally paste the student's FERPA-protected JSON data elsewhere.
 
 ### License
 
