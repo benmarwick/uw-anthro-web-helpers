@@ -23,7 +23,7 @@ This repository contains scripts to create browser bookmarklets to help visualiz
 -   For the URL field, click on the URL for the bookmarklet script that you see below, select all the text in your browser window, and paste it into the URL field of the new bookmark box.
 -   Click Save to finish making the bookmarklet. Look for the new bookmark in the list of bookmarks top menu bar for "Bookmarks" or on your bookmark bar. 
 
-## Time Series Dashboard Bookmarklet
+## Time Schedule Dashboard Bookmarklet
 
 #### Overview
 
