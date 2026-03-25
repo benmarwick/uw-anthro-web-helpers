@@ -56,7 +56,7 @@ https://raw.githubusercontent.com/benmarwick/uw-anthro-web-helpers/refs/heads/ma
 -   Navigate to the [Student List](https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist)
 -   Click on a student's name to go the Student Detail page for that student
 -   Click the 'MyGrad Student Summary' bookmark (or whatever you named it when you created it) in your browser and look for a new button to appear at the top center of the Student Detail page
--   Click the new button and wait for it to turn green to indicate that the script has finished working. Do not leave the page until the script has finished or it will fail (click it again to retry). When the button is green, you computer's clipboard is loaded with text ready for the next stepts
+-   Click the new button and wait for it to turn green to indicate that the script has finished working. Do not leave the page until the script has finished or it will fail (click it again to retry). When the button is green, you computer's clipboard is loaded with text ready for the next steps
 -   Go to https://copilot.microsoft.com/ and log in with your UW Net ID to ensure your data are not shared outside of UW, and start a New Chat
 -   In the lower left of the chat box, change "Smart" to "Think deeper", this is essential to get a high-quality report
 -   Click in the chat box and paste in the data from MyGrad. It may show as plain text or a single file attachement, either are ok. Press enter to submit the chat
