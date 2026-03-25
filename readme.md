@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This repository contains scripts to create browser bookmarklets to help visualize and interpret data relating to day-to-day operations of the UW Anthropology Department. They only work on sites that require UW credentials to access. A [bookmarklet](https://en.wikipedia.org/wiki/Bookmarklet) is a bookmark stored in your web browser that contains JavaScript commands that make the browser do useful work.
+This repository contains scripts to create browser bookmarklets to help visualize and summarize data relating to day-to-day operations of the UW Anthropology Department. They only work on sites that require UW credentials to access. A [bookmarklet](https://en.wikipedia.org/wiki/Bookmarklet) is a bookmark stored in your web browser that contains JavaScript commands that make the browser do useful work.
 
 ### A Note on Student Privacy and Data Security
 
