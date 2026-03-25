@@ -17,11 +17,11 @@ This repository contains scripts to create browser bookmarklets to help visualiz
 ### How to install a bookmarklet:
 
 -   Each script must be added to your web browser as a unique bookmark, so repeat these steps for each bookmarklets
--   For Chrome, look on the top menu bar for "Bookmarks", select "Bookmark Manager" or click this link <chrome://bookmarks/>
--   On the top right of the Bookmarks page, click the three dots to show a drop-down menu, click on "Add new bookmark"
+-   For Chrome, look on the top menu bar for "Bookmarks", select "Bookmark Manager" or click this link [chrome://bookmarks/](chrome://bookmarks/)
+-   On the very top right of the Bookmarks page, click the three dots to show a drop-down menu, click on "Add new bookmark"
 -   For the name field, use 'Time Schedule Viz' or similar for the first bookmarklet (quotes not required)
 -   For the URL field, go to the URL for the bookmarklet script (see below), select all the text, and paste it into the URL field.
--   Click Save. Look for the new bookmark in the list of bookmarks top menu bar for "Bookmarks" or on your bookmark bar
+-   Click Save. Look for the new bookmark in the list of bookmarks top menu bar for "Bookmarks" or on your bookmark bar. 
 
 ## Time Series Dashboard Bookmarklet
 
