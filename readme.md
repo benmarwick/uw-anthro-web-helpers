@@ -20,8 +20,8 @@ This repository contains scripts to create browser bookmarklets to help visualiz
 -   For Chrome, look on the top menu bar for "Bookmarks", select "Bookmark Manager" 
 -   On the very top right of the Bookmarks page, click the three dots to show a drop-down menu, click on "Add new bookmark"
 -   For the name field, use 'Time Schedule Viz' or similar for the first bookmarklet (quotes not required)
--   For the URL field, go to the URL for the bookmarklet script (see below), select all the text, and paste it into the URL field.
--   Click Save. Look for the new bookmark in the list of bookmarks top menu bar for "Bookmarks" or on your bookmark bar. 
+-   For the URL field, click on the URL for the bookmarklet script that you see below, select all the text in your browser window, and paste it into the URL field of the new bookmark box.
+-   Click Save to finish making the bookmarklet. Look for the new bookmark in the list of bookmarks top menu bar for "Bookmarks" or on your bookmark bar. 
 
 ## Time Series Dashboard Bookmarklet
 
