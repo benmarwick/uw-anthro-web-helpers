@@ -1,8 +1,8 @@
-# Web Helpers for UW Anthropology Department Administrative Workflows
+# Web Helpers for [UW Anthropology Department](https://anthropology.washington.edu/) Administrative Workflows
 
 ## Introduction
 
-This repository contains scripts to create browser bookmarklets to help visualize and summarize data relating to day-to-day operations of the UW Anthropology Department. They only work on sites that require UW credentials to access. A [bookmarklet](https://en.wikipedia.org/wiki/Bookmarklet) is a bookmark stored in your web browser that contains JavaScript commands that make the browser do useful work.
+This repository contains scripts to create browser bookmarklets to help visualize and summarize data relating to day-to-day operations of the UW Anthropology Department. A [bookmarklet](https://en.wikipedia.org/wiki/Bookmarklet) is a bookmark stored in your web browser that contains JavaScript commands that make the browser do useful work. They only work on sites that require UW credentials to access. 
 
 ### A Note on Student Privacy and Data Security
 
@@ -16,7 +16,7 @@ This repository contains scripts to create browser bookmarklets to help visualiz
 
 ### How to install a bookmarklet:
 
--   Each script must be added to your web browser as a unique bookmark, so repeat these steps for each bookmarklets
+-   Each script must be added to your web browser as a unique bookmark, so repeat these steps for each bookmarklet
 -   For Chrome, look on the top menu bar for "Bookmarks", select "Bookmark Manager" 
 -   On the very top right of the Bookmarks page, click the three dots to show a drop-down menu, click on "Add new bookmark"
 -   For the name field, use 'Time Schedule Viz' or similar for the first bookmarklet (quotes not required)
@@ -57,7 +57,7 @@ https://raw.githubusercontent.com/benmarwick/uw-anthro-web-helpers/refs/heads/ma
 -   Using your official UW-issued computer, use your UW credentials to log in to [MyGrad Department View](https://facstaff.grad.uw.edu/mygrad-for-faculty-and-staff/#mygrad-faculty-staff-2). These are FERPA-protected education records and this view is only available to authorized faculty and staff in GPC/GPA roles.
 -   Navigate to the [Student List](https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist)
 -   Click on a student's name to go the Student Detail page for that student
--   Click the 'MyGrad Student Summary' bookmark (or whatever you named it when you created it) in your browser and look for a new button to appear at the top center of the Student Detail page
+-   Click the 'MyGrad Student Summary' bookmark (or whatever you named it when you created it) in your browser and look for a new button to appear at the top center of the Student Detail web page
 -   Click the new button and wait for it to turn green to indicate that the script has finished working. Do not leave the page until the script has finished or it will fail (click it again to retry). When the button is green, you computer's clipboard is loaded with text ready for the next steps
 -   Go to https://copilot.microsoft.com/ and log in with your UW Net ID to ensure your data are not shared outside of UW, and start a New Chat
 -   In the lower left of the chat box, change "Smart" to "Think deeper", this is essential to get a high-quality report
