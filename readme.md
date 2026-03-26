@@ -40,6 +40,8 @@ https://raw.githubusercontent.com/benmarwick/uw-anthro-web-helpers/refs/heads/ma
 -   Explore the dashboard by filtering the data using the checkboxes at the top, e.g. click or double-click on the plot legends to show/hide classes; sort the table at the bottom by %Full.
 -   Close the Dashboard tab when finished. To share the dashboard, print it as a PDF or take a screenshot.
 
+![Time-Schedule-Viz](Time-Schedule-Viz.png)
+
 ## MyGrad Student Summary Bookmarklet
 
 #### Overview
