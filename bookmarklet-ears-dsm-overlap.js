@@ -3,7 +3,7 @@ javascript:(async function() {
         document.body.style.cursor = 'wait';
         const audits = {};
         const rows = document.querySelectorAll('tr');
-        const targetLinks =[];
+        const targetLinks = [];
 
         /* 1. Find all "Detail" links in the Available Audits table */
         rows.forEach(row => {
@@ -34,7 +34,7 @@ javascript:(async function() {
         document.body.appendChild(iframe);
 
         /* Define headers and map them to strict snake_case keys */
-        const majorTargets =[
+        const majorTargets = [
             { search: "UNIVERSITY REQUIREMENTS", key: "university_requirements" },
             { search: "GENERAL EDUCATION REQUIREMENTS PROFICIENCY", key: "general_education_requirements" },
             { search: "AREAS OF INQUIRY", key: "areas_of_inquiry" },
@@ -43,7 +43,7 @@ javascript:(async function() {
             { search: "OTHER COURSES", key: "other_courses" }
         ];
 
-        const minorTargets =[
+        const minorTargets = [
             { search: "Data Studies (Group A)", key: "data_studies_group_a" },
             { search: "Data Skills (Group B)", key: "data_skills_group_b" }, 
             { search: "Additional credits from list A, B or C, or Synthesis courses", key: "additional_credits" },
@@ -93,7 +93,7 @@ javascript:(async function() {
                 };
             }
 
-            let foundTargets =[];
+            let foundTargets = [];
             targets.forEach(target => {
                 let idx = textDump.indexOf(target.search);
                 if (idx !== -1) {
@@ -122,7 +122,7 @@ javascript:(async function() {
                     .filter(line => line.length > 0);
 
                 let courses = [];
-                let description =[];
+                let description = [];
 
                 linesArray.forEach(line => {
                     const match = line.match(courseRegex);
@@ -151,25 +151,127 @@ javascript:(async function() {
 
         document.body.removeChild(iframe);
 
-        /* 3. Prepare the final LLM Payload */
-        const llmPrompt = "You are a highly skilled and efficient undergraduate student advisor at the University of Washington. You specialize in advising students in the Data Science Minor, and you have memorized the overlap restriction policy on this page:\n\n https://dataminor.uw.edu/curriculum/overlap \n\nYou have also memorised the course list for the Minor here:\n\n https://dataminor.uw.edu/curriculum/upcoming-courses \n\nand you know that each class in the minor is in one of four categories: Data Skills; Data Studies; Cross Cutting: On Ramp; Cross Cutting: Synthesis. You never make anything up. You always quote exact verbatim text from a specific University of Washington websites to support your decisions. Do not paraphrase or infer. You always include clickable links to the websites that you quote from. Do not quote anything unless you fetch it directly from the URLs I have given you. If you cannot fetch it, say so. Your task is to exactly and thoroughly apply that overlap policy to guide this student. You always name courses with the course prefix in capital letters (e.g. CSE, INFO), course number (e.g. 101, 490), and course title. You examine the data below to identify the student's major. For the student's major, you only look at all the courses between the headings section 'DEPARTMENTAL REQUIREMENTS' or 'Admissions Requirements' through to the heading 'OTHER COURSES', do not include any courses in the section 'OTHER COURSES'. For the Data Science Minor, you look at all the courses listed in 'Data Studies (Group A)', Data Skills (Group B)', and 'Additional credits from list A, B or C, or Synthesis courses'. Always omit 'CSSS 490 DATA SCI COMMUN SEM' from your review. You determine if the student has more than ten credits of courses in their major that are also counting towards their Data Science Minor in these sections of their record: 'Data Studies (Group A)', Data Skills (Group B)', and 'Additional credits from list A, B or C, or Synthesis courses'. You examine the classes that appear both in the Major section 'DEPARTMENTAL REQUIREMENTS' or 'Admissions Requirements', and in the student's record for the Data Science Minor. If they do have more than ten credits overlap, you look only in the student's record for the Data Science Minor at the list of courses under the text 'A different course was used where the following could have applied'. These courses do not currently count toward the minor, but we can use them to substitute with other classes to resolve the overlap. Your output is a table. The table has one row each for these: 'Data Studies (Group A)', Data Skills (Group B)', and 'Additional credits from list A, B or C, or Synthesis courses'. The table has one column each for these: 'Course(s) from the Minor audit'; 'Courses from the Major audit'; 'Overlap status'. In the 'Overlap status' column you put a green circle emoji if there is no overlap, and a red circle emoji if there is overlap between the Major and Minor. If there are 10 credits or more of overlap, you propose one or more courses, only from the list 'A different course was used where the following could have applied' on the student's Data Science Minor audit, as substitutions to avoid the 10 credit overlap with the major. You take care to confirm that the data science minor course category is equivalent for the substitutions. You conclude with a brief, concise, single paragraph narrative that contains a specific, concrete recommendation about which courses to substitute for what requirements of the Data Science Minor to avoid the ten credit overlap, if there is one. You classify the substitutions according to the relevant category: 'Data Studies (Group A)', Data Skills (Group B)', and 'Additional credits from list A, B or C, or Synthesis courses'. Confirm that your recommended substitution courses are not in the section 'DEPARTMENTAL REQUIREMENTS' or 'Admissions Requirements', you cannot take courses from those sections. Open this page, \n\n https://dataminor.uw.edu/curriculum/upcoming-courses \n\n view the entire course list for the data science minor, and confirm that your course subsitution recommedations belong to the correct categories of Data Studies (Group A)', Data Skills (Group B)', and 'Cross-cutting, which is the same as 'Additional credits from list A, B or C, or Synthesis courses' \n\nDATA:\n";
+        /* ============================================================
+           RESTRUCTURED LLM PROMPT WITH CLEAR XML-STYLE DELIMITERS
+           Benefits:
+           - Prevents instruction/data confusion (prompt injection resistance)
+           - Enables reliable section referencing for the LLM
+           - Supports step-by-step reasoning with explicit boundaries
+           - Makes output parsing more deterministic
+           ============================================================ */
+        
+        const llmPrompt = `
+<system_role>
+You are a highly skilled and efficient undergraduate student advisor at the University of Washington. You specialize in advising students in the Data Science Minor.
+</system_role>
 
+<policy_references>
+<overlap_policy url="https://dataminor.uw.edu/curriculum/overlap">
+Memorize the overlap restriction policy on this page. Quote exact verbatim text to support decisions.
+</overlap_policy>
+<course_list url="https://dataminor.uw.edu/curriculum/upcoming-courses">
+Go to the course list url and wait one or two seconds for the table to load on that page. Then get the table that has the list of courses for the Minor. Memorize the course list for the Minor. Note that each course belongs to one of four categories: Data Skills; Data Studies; Cross Cutting: On Ramp; Cross Cutting: Synthesis.
+</course_list>
+</policy_references>
+
+<output_constraints>
+- Never make anything up. Always quote exact verbatim text from specific University of Washington websites to support decisions.
+- Do not paraphrase or infer. Always include clickable links to quoted sources.
+- Name courses with prefix in CAPITAL LETTERS (e.g., CSE, INFO), course number (e.g., 101, 490), and course title.
+- If you cannot fetch a URL, explicitly state that you cannot.
+</output_constraints>
+
+<task_instructions>
+<step_1_identify_major>
+Examine the student_data below to identify the student's major. For the major, only analyze courses between the headings 'DEPARTMENTAL REQUIREMENTS' or 'ADMISSIONS REQUIREMENTS' through to 'OTHER COURSES'. Exclude any courses in the 'OTHER COURSES' section.
+</step_1_identify_major>
+
+<step_2_identify_minor>
+For the Data Science Minor, analyze all courses listed in: 'Data Studies (Group A)', 'Data Skills (Group B)', and 'Additional credits from list A, B or C, or Synthesis courses'.
+</step_2_identify_minor>
+
+<step_3_exclude>
+Always omit 'CSSS 490 DATA SCI COMMUN SEM' from your review.
+</step_3_exclude>
+
+<step_4_overlap_analysis>
+Determine if the student has more than ten credits of courses in their major that also count toward their Data Science Minor in the sections: 'Data Studies (Group A)', 'Data Skills (Group B)', and 'Additional credits from list A, B or C, or Synthesis courses'.
+
+Compare classes that appear in BOTH:
+- Major section: 'DEPARTMENTAL REQUIREMENTS' or 'ADMISSIONS REQUIREMENTS'
+- Minor sections listed in step_2_identify_minor
+</step_4_overlap_analysis>
+
+<step_5_substitution_logic>
+If overlap >= 10 credits:
+- Look ONLY in the student's minor record under: 'A different course was used where the following could have applied'
+- These courses do not currently count toward the minor but can substitute to resolve overlap
+- Confirm substitution courses belong to equivalent minor categories: Data Studies (Group A), Data Skills (Group B), or Cross-cutting/Synthesis
+- Verify substitution courses are NOT in the major's 'DEPARTMENTAL REQUIREMENTS' or 'ADMISSIONS REQUIREMENTS' sections
+- Cross-reference with https://dataminor.uw.edu/curriculum/upcoming-courses to confirm category membership
+</step_5_substitution_logic>
+
+<step_6_output_format>
+Produce a table with exactly these rows and columns:
+
+Rows (one per minor category):
+1. 'Data Studies (Group A)'
+2. 'Data Skills (Group B)'
+3. 'Additional credits from list A, B or C, or Synthesis courses'
+
+Columns:
+- 'Course(s) from the Minor audit'
+- 'Courses from the Major audit'
+- 'Overlap status' → 🟢 if no overlap, 🔴 if overlap exists
+
+If overlap >= 10 credits: After the table, propose specific substitution courses from the 'alternative_courses' list, categorized by minor requirement type.
+
+Conclude with ONE concise paragraph containing:
+- The first sentence must start with: 'The total overlap is X credits', where X is the number of credits overlapping between the major and minor. If X <= 10 then end this sentence with ✅, if X >= 10 then end this sentence with ❌
+- The second sentence must be a concrete recommendation about which courses to substitute for which minor requirements
+- The third sentence must confirm that substitutions avoid the 10-credit overlap
+- The fourth sentence must report the classification of each substitution by course category in the Data Science Minor 
+- Do not suggest any next steps or ask follow-up questions
+</step_6_output_format>
+</task_instructions>
+
+<student_data>
+${JSON.stringify(audits)}
+</student_data>
+
+<self_validation>
+Before finalizing your response:
+1. Verify each recommended substitution appears on https://dataminor.uw.edu/curriculum/upcoming-courses
+2. Confirm substitution courses are not in the major's restricted sections
+3. Ensure overlap calculations use exact credit values from the student_data
+4. Cite specific URLs and quote verbatim text when referencing policies
+</self_validation>
+`.trim();
+
+        /* Prepare the final payload - student data is now cleanly delimited above */
         const finalPayload = {
+            meta: {
+                extraction_timestamp: new Date().toISOString(),
+                script_version: "2.1-structured-prompt",
+                source: "UW DARS Bookmarklet"
+            },
             student_data: audits
         };
 
         const compactJson = JSON.stringify(finalPayload);
-        const finalOutput = llmPrompt + compactJson;
+        
+        /* Final output combines structured prompt with payload */
+        const finalOutput = `${llmPrompt}\n\n<raw_payload_for_reference>\n${compactJson}\n</raw_payload_for_reference>`;
 
         /* Write securely to user clipboard */
         await navigator.clipboard.writeText(finalOutput);
         
         document.body.style.cursor = 'default';
-        alert(`Extracted Student Data + Catalog Table and copied everything to your clipboard!`);
+        alert(`✅ Extracted Student Data + Structured Prompt copied to clipboard!\n\nTip: Paste directly into your LLM interface. XML-style tags help the model parse instructions reliably.`);
 
     } catch (err) {
         document.body.style.cursor = 'default';
         console.error('DARS Extractor Error:', err);
-        alert('An error occurred. Check the browser console (F12) for details.');
+        alert('⚠️ An error occurred. Check the browser console (F12) for details.');
     }
 })();
