@@ -169,8 +169,8 @@ You are a highly skilled and efficient undergraduate student advisor at the Univ
 <overlap_policy url="https://dataminor.uw.edu/curriculum/overlap">
 Memorize the overlap restriction policy on this page. Quote exact verbatim text to support decisions.
 </overlap_policy>
-<course_list url="https://dataminor.uw.edu/curriculum/upcoming-courses">
-Go to the course list url and wait one or two seconds for the table to load on that page. Then get the table that has the list of courses for the Minor. Memorize the course list for the Minor. Note that each course belongs to one of four categories: Data Skills; Data Studies; Cross Cutting: On Ramp; Cross Cutting: Synthesis.
+<course_list url="https://dataminor.uw.edu/site/assets/data/data.json">
+Go to the course list url. Get the course list for the Minor. Note that each course belongs to one of four categories: Data Skills; Data Studies; Cross Cutting: On Ramp; Cross Cutting: Synthesis.
 </course_list>
 </policy_references>
 
@@ -208,7 +208,7 @@ If overlap >= 10 credits:
 - These courses do not currently count toward the minor but can substitute to resolve overlap
 - Confirm substitution courses belong to equivalent minor categories: Data Studies (Group A), Data Skills (Group B), or Cross-cutting/Synthesis
 - Verify substitution courses are NOT in the major's 'DEPARTMENTAL REQUIREMENTS' or 'ADMISSIONS REQUIREMENTS' sections
-- Cross-reference with https://dataminor.uw.edu/curriculum/upcoming-courses to confirm category membership
+- Cross-reference with https://dataminor.uw.edu/site/assets/data/data.json to confirm category membership
 </step_5_substitution_logic>
 
 <step_6_output_format>
@@ -241,7 +241,7 @@ ${JSON.stringify(audits)}
 
 <self_validation>
 Before finalizing your response:
-1. Verify each recommended substitution appears on https://dataminor.uw.edu/curriculum/upcoming-courses
+1. Verify each recommended substitution appears on https://dataminor.uw.edu/site/assets/data/data.json
 2. Confirm substitution courses are not in the major's restricted sections
 3. Ensure overlap calculations use exact credit values from the student_data
 4. Cite specific URLs and quote verbatim text when referencing policies
@@ -267,7 +267,7 @@ Before finalizing your response:
         await navigator.clipboard.writeText(finalOutput);
         
         document.body.style.cursor = 'default';
-        alert(`✅ Extracted Student Data + Structured Prompt copied to clipboard!\n\nTip: Paste directly into your LLM interface. XML-style tags help the model parse instructions reliably.`);
+        alert(`✅ Extracted student data and copied to clipboard!\n\nNext: Paste directly into your LLM, switch on 'thinking' mode, and hit enter`);
 
     } catch (err) {
         document.body.style.cursor = 'default';
