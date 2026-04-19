@@ -1,20 +1,200 @@
 javascript:(function(){
-    /* Singleton Pattern: Prevent duplicate widgets if clicked multiple times */
-    const existingHost = document.getElementById('uw-extractor-host');
-    if (existingHost) {
-        existingHost.remove();
-    }
+    (async function() {
+        /* ============================================================
+           UI SETUP (SHADOW DOM ENCAPSULATION & UX PATTERNS)
+           ============================================================ */
+        document.body.style.cursor = 'wait';
 
-    const studentId = new URLSearchParams(window.location.search).get('id');
-    if (!studentId) {
-        console.warn("[UW Extractor] No student ID found in URL.");
-        alert("No student ID found in URL.");
-        return;
-    }
+        /* Clean up any previous host elements */
+        const existingHost = document.getElementById('uw-extractor-host');
+        if (existingHost) existingHost.remove();
 
-    /* Configuration */
-    const CONFIG = {
-        llmPrompt: `<system_role>
+        /* Create Shadow Host */
+        const host = document.createElement('div');
+        host.id = 'uw-extractor-host';
+        Object.assign(host.style, { position: 'relative', zIndex: '2147483647' });
+        document.body.appendChild(host);
+
+        /* Attach closed Shadow DOM to prevent CSS leaking */
+        const shadow = host.attachShadow({mode: 'open'});
+
+        /* Inject Scoped CSS with Animations & Micro-interactions */
+        const style = document.createElement('style');
+        style.textContent = `
+            :host { all: initial; }
+            @keyframes slideFadeIn {
+                0% { opacity: 0; transform: translate(-50%, -45%); }
+                100% { opacity: 1; transform: translate(-50%, -50%); }
+            }
+            @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+            @keyframes uw-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            @keyframes drawCheck { 0% { stroke-dashoffset: 48; } 100% { stroke-dashoffset: 0; } }
+            
+            .overlay {
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background-color: rgba(0, 0, 0, 0.6); zIndex: 1;
+                opacity: 0; animation: fadeIn 0.4s ease forwards; transition: opacity 0.4s ease;
+            }
+            .dialog {
+                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                width: 440px; max-width: 90vw; padding: 20px 20px 24px 20px;
+                background-color: #4b2e83; /* Deep Purple for Loading */
+                color: #ffffff;
+                font-family: system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.5;
+                border-radius: 8px; box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+                zIndex: 2; display: flex; flex-direction: column; gap: 15px; overflow: hidden;
+                opacity: 0; animation: slideFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                transition: opacity 0.4s ease, background-color 0.4s ease;
+            }
+            .content-row { display: flex; align-items: flex-start; gap: 12px; }
+            .spinner { 
+                border: 3px solid rgba(255,255,255,0.2); border-top: 3px solid #b7a57a; /* UW Gold accent */
+                border-radius: 50%; width: 18px; height: 18px; 
+                animation: uw-spin 1s linear infinite; display: inline-block; flex-shrink: 0;
+            }
+            .status-icon { width: 24px; height: 24px; flex-shrink: 0; display: none; }
+            .status-icon polyline, .status-icon circle, .status-icon line {
+                stroke-dasharray: 48; stroke-dashoffset: 48;
+            }
+            .msg { flex: 1; white-space: pre-wrap; font-weight: 500; }
+            
+            .scrollable {
+                width: 100%; height: 140px; background-color: rgba(0,0,0,0.2); color: #fff;
+                border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 8px;
+                font-size: 12px; font-family: ui-monospace, monospace; display: none; resize: vertical; box-sizing: border-box;
+            }
+            .scrollable::-webkit-scrollbar { width: 8px; }
+            .scrollable::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+            .scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 4px; }
+            
+            .button-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 5px; }
+            button {
+                padding: 8px 16px; color: #ffffff; border-radius: 4px;
+                cursor: pointer; font-weight: 600; display: none; transition: background-color 0.2s; border: none; font-size: 13px;
+            }
+            .btn-close { background-color: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255,255,255,0.4); }
+            .btn-close:hover { background-color: rgba(255, 255, 255, 0.3); }
+            .btn-copilot { background-color: #10a37f; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+            .btn-copilot:hover { background-color: #0d8c6d; }
+            
+            .progress-bar {
+                position: absolute; bottom: 0; left: 0; height: 5px;
+                background-color: #b7a57a; width: 0%; transition: width 0.3s ease, background-color 0.3s ease;
+            }
+        `;
+        shadow.appendChild(style);
+
+        /* Build DOM Elements */
+        const overlay = document.createElement('div');
+        overlay.className = 'overlay';
+        shadow.appendChild(overlay);
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog';
+
+        const contentRow = document.createElement('div');
+        contentRow.className = 'content-row';
+        
+        const spinner = document.createElement('div');
+        spinner.className = 'spinner';
+        
+        const statusIcon = document.createElement('div');
+        statusIcon.className = 'status-icon';
+
+        const msgSpan = document.createElement('div');
+        msgSpan.className = 'msg';
+        msgSpan.innerText = 'Initializing extraction...';
+
+        contentRow.appendChild(spinner);
+        contentRow.appendChild(statusIcon);
+        contentRow.appendChild(msgSpan);
+        dialog.appendChild(contentRow);
+
+        const fallbackArea = document.createElement('textarea');
+        fallbackArea.className = 'scrollable';
+        dialog.appendChild(fallbackArea);
+
+        const btnRow = document.createElement('div');
+        btnRow.className = 'button-row';
+
+        const copilotBtn = document.createElement('button');
+        copilotBtn.className = 'btn-copilot';
+        copilotBtn.innerText = 'Launch Microsoft Copilot';
+        copilotBtn.onclick = () => { window.open('https://copilot.microsoft.com/', '_blank'); closeDialog(); };
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'btn-close';
+        closeBtn.innerText = 'Close';
+
+        btnRow.appendChild(copilotBtn);
+        btnRow.appendChild(closeBtn);
+        dialog.appendChild(btnRow);
+
+        const progressBar = document.createElement('div');
+        progressBar.className = 'progress-bar';
+        dialog.appendChild(progressBar);
+
+        shadow.appendChild(dialog);
+
+        /* UI State Manager */
+        let hideTimeout;
+        const closeDialog = () => {
+            dialog.style.opacity = '0';
+            overlay.style.opacity = '0';
+            document.body.style.cursor = 'default';
+            setTimeout(() => host.remove(), 400);
+        };
+        closeBtn.onclick = closeDialog;
+
+        /* Prevent auto-close if user hovers over the dialog */
+        dialog.onmouseenter = () => clearTimeout(hideTimeout);
+
+        const updateDialog = (text, bgColor, showButtons = false, progress = null, status = 'loading') => {
+            msgSpan.innerText = text;
+            if (bgColor) dialog.style.backgroundColor = bgColor;
+            if (progress !== null) progressBar.style.width = `${progress}%`;
+            
+            if (['success', 'error'].includes(status)) {
+                spinner.style.display = 'none';
+                statusIcon.style.display = 'block';
+                
+                if (status === 'success') {
+                    progressBar.style.backgroundColor = '#69f0ae'; /* Bright accent green */
+                    statusIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                    const poly = statusIcon.querySelector('polyline');
+                    if (poly) poly.style.animation = 'drawCheck 0.6s ease forwards';
+                } else if (status === 'error') {
+                    progressBar.style.backgroundColor = '#ff5252'; /* Bright accent red */
+                    statusIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+                    const els = statusIcon.querySelectorAll('circle, line');
+                    els.forEach(el => el.style.animation = 'drawCheck 0.4s ease forwards');
+                }
+            }
+
+            if (showButtons) {
+                closeBtn.style.display = 'block';
+                if (status === 'success') copilotBtn.style.display = 'block';
+                
+                /* Auto-dismiss logic only on success */
+                if (status === 'success') {
+                    hideTimeout = setTimeout(closeDialog, 7000);
+                }
+            }
+        };
+
+        /* ============================================================
+           DATA EXTRACTION LOGIC
+           ============================================================ */
+        try {
+            const studentId = new URLSearchParams(window.location.search).get('id');
+            if (!studentId) {
+                updateDialog("❌ No student ID found in URL.", '#b71c1c', true, 100, 'error');
+                return;
+            }
+
+            /* Configuration */
+            const CONFIG = {
+                llmPrompt: `<system_role>
 You are an experienced academic advisor who cares deeply about supporting students in their graduate studies. Use a warm, supportive, highly detail-oriented tone. Write all content in the third-person point of view (never first or second person). Produce a single, complete message only that fully executes these instructions.
 </system_role>
 
@@ -69,10 +249,10 @@ Your task is to execute these steps in this order:
 **Fetch** the single matching program requirements page (only the one that matches the identified program) and the UW Grad School doctoral policy pages listed above.
 **Map transcript items** to specific program requirements: coursework, MA, committee formation, general exam, dissertation credits.
 **Required coursework completed**: if the student has not completed all required coursework within two years of starting their degree (ignore 600 courses), note that they are **overdue**
-**MA earned**: if the student has not earned their MA within two years of starting their degree, note that this is an **emerging issue**
+**MA earned**: if the student has not yet earned their MA within two years of starting their degree, note that this is an **emerging issue**
 **Committee formed**: refer to the specific rules for ANTH, BIO A or ARCHY to determine if the student is in good standing or not
-**General exam passed**: if the student has not completed their general exam within four years of starting their degree, note that this is an **emerging issue**. refer to the specific rules the time limit between MA and general exam for ANTH, BIO A or ARCHY to further determine if the student is in good standing or not
-**Dissertation credits recorded** if the student has recorded any dissertation credits, but not passed their general exam, note that they are **overdue**. If the student has passed their general exam, but not recorded any dissertation credits, note that they are **overdue**
+**General exam passed**: if the student has not yet completed their general exam within four years of starting their degree, note that this is an **emerging issue**. refer to the specific rules the time limit between MA and general exam for ANTH, BIO A or ARCHY to further determine if the student is in good standing or not
+**Dissertation credits recorded** if the student has recorded any dissertation credits, but not yet passed their general exam, note that they are **overdue**. If the student has passed their general exam, but not yet recorded any dissertation credits, note that they are **overdue**
 </task_step_3_evaluate_progress_with_program_requirements>
 
 <task_step_4_evaluate_ten_year_rule>
@@ -131,266 +311,113 @@ Before finalizing your response:
 3. Cite specific URLs and quote verbatim text when referencing policies.
 </self_validation>
 \n\n`,
-        removeEmptyFields: true,
-        uwBoilerplatePatterns:[/skip to main content/i,/university of washington/i,/\bmygrad\b/i,/\b(home|help|logout|edit|print)\b/i,/add committee|update degree|waive dissertation|reinstate dissertation|reset dissertation/i,/student detail|committee|transcript|degree progress|student requests/i,/©\s*\d{4}.*university/i,/accessibility|privacy|terms of use/i,/view applicants|view grad students|view faculty|view admin/i,/main page|end session|return to student details/i,/^\s*[\|•\-–—]\s*$/,/^\s*$/]
-    };
+                removeEmptyFields: true,
+                uwBoilerplatePatterns:[/skip to main content/i,/university of washington/i,/\bmygrad\b/i,/\b(home|help|logout|edit|print)\b/i,/add committee|update degree|waive dissertation|reinstate dissertation|reset dissertation/i,/student detail|committee|transcript|degree progress|student requests/i,/©\s*\d{4}.*university/i,/accessibility|privacy|terms of use/i,/view applicants|view grad students|view faculty|view admin/i,/main page|end session|return to student details/i,/^\s*[\|•\-–—]\s*$/,/^\s*$/]
+            };
 
-    let globalSeenLines = new Set();
+            let globalSeenLines = new Set();
 
-    /* --- Shadow DOM UI Isolation --- */
-    const host = document.createElement('div');
-    host.id = 'uw-extractor-host';
-    document.body.appendChild(host);
-    const shadow = host.attachShadow({ mode: 'open' });
-
-    shadow.innerHTML = `
-        <style>
-            #widget {
-                position: fixed; top: 20px; right: 20px; width: 340px;
-                background: #ffffff; border-radius: 8px;
-                box-shadow: 0 12px 28px rgba(0,0,0,0.25);
-                font-family: system-ui, -apple-system, sans-serif;
-                z-index: 2147483647; display: flex; flex-direction: column;
-                border: 1px solid #d1d5db; overflow: hidden;
-                transition: opacity 0.3s ease, transform 0.3s ease;
+            /* Data Parsing Utilities */
+            function pruneEmpty(obj) {
+                if (obj === null || obj === undefined) return null;
+                if (typeof obj === 'string') return obj.trim() === '' ? null : obj.trim();
+                if (Array.isArray(obj)) {
+                    const cleaned = obj.map(pruneEmpty).filter(v => v !== null && v !== undefined);
+                    return cleaned.length > 0 ? cleaned : null;
+                }
+                if (typeof obj === 'object') {
+                    const cleaned = {};
+                    for (const [k, v] of Object.entries(obj)) {
+                        const val = pruneEmpty(v);
+                        if (val !== null && val !== undefined) cleaned[k] = val;
+                    }
+                    return Object.keys(cleaned).length > 0 ? cleaned : null;
+                }
+                return obj;
             }
-            #header {
-                background: #4b2e83; color: white; padding: 12px 16px;
-                cursor: grab; font-weight: 600; font-size: 15px;
-                display: flex; justify-content: space-between; align-items: center;
-                user-select: none;
+
+            function getTableTitle(table) {
+                const cap = table.querySelector('caption');
+                if (cap?.innerText.trim()) return cap.innerText.trim();
+                let el = table.previousElementSibling;
+                while (el) {
+                    if (el.matches?.('h1,h2,h3,h4,h5,strong,[role="heading"]')) {
+                        const txt = el.innerText.trim();
+                        if (txt && txt.length < 100) return txt;
+                    }
+                    el = el.previousElementSibling;
+                }
+                return null;
             }
-            #header:active { cursor: grabbing; }
-            #close-btn {
-                cursor: pointer; color: #b7a57a; font-size: 18px;
-                background: none; border: none; padding: 0; line-height: 1;
-                transition: color 0.2s;
-            }
-            #close-btn:hover { color: #fff; }
-            #content { padding: 16px; font-size: 14px; color: #374151; }
-            
-            /* Rich Interactions */
-            .btn {
-                display: block; width: 100%; padding: 10px;
-                background: #4b2e83; color: white; border: none; border-radius: 6px;
-                font-weight: 600; cursor: pointer; margin-top: 12px;
-                transition: background 0.2s, transform 0.1s;
-            }
-            .btn:hover:not(:disabled) { background: #3b2466; }
-            .btn:active:not(:disabled) { transform: scale(0.98); }
-            .btn:disabled { background: #9ca3af; cursor: not-allowed; }
-            
-            .btn-copilot {
-                background: #10a37f; display: none;
-                animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            }
-            .btn-copilot:hover { background: #0d8c6d; }
-            
-            .progress-container {
-                height: 8px; background: #e5e7eb; border-radius: 4px;
-                overflow: hidden; margin-top: 12px; display: none;
-            }
-            .progress-fill {
-                height: 100%; background: #b7a57a; width: 0%;
-                transition: width 0.4s ease;
-            }
-            #status-text { margin-top: 12px; font-size: 13px; color: #6b7280; text-align: center; height: 18px; }
-            
-            @keyframes popIn {
-                0% { transform: scale(0.9); opacity: 0; }
-                100% { transform: scale(1); opacity: 1; }
-            }
-            .fade-out { opacity: 0; transform: translateY(-10px); pointer-events: none; }
-        </style>
-        <div id="widget">
-            <div id="header">
-                <span>UW Data Extractor</span>
-                <button id="close-btn" title="Close">✖</button>
-            </div>
-            <div id="content">
-                <div id="message">Ready to collect data for <b>${studentId}</b>.</div>
-                <div class="progress-container" id="progress-container">
-                    <div class="progress-fill" id="progress-fill"></div>
-                </div>
-                <div id="status-text"></div>
-                <button class="btn" id="start-btn">Extract & Format Data</button>
-                <button class="btn btn-copilot" id="copilot-btn">Launch Microsoft Copilot</button>
-            </div>
-        </div>
-    `;
 
-    /* DOM Elements */
-    const widget = shadow.getElementById('widget');
-    const header = shadow.getElementById('header');
-    const closeBtn = shadow.getElementById('close-btn');
-    const startBtn = shadow.getElementById('start-btn');
-    const copilotBtn = shadow.getElementById('copilot-btn');
-    const progressContainer = shadow.getElementById('progress-container');
-    const progressFill = shadow.getElementById('progress-fill');
-    const statusText = shadow.getElementById('status-text');
-
-    /* --- Draggable Widget Logic --- */
-    let isDragging = false;
-    let dragStartX, dragStartY, initialLeft, initialTop;
-
-    header.addEventListener('mousedown', (e) => {
-        if(e.target === closeBtn) return;
-        isDragging = true;
-        dragStartX = e.clientX; dragStartY = e.clientY;
-        const rect = widget.getBoundingClientRect();
-        initialLeft = rect.left; initialTop = rect.top;
-        widget.style.right = 'auto'; /* Release right alignment */
-        widget.style.left = initialLeft + 'px';
-        widget.style.top = initialTop + 'px';
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        const dx = e.clientX - dragStartX;
-        const dy = e.clientY - dragStartY;
-        widget.style.left = (initialLeft + dx) + 'px';
-        widget.style.top = (initialTop + dy) + 'px';
-    });
-
-    document.addEventListener('mouseup', () => { isDragging = false; });
-
-    /* --- Auto-Cleanup Logic --- */
-    const destroyWidget = () => {
-        widget.classList.add('fade-out');
-        setTimeout(() => host.remove(), 300);
-    };
-    closeBtn.addEventListener('click', destroyWidget);
-
-    /* Copilot Launch & Cleanup */
-    copilotBtn.addEventListener('click', () => {
-        window.open('https://copilot.microsoft.com/', '_blank');
-        destroyWidget();
-    });
-
-    /* --- Data Parsing Utilities --- */
-    function pruneEmpty(obj) {
-        if (obj === null || obj === undefined) return null;
-        if (typeof obj === 'string') return obj.trim() === '' ? null : obj.trim();
-        if (Array.isArray(obj)) {
-            const cleaned = obj.map(pruneEmpty).filter(v => v !== null && v !== undefined);
-            return cleaned.length > 0 ? cleaned : null;
-        }
-        if (typeof obj === 'object') {
-            const cleaned = {};
-            for (const [k, v] of Object.entries(obj)) {
-                const val = pruneEmpty(v);
-                if (val !== null && val !== undefined) cleaned[k] = val;
-            }
-            return Object.keys(cleaned).length > 0 ? cleaned : null;
-        }
-        return obj;
-    }
-
-    function getTableTitle(table) {
-        const cap = table.querySelector('caption');
-        if (cap?.innerText.trim()) return cap.innerText.trim();
-        let el = table.previousElementSibling;
-        while (el) {
-            if (el.matches?.('h1,h2,h3,h4,h5,strong,[role="heading"]')) {
-                const txt = el.innerText.trim();
-                if (txt && txt.length < 100) return txt;
-            }
-            el = el.previousElementSibling;
-        }
-        return null;
-    }
-
-    function parseAllTables(doc) {
-        const out =[];
-        const tables = Array.from(doc.querySelectorAll('table'));
-        tables.forEach((table, tIndex) => {
-            const trs = Array.from(table.querySelectorAll('tr'));
-            if (trs.length < 2) return;
-            let headerIdx = 0;
-            while (headerIdx < trs.length && Array.from(trs[headerIdx].cells).every(c => !c.innerText.trim())) headerIdx++;
-            if (headerIdx >= trs.length) return;
-            const headerCells = Array.from(trs[headerIdx].querySelectorAll('th,td'));
-            const headers = headerCells.map((cell, i) => {
-                const txt = cell.innerText.replace(/\s+/g, ' ').trim();
-                return txt || `C${i + 1}`;
-            });
-            const rows =[];
-            for (let i = headerIdx + 1; i < trs.length; i++) {
-                const cells = Array.from(trs[i].querySelectorAll('td,th'));
-                if (!cells.length) continue;
-                const rowObj = {};
-                let hasData = false;
-                cells.forEach((cell, j) => {
-                    const val = cell.innerText.replace(/\s+/g, ' ').trim();
-                    if (!val || val === '|') return;
-                    if (CONFIG.uwBoilerplatePatterns.some(p => p.test(val))) return;
-                    hasData = true;
-                    let key = headers[j] || `C${j + 1}`;
-                    if (CONFIG.uwBoilerplatePatterns.some(p => p.test(key)) || key === '|') key = `C${j + 1}`;
-                    rowObj[key] = val;
+            function parseAllTables(doc) {
+                const out =[];
+                const tables = Array.from(doc.querySelectorAll('table'));
+                tables.forEach((table, tIndex) => {
+                    const trs = Array.from(table.querySelectorAll('tr'));
+                    if (trs.length < 2) return;
+                    let headerIdx = 0;
+                    while (headerIdx < trs.length && Array.from(trs[headerIdx].cells).every(c => !c.innerText.trim())) headerIdx++;
+                    if (headerIdx >= trs.length) return;
+                    const headerCells = Array.from(trs[headerIdx].querySelectorAll('th,td'));
+                    const headers = headerCells.map((cell, i) => cell.innerText.replace(/\s+/g, ' ').trim() || `C${i + 1}`);
+                    const rows =[];
+                    for (let i = headerIdx + 1; i < trs.length; i++) {
+                        const cells = Array.from(trs[i].querySelectorAll('td,th'));
+                        if (!cells.length) continue;
+                        const rowObj = {};
+                        let hasData = false;
+                        cells.forEach((cell, j) => {
+                            const val = cell.innerText.replace(/\s+/g, ' ').trim();
+                            if (!val || val === '|') return;
+                            if (CONFIG.uwBoilerplatePatterns.some(p => p.test(val))) return;
+                            hasData = true;
+                            let key = headers[j] || `C${j + 1}`;
+                            if (CONFIG.uwBoilerplatePatterns.some(p => p.test(key)) || key === '|') key = `C${j + 1}`;
+                            rowObj[key] = val;
+                        });
+                        if (hasData) rows.push(rowObj);
+                    }
+                    if (rows.length > 0) out.push({ title: getTableTitle(table) || `Table_${tIndex + 1}`, rows: rows });
                 });
-                if (hasData) rows.push(rowObj);
+                return out;
             }
-            if (rows.length > 0) {
-                out.push({ title: getTableTitle(table) || `Table_${tIndex + 1}`, rows: rows });
+
+            function getCleanPageTextLines(doc) {
+                doc.querySelectorAll('nav, footer, header, aside, script, style, noscript, iframe, button, [role="navigation"], [role="banner"],[role="contentinfo"], .footer, .header, #global-nav, #uw-container').forEach(n => n.remove());
+                doc.querySelectorAll('a, input, select, label').forEach(el => {
+                    const t = (el.innerText || el.value || '').trim().toLowerCase();
+                    if (!t || CONFIG.uwBoilerplatePatterns.some(p => p.test(t))) el.remove();
+                });
+
+                let text = (doc.body.innerText || '').replace(/\u00A0/g, ' ');
+                const seen = new Set();
+                const lines =[];
+                for (const raw of text.split('\n')) {
+                    let line = raw.replace(/\s+/g, ' ').trim();
+                    if (!line || CONFIG.uwBoilerplatePatterns.some(p => p.test(line)) || seen.has(line) || globalSeenLines.has(line)) continue;
+                    seen.add(line);
+                    globalSeenLines.add(line);
+                    lines.push(line);
+                }
+                return lines;
             }
-        });
-        return out;
-    }
 
-    function getCleanPageTextLines(doc) {
-        /* Improved Boilerplate Stripping: Remove common structural garbage before text extraction */
-        doc.querySelectorAll('nav, footer, header, aside, script, style, noscript, iframe, button, [role="navigation"], [role="banner"],[role="contentinfo"], .footer, .header, #global-nav, #uw-container').forEach(n => n.remove());
-        
-        doc.querySelectorAll('a, input, select, label').forEach(el => {
-            const t = (el.innerText || el.value || '').trim().toLowerCase();
-            if (!t || CONFIG.uwBoilerplatePatterns.some(p => p.test(t))) { el.remove(); return; }
-        });
+            async function fetchAndParsePage(url, key) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const html = await response.text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    return { key, success: true, textLines: getCleanPageTextLines(doc), tables: parseAllTables(doc) };
+                } catch (error) {
+                    return { key, success: false, error: error.message };
+                }
+            }
 
-        let text = (doc.body.innerText || '').replace(/\u00A0/g, ' ');
-        const seen = new Set();
-        const lines =[];
-        for (const raw of text.split('\n')) {
-            let line = raw.replace(/\s+/g, ' ').trim();
-            if (!line) continue;
-            if (CONFIG.uwBoilerplatePatterns.some(p => p.test(line))) continue;
-            if (seen.has(line) || globalSeenLines.has(line)) continue;
-            seen.add(line);
-            globalSeenLines.add(line);
-            lines.push(line);
-        }
-        return lines;
-    }
-
-    /* --- Fetch() + DOMParser instead of iframes --- */
-    async function fetchAndParsePage(url, key) {
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const html = await response.text();
+            /* Execution Sequence */
+            updateDialog(`Connecting to UW systems for ${studentId}...`, '#4b2e83', false, 10, 'loading');
             
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            
-            const tables = parseAllTables(doc);
-            const textLines = getCleanPageTextLines(doc);
-            
-            return { key, success: true, textLines, tables };
-        } catch (error) {
-            console.error(`[UW Extractor] Failed to fetch ${key}:`, error);
-            return { key, success: false, error: error.message };
-        }
-    }
-
-    /* --- Main Extraction Logic --- */
-    startBtn.addEventListener('click', async () => {
-        globalSeenLines.clear();
-        startBtn.disabled = true;
-        startBtn.textContent = "Extracting...";
-        progressContainer.style.display = 'block';
-        statusText.textContent = "Connecting to UW systems...";
-
-        try {
             const base = "https://webappssecure.grad.uw.edu/mgp-dept.stu.detail";
             const reqBase = "https://webappssecure.grad.uw.edu/mgp-dept/stu";
             
@@ -402,18 +429,14 @@ Before finalizing your response:
             ];
 
             let completed = 0;
-            
-            /* Parallel Fetching (Optimized) */
             const results = await Promise.all(pages.map(async (p) => {
                 const data = await fetchAndParsePage(p.url, p.key);
                 completed++;
-                progressFill.style.width = `${(completed / pages.length) * 100}%`;
-                statusText.textContent = `Retrieved ${completed} of ${pages.length} pages...`;
+                updateDialog(`Retrieving page ${completed} of ${pages.length}...`, '#4b2e83', false, 10 + (completed / pages.length) * 60, 'loading');
                 return data;
             }));
 
-            /* Pre-calculate "Start Year" */
-            statusText.textContent = "Analyzing transcript for start year...";
+            updateDialog("Analyzing transcript for start year...", '#4b2e83', false, 80, 'loading');
             let calculatedStartYear = "Unknown";
             const transcriptData = results.find(r => r.key === 'transcript');
             if (transcriptData && transcriptData.success) {
@@ -421,52 +444,42 @@ Before finalizing your response:
                 let years =[];
                 const searchString = JSON.stringify(transcriptData.tables) + " " + JSON.stringify(transcriptData.textLines);
                 let match;
-                while ((match = yearRegex.exec(searchString)) !== null) {
-                    years.push(parseInt(match[1], 10));
-                }
-                if (years.length > 0) {
-                    calculatedStartYear = Math.min(...years).toString();
-                }
+                while ((match = yearRegex.exec(searchString)) !== null) years.push(parseInt(match[1], 10));
+                if (years.length > 0) calculatedStartYear = Math.min(...years).toString();
             }
 
-            /* Prompt Structuring with XML Tags */
-            statusText.textContent = "Formatting prompt...";
-            
-            let finalOutput = `<system_instructions>\n${CONFIG.llmPrompt}\n</system_instructions>\n\n`;
-            finalOutput += `<student_data id="${studentId}">\n`;
-            finalOutput += `  <calculatedStartYear>${calculatedStartYear}</calculatedStartYear>\n`;
+            updateDialog("Formatting prompt payload...", '#4b2e83', false, 95, 'loading');
+            let finalOutput = `<system_instructions>\n${CONFIG.llmPrompt}\n</system_instructions>\n\n<student_data id="${studentId}">\n  <calculatedStartYear>${calculatedStartYear}</calculatedStartYear>\n`;
             
             results.forEach(r => {
                 finalOutput += `  <page id="${r.key}" fetch_success="${r.success}">\n`;
                 if (r.success) {
-                    /* We keep the inner data as compact JSON stringified, but wrapped in clear XML */
                     const sectionData = CONFIG.removeEmptyFields ? pruneEmpty({ text: r.textLines, tables: r.tables }) : { text: r.textLines, tables: r.tables };
                     finalOutput += `    <![CDATA[\n${JSON.stringify(sectionData)}\n    ]]>\n`;
                 } else {
-                    /* Graceful Error Handling injected to LLM context */
                     finalOutput += `    <error>Failed to load data: ${r.error}</error>\n`;
                 }
                 finalOutput += `  </page>\n`;
             });
             finalOutput += `</student_data>`;
 
-            await navigator.clipboard.writeText(finalOutput);
-
-            /* Rich Visual Feedback / Success State */
-            progressFill.style.background = '#10a37f';
-            statusText.style.color = '#10a37f';
-            statusText.textContent = "Copied to clipboard! Ready for LLM.";
-            startBtn.style.display = 'none';
-            copilotBtn.style.display = 'block';
+            /* Output / Success State */
+            try {
+                await navigator.clipboard.writeText(finalOutput);
+                document.body.style.cursor = 'default';
+                updateDialog(`Data extracted successfully!\n\n✅ Copied to clipboard. Click below to proceed.`, '#2e7d32', true, 100, 'success');
+            } catch (clipboardErr) {
+                document.body.style.cursor = 'default';
+                updateDialog(`Data extracted successfully!\n\n⚠️ Browser blocked clipboard access. Please manually copy the text below.`, '#2e7d32', true, 100, 'success');
+                fallbackArea.value = finalOutput;
+                fallbackArea.style.display = 'block';
+                fallbackArea.select();
+            }
 
         } catch (err) {
             console.error("[UW Extractor] Fatal error:", err);
-            statusText.style.color = '#d9534f';
-            statusText.textContent = "An error occurred. Check console.";
-            progressFill.style.background = '#d9534f';
-            startBtn.disabled = false;
-            startBtn.textContent = "Retry Extraction";
+            document.body.style.cursor = 'default';
+            updateDialog(`⚠️ An error occurred during extraction.\n\nCheck the browser console (F12) for details.`, '#b71c1c', true, 100, 'error');
         }
-    });
-
+    })();
 })();
