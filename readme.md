@@ -20,7 +20,7 @@ This repository contains scripts to create browser bookmarklets to help visualiz
 -   For Chrome, look on the top menu bar for "Bookmarks", select "Bookmark Manager" 
 -   On the very top right of the Bookmarks page, click the three dots to show a drop-down menu, click on "Add new bookmark"
 -   For the name field, use 'Time Schedule Viz' or similar for the first bookmarklet (quotes not required)
--   For the URL field, click on the URL for the bookmarklet script that you see below, select all the text in your browser window, and paste it into the URL field of the new bookmark box.
+-   Select all the code in the block under the heading 'Script for the bookmarklet', and paste it into the URL field of the new bookmark box.
 -   Click Save to finish making the bookmarklet. Look for the new bookmark in the list of bookmarks top menu bar for "Bookmarks" or on your bookmark bar. 
 
 ## Time Schedule Dashboard Bookmarklet
@@ -29,9 +29,17 @@ This repository contains scripts to create browser bookmarklets to help visualiz
 
 For a given quarter, this script collects data from the [UW Time Schedule](https://www.washington.edu/students/timeschd/) pages on ARCHY, ANTH, and BIO A classes and produces a simple dashboard that visualizes current student enrollment numbers for all classes. With minor modifications the script could make a similar dashboard for any UW course prefix. The script does not use or contain AI and does not use any data other than the Time Schedule pages for the three course prefixes. The script runs entirely in your browser. No data are collected from your computer or stored on your computer. No student-level data or other FERPA-protected data are collected or used by this script.
 
-#### URL for the bookmarklet script:
+#### Script for the bookmarklet:
 
-https://raw.githubusercontent.com/benmarwick/uw-anthro-web-helpers/refs/heads/main/bookmarklet-time-schedule-viz.js
+```
+javascript:(function(){
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-time-schedule-viz.js';
+  s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
+  s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
+  document.body.appendChild(s);
+})();
+```
 
 #### How to use:
 
@@ -48,9 +56,17 @@ https://raw.githubusercontent.com/benmarwick/uw-anthro-web-helpers/refs/heads/ma
 
 For a given graduate student, this script collects data from [MyGrad's](https://facstaff.grad.uw.edu/mygrad-for-faculty-and-staff/) Student Detail page, the Transcripts page, the Advisors / Committees page, and the Doctoral Exam Requests page. It structures the data as a single, compact JSON object and pastes the data into your computer's clipboard. The pasted data are prefixed by plain text instructions specifically for use with UW's [Microsoft Copilot with commercial data protection](https://itconnect.uw.edu/tools-services-support/software-computers/productivity-platforms/microsoft-productivity-platform/microsoft-copilot/). These instructions tell Copilot to review the relevant UW Anthropology graduate program (e.g. [Sociocultural Anthropology](https://anthropology.washington.edu/phd-anthropology-sociocultural-anthropology), [Archaeology](https://anthropology.washington.edu/phd-anthropology-archaeology) and [Biological Anthropology](https://anthropology.washington.edu/phd-anthropology-biological-anthropology) and [UW Graduate School web pages](https://grad.uw.edu/policy_audience/doctoral-students/). Copilot will compare the student's data on MyGrad with the published program requirements and summarize findings in a structured summary report. Copilot will return a table indicating the student's progress relative to key milestones of the student's specific Doctoral program, a table of potential admininstrative issues, a narrative of the student's current admininstrative status and recommended next steps to advance to the next program requirement. The report is strictly limited to the requirements documented in the department's program website, the UW Graduate School policies, and the student's record in MyGrad. With minor modifications the script could make similar summaries for any UW graduate program. The script does not collect or use any information about the student outside of MyGrad. The script does not use or contain AI and does not interact directly with Copilot, this is left to you. The data collected by the script are protected by the Family Educational Rights and Privacy Act ([FERPA](https://registrar.washington.edu/staff-faculty/ferpa/)) of 1974 and must not be shared outside of the UW Anthropology advising office without written consent of the student. No data are collected from your computer. 
 
-#### URL for the bookmarklet script: 
+#### Script for the bookmarklet:
 
-https://raw.githubusercontent.com/benmarwick/uw-anthro-web-helpers/refs/heads/main/bookmarklet-mygrad-student-summary.js
+```
+javascript:(function(){
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-mygrad-student-summary.js';
+  s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
+  s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
+  document.body.appendChild(s);
+})();
+```
 
 #### How to use:
 
@@ -72,14 +88,22 @@ https://raw.githubusercontent.com/benmarwick/uw-anthro-web-helpers/refs/heads/ma
 
 For a undergraduate student in the Data Science Minor, this script collects data from [EARS](https://registrar.washington.edu/staff-faculty/ears/) to help with managing the Minor's [overlap restriction](https://dataminor.uw.edu/curriculum/overlap/). The script collects data from the student's degree audits and identifies if there are more than ten credits overlap between the Data Science Minor and the 'Departmental Requirements' or 'Admissions Requirements' section of their major degree audit. The script bundles the audit data and puts it on your clipboard ready to paste into Copilot for verification. If the student has more than 10 credits of overlap, the script prompts Copilot to suggest possible course substitutions from the list of courses taken by the student but that are not currently assigned to a requirement. The script does not collect or use any information about the student outside of EARS. With minor modifications the script could do similar overlap analysis for other UW undergraduate programs. The script does not use or contain AI and does not interact directly with Copilot, this is left to you. The data collected by the script are protected by the Family Educational Rights and Privacy Act ([FERPA](https://registrar.washington.edu/staff-faculty/ferpa/)) of 1974 and must not be shared outside of the UW Undergraduate Academic Advising office without written consent of the student. No data are collected from your computer.
 
-#### URL for the bookmarklet script: 
+#### Script for the bookmarklet:
 
-https://raw.githubusercontent.com/benmarwick/uw-anthro-web-helpers/refs/heads/main/bookmarklet-ears-dsm-overlap.js
+```
+javascript:(function(){
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-ears-dsm-overlap.js';
+  s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
+  s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
+  document.body.appendChild(s);
+})();
+```
 
 #### How to use:
 
 -   Using your official UW-issued computer, use your UW credentials to log in to [EARS](https://sdb.admin.uw.edu/sisAdvising/securid/dars.aspx). These are FERPA-protected education records and this view is only available to authorized faculty and staff in advising roles.
--   Enter the student number to access their record
+-   Enter the student number to access their record, click on the 'Degree Audit' tab
 -   Create and submit (or resubmit) audits for both their Major(s) and the Data Science Minor
 -   Wait for the 'Available Audits' table to show 'Detail' links in the 'Detail' column for both the Major(s) and the Data Science Minor
 -   Click the 'EARS DSM overlap' bookmark (or whatever you named it when you created it) in your browser. Do not leave the page until the script has finished or it will fail (click it again to retry). When the script has finished running, a message will pop up to let you know. This pop-up includes a summary of the overlap situation for this student. At this point your computer's clipboard is loaded with text ready for the next steps
