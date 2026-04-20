@@ -27,7 +27,7 @@ This repository contains scripts to create browser bookmarklets to help visualiz
 
 #### Overview
 
-For a given quarter, this script collects data from the [UW Time Schedule](https://www.washington.edu/students/timeschd/) pages on ARCHY, ANTH, and BIO A classes and produces a simple dashboard that visualizes current student enrollment numbers for all classes. With minor modifications the script could make a similar dashboard for any UW course prefix. The script does not use or contain AI and does not use any data other than the Time Schedule pages for the three course prefixes. The script runs entirely in your browser. No data are collected from your computer or stored on your computer. No student-level data or other FERPA-protected data are collected or used by this script.
+For a given quarter, this script collects data from the [UW Time Schedule](https://www.washington.edu/students/timeschd/) pages on ARCHY, ANTH, and BIO A classes and produces a simple dashboard that visualizes current student enrollment numbers for all classes. With minor modifications the script could make a similar dashboard for any UW course prefix. The dashboard includes a switch to a time series view to compare previous quarters of classes to see trends in enrollment. The script does not use or contain AI and does not use any data other than the Time Schedule pages for the three course prefixes. The script runs entirely in your browser. No data are collected from your computer or stored on your computer. No student-level data or other FERPA-protected data are collected or used by this script.
 
 #### Script for the bookmarklet:
 
@@ -50,6 +50,32 @@ javascript:(function(){
 
 ![Time-Schedule-Viz](Time-Schedule-Viz.png)
 
+## MyGrad Table Audit Bookmarklet
+
+#### Overview
+
+For the [Current Student List](https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist?orgid=14) view of MyGrad, this script modifies the table rows to indicate years since admission to the program, and whether or not a student has an advisor. It includes a filter to show only those students that have been in their graduate program 6-8-10 or more years. The script will work on any UW graduate program that uses MyGrad. The script does not collect or use any information about the student outside of MyGrad. The script does not use or contain AI. The data collected by the script are protected by the Family Educational Rights and Privacy Act ([FERPA](https://registrar.washington.edu/staff-faculty/ferpa/)) of 1974 and must not be shared outside of the UW Anthropology advising office without written consent of the student. No data are collected from your computer. 
+
+#### Script for the bookmarklet:
+
+```
+javascript:(function(){
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-mygrad-table-audit.js';
+  s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
+  s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
+  document.body.appendChild(s);
+})();
+```
+
+#### How to use:
+
+-   Using your official UW-issued computer, use your UW credentials to log in to [MyGrad Department View](https://facstaff.grad.uw.edu/mygrad-for-faculty-and-staff/#mygrad-faculty-staff-2). These are FERPA-protected education records and this view is only available to authorized faculty and staff in GPC/GPA roles.
+-   Navigate to the [Current Student List](https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist)
+-   Click the 'MyGrad Table Audit' bookmark (or whatever you named it when you created it) in your browser 
+-   Scroll down the page to inspect the table with the new modifications that highlight years in the program and absence of an advisor for each student. 
+
+
 ## MyGrad Student Summary Bookmarklet
 
 #### Overview
@@ -71,7 +97,7 @@ javascript:(function(){
 #### How to use:
 
 -   Using your official UW-issued computer, use your UW credentials to log in to [MyGrad Department View](https://facstaff.grad.uw.edu/mygrad-for-faculty-and-staff/#mygrad-faculty-staff-2). These are FERPA-protected education records and this view is only available to authorized faculty and staff in GPC/GPA roles.
--   Navigate to the [Student List](https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist)
+-   Navigate to the [Current Student List](https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist)
 -   Click on a student's name to go the Student Detail page for that student
 -   Click the 'MyGrad Student Summary' bookmark (or whatever you named it when you created it) in your browser and look for a new button to appear at the top center of the Student Detail web page
 -   Click the new button and wait for it to turn green to indicate that the script has finished working. Do not leave the page until the script has finished or it will fail (click it again to retry). When the button is green, you computer's clipboard is loaded with text ready for the next steps
