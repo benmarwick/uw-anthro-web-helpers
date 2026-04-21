@@ -371,9 +371,9 @@ javascript:(function(){
                         let linesArray = content.split('\n')
                             .map(line => line.replace(/\s+/g, ' ').trim())
                             .filter(line => line.length > 0)
-                            // Filter out any >>MATCHED AS lines entirely from the payload
+                            /* Filter out any >>MATCHED AS lines entirely from the payload */
                             .filter(line => !/^>>\s*MATCHED\s+AS:/i.test(line))
-                            // Filter out "NO Not completed" and variations
+                            /* Filter out "NO Not completed" and variations */
                             .filter(line => !/(?:NO\s+Not\s+completed|Not\s+completed\s+NO)/i.test(line));
 
                         let courses =[];
