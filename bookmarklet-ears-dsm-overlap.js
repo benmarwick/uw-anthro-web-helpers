@@ -61,6 +61,30 @@ javascript:(function(){
                 }
                 .msg { flex: 1; white-space: pre-wrap; font-weight: 500; }
                 
+                /* --- METRICS DASHBOARD UI --- */
+                .metrics-container {
+                    display: none; /* hidden until calculations are done */
+                    gap: 12px;
+                    margin: 5px 0;
+                }
+                .metric-card {
+                    flex: 1;
+                    background: rgba(0, 0, 0, 0.2);
+                    border-radius: 6px;
+                    padding: 12px 8px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    text-align: center;
+                    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+                }
+                .metric-card.success { border-top: 4px solid #69f0ae; }
+                .metric-card.warning { border-top: 4px solid #ffd740; }
+                .metric-card.danger { border-top: 4px solid #ff5252; }
+                
+                .metric-title { font-size: 11px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; opacity: 0.9; margin-bottom: 6px; }
+                .metric-value { font-size: 15px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+
                 .overlap-box {
                     background: rgba(0,0,0,0.25); border-radius: 6px; padding: 12px; display: none;
                     border-left: 4px solid #fff; max-height: 160px; overflow-y: auto;
@@ -120,6 +144,11 @@ javascript:(function(){
             contentRow.appendChild(statusIcon);
             contentRow.appendChild(msgSpan);
             dialog.appendChild(contentRow);
+
+            /* Metrics Container (Cards injected later) */
+            const metricsContainer = document.createElement('div');
+            metricsContainer.className = 'metrics-container';
+            dialog.appendChild(metricsContainer);
 
             const overlapBox = document.createElement('div');
             overlapBox.className = 'overlap-box';
@@ -193,8 +222,8 @@ javascript:(function(){
                     if (['success', 'safe', 'action_required', 'warning'].includes(status)) {
                         copilotBtn.style.display = 'block';
                     }
-                    /* Auto-dismiss logic only if safe/success */
-                    if (status === 'success' || status === 'safe') {
+                    /* Auto-dismiss logic only if safe/success (and if 0 overlap/0 needed) */
+                    if (status === 'success') {
                         hideTimeout = setTimeout(closeDialog, 7000);
                     } else {
                         clearTimeout(hideTimeout);
@@ -214,6 +243,13 @@ javascript:(function(){
                 for (const a of links) {
                     if (a.textContent.trim() === 'Detail') {
                         const programName = row.cells[0] ? row.cells[0].textContent.trim() : 'Unknown_Program';
+                        const pNameLower = programName.toLowerCase();
+                        
+                        /* Filter: Skip any minor that is NOT the Data Science Minor */
+                        if (pNameLower.includes('minor') && !pNameLower.includes('data science')) {
+                            break; 
+                        }
+                        
                         targetLinks.push({ name: programName, url: a.href });
                         break;
                     }
@@ -255,6 +291,7 @@ javascript:(function(){
 
                 const courseRegex = /^((?:AU|WI|SP|SU)\d{2})\s+([A-Z\s&]+?)\s+([0-9X]{3}[A-Z]?)\s+(.*?)\s+(\d+(?:\.\d+)?)\s+(.+)$/i;
                 let processedCount = 0;
+                let needsCredits = 0; // Tracking minor credits deficit
 
                 for (const item of targetLinks) {
                     const currentProgress = 5 + (processedCount / targetLinks.length) * 85;
@@ -287,6 +324,25 @@ javascript:(function(){
                     
                     const isMinor = item.name.toLowerCase().includes('minor');
                     const roleKey = isMinor ? 'minor' : 'major';
+                    
+                    /* Check for Data Science Minor credits deficit */
+                    if (isMinor) {
+                        const cleanTextDump = textDump.replace(/\s+/g, ' ').toLowerCase();
+                        const searchSnippet = "minimum of 25 credits earned in the minor";
+                        const reqIdx = cleanTextDump.indexOf(searchSnippet);
+                        
+                        if (reqIdx !== -1) {
+                            /* Scan the immediate section following the requirement text */
+                            const section = cleanTextDump.substring(reqIdx, reqIdx + 1000);
+                            const needsRegex = /needs:\s*(\d+(?:\.\d+)?)\s*credits/i;
+                            const match = section.match(needsRegex);
+                            
+                            if (match) {
+                                needsCredits = parseFloat(match[1]);
+                            }
+                        }
+                    }
+
                     const targets = isMinor ? minorTargets : majorTargets;
                     
                     if (!audits[roleKey]) {
@@ -314,7 +370,11 @@ javascript:(function(){
                         let content = textDump.substring(startIdx, endIdx).trim();
                         let linesArray = content.split('\n')
                             .map(line => line.replace(/\s+/g, ' ').trim())
-                            .filter(line => line.length > 0);
+                            .filter(line => line.length > 0)
+                            // Filter out any >>MATCHED AS lines entirely from the payload
+                            .filter(line => !/^>>\s*MATCHED\s+AS:/i.test(line))
+                            // Filter out "NO Not completed" and variations
+                            .filter(line => !/(?:NO\s+Not\s+completed|Not\s+completed\s+NO)/i.test(line));
 
                         let courses =[];
                         let description =[];
@@ -396,96 +456,222 @@ javascript:(function(){
                 
                 const llmPrompt = `
 <system_role>
-You are a highly skilled and efficient undergraduate student advisor at the University of Washington. You specialize in advising students in the Data Science Minor.
+You are a highly skilled and efficient undergraduate student advisor at the University of Washington,
+specializing in advising students on the Data Science Minor.
 </system_role>
 
 <policy_references>
 <overlap_policy url="https://dataminor.uw.edu/curriculum/overlap">
-Memorize the overlap restriction policy on this page. Exact rule: The Data Science Minor does not allow more than 10 credits to overlap between the student's major (Departmental & Admissions Requirements) and the minor.
+Memorize the overlap restriction policy on this page. Exact rule: The Data Science Minor does not
+allow more than 10 credits to overlap between the student's major (Departmental & Admissions
+Requirements) and the minor.
 </overlap_policy>
 <course_list url="https://dataminor.uw.edu/site/assets/data/data.json">
-Go to the course list url. Get the course list for the Minor. Note that each course belongs to one of four categories: Data Skills; Data Studies; Cross Cutting: On Ramp; Cross Cutting: Synthesis.
+Fetch the course list from this URL. Note that each course belongs to one of four categories:
+Data Skills; Data Studies; Cross Cutting: On Ramp; Cross Cutting: Synthesis.
 </course_list>
 </policy_references>
 
 <output_constraints>
-- Never make anything up. Always quote exact verbatim text from specific University of Washington websites to support decisions.
-- Do not paraphrase or infer. Always include clickable links to quoted sources.
-- Name courses with prefix in CAPITAL LETTERS (e.g., CSE, INFO), course number (e.g., 101, 490), and course title.
+- Never make anything up. Always quote exact verbatim text from specific University of Washington
+  websites to support policy decisions.
+- Do not paraphrase or infer policy. Always include clickable links to quoted sources.
+- Name courses with prefix in CAPITAL LETTERS (e.g., CSE, INFO), course number (e.g., 101, 490),
+  and course title.
 - If you cannot fetch a URL, explicitly state that you cannot.
 </output_constraints>
 
+<joint_optimization_frame>
+CRITICAL: This task involves two constraints that must be resolved SIMULTANEOUSLY using the same
+pool of courses from 'alternative_courses'. Do not solve them sequentially or independently.
+
+Constraint 1 — Overlap: Courses counted toward the minor must not overlap with the student's major
+  audit (departmental and admissions requirements) by more than 10 credits.
+Constraint 2 — Minimum credits: The student must accumulate at least 25 credits toward the minor,
+  counting CSSS 490 DATA SCI COMMUN SEM as 1 mandatory credit that is always applied.
+
+Any course allocated from 'alternative_courses' must serve both constraints at once. The goal is
+to find the minimal set of 'alternative_courses' that brings overlap to ≤10 credits AND total minor
+credits to ≥25 simultaneously. If no valid solution exists given the available 'alternative_courses',
+state this explicitly and explain why.
+</joint_optimization_frame>
+
+<definitions>
+overlapCredits: ${overlapCredits}
+  — The number of credits that appear in both the student's minor audit courses and the student's
+    major audit (departmental_requirements + admissions_requirements). Computed by the extraction
+    script. You must verify this value against student_data before proceeding.
+
+needsCredits: ${needsCredits}
+  — Defined as: 25 − (credits currently counted toward the minor, excluding CSSS 490) − 1.
+    If ≤ 0, the student already meets the minimum credit requirement.
+    If > 0, additional courses must be allocated from 'alternative_courses' to close the gap.
+    You must verify this value against student_data before proceeding.
+
+overlappingCourseDetails: ${overlappingCourseDetails.length > 0
+  ? overlappingCourseDetails.map(c => `${c.subject} ${c.number} (${c.credits} cr)`).join(', ')
+  : 'None'}
+  — The specific courses identified as overlapping. You must verify these against student_data.
+</definitions>
+
 <task_instructions>
+
 <step_1_identify_major>
-Examine the student_data below to identify the student's major courses under 'departmental_requirements' and 'admissions_requirements'.
+From student_data, extract all courses listed under 'departmental_requirements' and
+'admissions_requirements'. These form the major audit. Record each course's subject, number,
+title, and credit value.
 </step_1_identify_major>
 
 <step_2_identify_minor>
-Examine the student_data below to identify the student's minor courses under 'data_studies_group_a', 'data_skills_group_b', and 'additional_credits'.
+From student_data, extract all courses listed under 'data_studies_group_a', 'data_skills_group_b',
+and 'additional_credits'. These form the minor audit. Record each course's subject, number, title,
+and credit value.
 </step_2_identify_minor>
 
 <step_3_exclude>
-Always omit 'CSSS 490 DATA SCI COMMUN SEM' from your review, as it is mandatory and not subject to standard overlap calculation.
+Remove 'CSSS 490 DATA SCI COMMUN SEM' from all overlap and credit calculations. It is mandatory,
+counts as exactly 1 credit toward the minimum, and is never subject to overlap rules.
 </step_3_exclude>
 
-<step_4_overlap_analysis>
-The extraction script has mathematically evaluated the overlap restriction based on UW policy (max 10 credits overlap between major departmental/admissions requirements and minor requirements).
-- The script calculated an overlap of ${overlapCredits} credits.
-- The overlapping courses found are: ${overlappingCourseDetails.length > 0 ? overlappingCourseDetails.map(c => `${c.subject} ${c.number} (${c.credits} cr)`).join(', ') : 'None'}.
-Verify this calculation against the provided student data to ensure accuracy.
-</step_4_overlap_analysis>
+<step_4_verify_script_values>
+Independently verify the script-provided values for overlapCredits and needsCredits using the
+student_data you extracted in Steps 1–3:
 
-<step_5_substitution_logic>
-If the overlap is > 10 credits (${overlapCredits > 10 ? 'TRUE' : 'FALSE'} in this case):
-- Look ONLY in the student's minor record under: 'alternative_courses'
-- These courses do not currently count toward the minor but can substitute to resolve overlap
-- Confirm substitution courses belong to equivalent minor categories (Cross-reference with https://dataminor.uw.edu/site/assets/data/data.json)
-- Verify substitution courses do NOT appear in the major audit requirements
-</step_5_substitution_logic>
+  a. Overlap check: Identify every course that appears in both the minor audit and the major audit.
+     Sum their credits. This must equal overlapCredits. If it does not, use your calculated value
+     and flag the discrepancy.
 
-<step_6_output_format>
-Before generating the final table, open a <scratchpad> tag. Inside, write out your credit calculations course-by-course to prove your overlap math matches the script's calculation and confirm section eligibility. Do not show your scratchpad to the user.
+  b. Credit check: Sum all minor audit credits (excluding CSSS 490). Subtract from 24 (i.e., 25 − 1
+     for CSSS 490). This must equal needsCredits. If it does not, use your calculated value and flag
+     the discrepancy.
 
-After the scratchpad, produce a table with exactly these rows and columns:
+  c. Confirm the list of overlapping courses matches overlappingCourseDetails. Flag any discrepancy.
+</step_4_verify_script_values>
+
+<step_5_resolution>
+Using your verified values, determine which of the four cases applies:
+
+  Case A: overlapCredits ≤ 10 AND needsCredits ≤ 0 → No action needed.
+  Case B: overlapCredits ≤ 10 AND needsCredits > 0 → Must add credits from 'alternative_courses'.
+  Case C: overlapCredits > 10 AND needsCredits ≤ 0 → Must substitute to reduce overlap; confirm
+          credits remain ≥ 25 after substitution.
+  Case D: overlapCredits > 10 AND needsCredits > 0 → Must substitute AND add credits; both
+          constraints must be resolved with the same allocation.
+
+For Cases B, C, and D, apply the following resolution logic:
+
+  1. From student_data, extract ALL courses listed under 'alternative_courses'. These are courses
+     the student has completed but that do not currently count toward the minor.
+
+  2. For each alternative course, confirm:
+       - It appears on the official minor course list (https://dataminor.uw.edu/site/assets/data/data.json)
+       - It does NOT appear in the student's major audit
+       - Note which minor category it belongs to (Data Studies; Data Skills; Cross Cutting: On Ramp;
+         Cross Cutting: Synthesis)
+
+  3. Select the minimal combination of alternative courses such that:
+       - Replacing overlapping minor courses with non-overlapping alternatives brings overlap to ≤ 10
+         credits (Cases C and D only)
+       - Total minor credits (including CSSS 490) reach ≥ 25 (Cases B and D only)
+       - Both constraints are satisfied simultaneously (Case D)
+
+  4. If no valid combination exists, explicitly state this and explain which constraint(s) cannot
+     be satisfied and why.
+</step_5_resolution>
+
+<step_6_scratchpad>
+Before generating the table and final recommendation, open a <scratchpad> tag. Inside, show
+all of the following calculations step by step:
+  - List of minor audit courses with credits
+  - List of major audit courses with credits
+  - Identified overlapping courses and their credits, summed
+  - Current minor credit total (excluding CSSS 490)
+  - Verified overlapCredits and needsCredits values
+  - Which case (A/B/C/D) applies
+  - For Cases B/C/D: list each proposed alternative course, its minor category, and whether it
+    appears in the major audit
+  - Recalculated overlap after proposed substitutions
+  - Recalculated minor credit total after proposed substitutions
+  - Confirmation that both constraints are resolved (or explanation of why they cannot be)
+
+Do not show the scratchpad to the user.
+</step_6_scratchpad>
+
+<step_7_table>
+Produce a table with exactly these rows and columns.
 
 Rows (one per minor category):
-1. 'Data Studies (Group A)'
-2. 'Data Skills (Group B)'
-3. 'Additional credits from list A, B or C, or Synthesis courses'
+  1. 'Data Studies (Group A)'
+  2. 'Data Skills (Group B)'
+  3. 'Additional credits from list A, B or C, or Synthesis courses'
 
 Columns:
-- 'Course(s) from the Minor audit'
-- 'Courses from the Major audit'
-- 'Overlap status' → 🟢 if no overlap, 🔴 if overlap exists
+  - 'Current minor audit courses' — courses currently in the minor audit for this category
+  - 'Proposed substitutions/additions' — alternative courses proposed for this category (if none,
+    write '—')
+  - 'Major audit courses' — major audit courses that overlap with this category's minor courses
+  - 'Overlap status' → 🟢 if no overlap in this row, 🔴 if overlap exists in this row
 
-If overlap > 10 credits: After the table, propose specific substitution courses from the 'alternative_courses' list, categorized by minor requirement type.
+The table must reflect the PROPOSED state (i.e., after applying any substitutions or additions),
+not the original audit state. If Case A applies, 'Proposed substitutions/additions' is '—' for
+all rows.
+</step_7_table>
 
-Conclude with ONE concise paragraph containing:
-- The first sentence must start with: 'The total overlap is X credits' (End with ' ✅ ' if X is 0 to 10, or ' ❌ ' if X is 11 or higher).
-- If the overlap is 10 credits or less, end your response.
-- If the overlap is 11 credits or more, the second sentence must be a concrete recommendation about which courses to substitute.
-- If the overlap is 11 credits or more, the third sentence must confirm that substitutions avoid the 10-credit overlap.
-- If the overlap is 11 credits or more, the fourth sentence must report the classification of each substitution by course category.
-- Do not suggest any next steps or ask follow-up questions.
-</step_6_output_format>
+<step_8_final_recommendation>
+After the table, write ONE concise paragraph structured as follows. Use only the sentences that
+apply to the student's case. Do not add next steps or ask follow-up questions.
+
+  Sentence 1 (always required):
+    Must begin: 'The total overlap is X credits' followed by ' ✅ ' if X is 0–10, or ' ❌ ' if X
+    is 11 or higher. Then state either 'and the student has earned a minimum of 25 credits ✅ ' or
+    'and the student is N credits short of completing the minor ❌ '.
+
+  Sentence 2 — Case A only:
+    Confirm no action is required.
+
+  Sentence 2 — Case B only:
+    Name every course to be applied from 'alternative_courses', the minor category each should be
+    applied to, and confirm this brings total credits to ≥ 25.
+    Example: "The student should apply JSIS B 449 (Data Studies Group A) and STAT 311 (Data Skills
+    Group B) to Additional Credits so those courses count toward the Data Science Minor to fulfil
+    the minimum 25-credit requirement."
+
+  Sentence 2 — Cases C and D:
+    Name every course to be substituted or added, which overlapping course (if any) each replaces,
+    and which minor category each is assigned to.
+
+  Sentence 3 — Cases C and D only:
+    Confirm that after substitutions, the overlap is ≤ 10 credits AND total minor credits are ≥ 25.
+
+  Sentence 4 — Cases C and D only:
+    Report the minor category classification of each substitution course as confirmed against the
+    official JSON course list.
+
+</step_8_final_recommendation>
+
 </task_instructions>
-
-<student_data>
-${JSON.stringify(audits)}
-</student_data>
 
 <self_validation>
 Before finalizing your response:
-1. Verify each recommended substitution appears on the official JSON course list.
-2. Ensure overlap calculations use exact credit values from the student_data.
-3. Cite specific URLs and quote verbatim text when referencing policies.
+  1. Confirm every recommended course from 'alternative_courses' appears on the official JSON
+     course list at https://dataminor.uw.edu/site/assets/data/data.json.
+  2. Confirm no recommended course appears in the student's major audit.
+  3. Confirm the proposed solution satisfies BOTH constraints simultaneously: overlap ≤ 10 credits
+     AND total minor credits ≥ 25.
+  4. Confirm your recommendation is the minimal (optimal) solution. If multiple valid solutions
+     exist, choose the one requiring the fewest additional courses. If no optimal solution exists,
+     state this explicitly.
+  5. Cite specific URLs and quote verbatim policy text when referencing the overlap rule.
 </self_validation>
-`.trim();
+
+<student_data>
+${JSON.stringify(audits)}
+</student_data>`.trim();
 
                 const finalPayload = {
                     meta: {
                         extraction_timestamp: new Date().toISOString(),
-                        script_version: "4.0-shadow-dom-calculator",
+                        script_version: "4.1-metrics-dashboard",
                         calculated_overlap: overlapCredits,
                         source: "UW DARS Bookmarklet"
                     },
@@ -494,39 +680,66 @@ Before finalizing your response:
 
                 const finalOutput = `${llmPrompt}\n\n<raw_payload_for_reference>\n${JSON.stringify(finalPayload)}\n</raw_payload_for_reference>`;
 
-                /* UI State Update based on Math Calculation */
-                let dialogBg = '#2e7d32'; /* Green */
-                let dialogStatus = 'safe';
-                let statusMsg = `Data extracted!\nOverlap: ${overlapCredits} credits.`;
+                /* ============================================================
+                   UI STATE UPDATE & DASHBOARD RENDERING
+                   ============================================================ */
+                const isOverlapViolation = overlapCredits > 10;
+                const isCreditsDeficit = needsCredits > 0;
+
+                /* Determine Overall Dialog Background and Status Message */
+                let dialogBg = '#2e7d32'; /* Green (Success: Minor complete, Overlap safe) */
+                let dialogStatus = 'success';
+                let statusMsg = `✅ Data successfully extracted and copied!`;
                 let btnText = 'Open Copilot to Verify';
-                
-                if (overlapCredits > 10) {
-                    dialogBg = '#b71c1c'; /* Deep Red */
+
+                if (isOverlapViolation) {
+                    dialogBg = '#b71c1c'; /* Red (Danger: Policy Violation) */
                     dialogStatus = 'action_required';
-                    statusMsg = `⚠️ Policy Violation Detected!\nOverlap: ${overlapCredits} credits. Action required.`;
+                    statusMsg = `⚠️ Policy Violation! Data copied to clipboard.`;
                     btnText = 'Find Substitutions in Copilot';
                     overlapBox.style.borderLeftColor = '#ff5252';
-                } else if (overlapCredits > 0) {
-                    dialogBg = '#f57f17'; /* Amber */
+                } else if (isCreditsDeficit) {
+                    dialogBg = '#f57f17'; /* Amber (Warning: In Progress Minor) */
                     dialogStatus = 'safe';
-                    statusMsg = `Data extracted!\nOverlap: ${overlapCredits} credits (Safe limit).`;
+                    statusMsg = `⏳ Minor In Progress. Data copied to clipboard.`;
                     overlapBox.style.borderLeftColor = '#ffd740';
                 }
 
+                /* Build Individual Metric Cards */
+                const overlapClass = isOverlapViolation ? 'danger' : 'success';
+                const overlapEmoji = isOverlapViolation ? '🔴' : '🟢';
+                
+                const needsClass = isCreditsDeficit ? 'warning' : 'success';
+                const needsEmoji = isCreditsDeficit ? '🟡' : '🟢';
+
+                metricsContainer.innerHTML = `
+                    <div class="metric-card ${overlapClass}">
+                        <div class="metric-title">Major Overlap</div>
+                        <div class="metric-value">${overlapEmoji} ${overlapCredits} cr</div>
+                    </div>
+                    <div class="metric-card ${needsClass}">
+                        <div class="metric-title">Min 25 Credits Earned</div>
+                        <div class="metric-value">${needsEmoji} ${needsCredits} cr needed</div>
+                    </div>
+                `;
+                metricsContainer.style.display = 'flex';
+
+                /* Show overlapping courses list if any exist */
                 if (overlappingCourseDetails.length > 0) {
                     overlapBox.style.display = 'block';
                     overlapList.innerHTML = overlappingCourseDetails.map(c => `<li>${c.subject} ${c.number} - ${c.title} (${c.credits} cr)</li>`).join('');
                 }
                 copilotBtn.innerText = btnText;
 
+                /* Handle Clipboard & Final Dialog Render */
                 try {
                     await navigator.clipboard.writeText(finalOutput);
                     document.body.style.cursor = 'default';
-                    updateDialog(`${statusMsg}\n\n✅ Data copied to clipboard. Click the button below to proceed.`, dialogBg, true, 100, dialogStatus);
+                    updateDialog(statusMsg, dialogBg, true, 100, dialogStatus);
                 } catch (clipboardErr) {
                     console.warn('Clipboard write blocked by browser:', clipboardErr);
                     document.body.style.cursor = 'default';
-                    updateDialog(`${statusMsg}\n\n⚠️ Browser blocked clipboard access. Please manually copy the text below.`, dialogBg, true, 100, dialogStatus);
+                    updateDialog(`⚠️ Browser blocked clipboard access.\nPlease manually copy the text below.`, dialogBg, true, 100, dialogStatus);
                     
                     fallbackArea.value = finalOutput;
                     fallbackArea.style.display = 'block';
