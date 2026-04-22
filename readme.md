@@ -50,6 +50,8 @@ javascript:(function(){
 
 ![Time-Schedule-Viz](Time-Schedule-Viz.png)
 
+![Time-Schedule-Viz-Time-Series](Time-Schedule-Viz-Time-Series.png)
+
 ## MyGrad Table Audit Bookmarklet
 
 #### Overview

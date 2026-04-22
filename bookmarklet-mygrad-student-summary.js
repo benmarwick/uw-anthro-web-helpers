@@ -232,6 +232,9 @@ DATA DICTIONARY (use these mappings when interpreting transcript codes)
 - ANTH = Sociocultural program
 - "There are no current requests for this student" = student has not scheduled or taken the general exam
 - "MA on transcript" = MA requirement satisfied
+- "Previous Degrees MASTER OF ARTS" = MA requirement satisfied
+- Advisor(s) Daniel J Hoffman (chair) = Advisor is recorded, name is Daniel J Hoffman 
+- "Candidacy Granted" = General Exam requirement satisfied
 </data_dictionary>
 
 <task_instructions>
