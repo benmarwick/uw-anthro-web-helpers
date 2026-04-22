@@ -234,6 +234,7 @@ DATA DICTIONARY (use these mappings when interpreting transcript codes)
 - "MA on transcript" = MA requirement satisfied
 - "Previous Degrees MASTER OF ARTS" = MA requirement satisfied
 - Advisor(s) Daniel J Hoffman (chair) = Advisor is recorded, name is Daniel J Hoffman 
+- Advisor(s) Ben Marwick (advisor) = Advisor is recorded, name is Ben Marwick
 - "Candidacy Granted" = General Exam requirement satisfied
 </data_dictionary>
 
