@@ -204,7 +204,7 @@ function mainWorkflow() {
     const { rankedResults, warnings, displacements } = allocateApplicants(applicants, forecast);
 
     writeResultsToSheet(db, rankedResults);
-    writeSummarySheet(db, rankedResults, warnings, displacements);
+    writeSummarySheet(db, rankedResults, warnings, displacements, applicants);
 
     ui.alert(
       'Success',
@@ -1019,7 +1019,7 @@ function writeResultsToSheet(db, results) {
   sheet.setFrozenRows(1);
 }
 
-function writeSummarySheet(db, results, warnings, displacements) {
+function writeSummarySheet(db, results, warnings, displacements, allApplicants) {
   const SUMMARY_SHEET_NAME = "Allocation_Summary";
   let sheet = db.getSheetByName(SUMMARY_SHEET_NAME);
   if (!sheet) {
@@ -1393,36 +1393,47 @@ function writeSummarySheet(db, results, warnings, displacements) {
   currentRow++;
 
   // De-duplicate applicants across courses using email as key
+ // Build unique applicant list from the full pre-filter pool
   const uniqueApplicants = new Map();
   results.forEach(r => {
     const email = (r.Email || "").toString().trim().toLowerCase();
     if (!email || uniqueApplicants.has(email)) return;
     uniqueApplicants.set(email, r);
+});
+// Also register ineligible applicants (absent from results)
+(allApplicants || []).forEach(a => {
+  const email = (a.email || "").toString().trim().toLowerCase();
+  if (!email || uniqueApplicants.has(email)) return;
+  uniqueApplicants.set(email, {
+    Email:   a.email,
+    Program: a.program,
+    _ineligible: true
   });
-  const uniqueList = Array.from(uniqueApplicants.values());
+});
+const uniqueList = Array.from(uniqueApplicants.values());
 
   const programs = [...new Set(uniqueList.map(r =>
     (r.Program || "").toString().trim()
   ))].filter(Boolean).sort();
 
-  programs.forEach(prog => {
-    const progApplicants = uniqueList.filter(r =>
-      (r.Program || "").toString().trim() === prog
-    );
-    const total      = progApplicants.length;
-    const ineligible = progApplicants.filter(r =>
-      (r.Assignment_Type || "") === "" && (r.Guaranteed_Funding || "") !== "Yes"
-    ).length;
-    const eligible   = total; // All results rows passed eligibility filter
-    sheet.getRange(currentRow, 1, 1, poolHeaders1.length)
-      .setValues([[prog, total, eligible, 0]]);
-    currentRow++;
-  });
+programs.forEach(prog => {
+  const progApplicants = uniqueList.filter(r =>
+    (r.Program || "").toString().trim() === prog
+  );
+  const total      = progApplicants.length;
+  const ineligible = progApplicants.filter(r => r._ineligible === true).length;
+  const eligible   = total - ineligible;
+  sheet.getRange(currentRow, 1, 1, poolHeaders1.length)
+    .setValues([[prog, total, eligible, ineligible]]);
+  currentRow++;
+});
 
   // Totals row
   const totalApplicants = uniqueList.length;
-  sheet.getRange(currentRow, 1, 1, poolHeaders1.length)
-    .setValues([["Total", totalApplicants, totalApplicants, 0]])
+  const totalIneligible = uniqueList.filter(r => r._ineligible === true).length;
+  const totalEligibleCount = totalApplicants - totalIneligible;
+   sheet.getRange(currentRow, 1, 1, poolHeaders1.length)
+  .setValues([["Total", totalApplicants, totalEligibleCount, totalIneligible]])
     .setFontWeight("bold")
     .setBackground("#f3f3f3");
   currentRow++;
