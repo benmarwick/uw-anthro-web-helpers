@@ -281,10 +281,6 @@ function readManualReviewFlags(sheet) {
   return map;
 }
 
-/**
- * Scans the raw Google Form checkbox strings to figure out which courses 
- * physically exist in the form. Courses NOT in this list are treated as "Unlisted".
- */
 function extractAllListedCourses(rawApplicants) {
   const listed = new Set();
   const satisfiesRegex = /(.*?)\(satisfies requirements of ([^)]+)\)/g;
@@ -438,7 +434,7 @@ function parseApplicants(rawApplicants, sheet, unlistedCourses) {
         eligibilityMap[uc] = {
           strength: CONFIG.CREDENTIAL_STRENGTH.NONE,
           strengthLabel: "None (Unlisted)",
-          reasons: ["Unlisted course: administrative baseline eligibility"]
+          reasons:["Unlisted course: administrative baseline eligibility"]
         };
       }
     });
@@ -493,17 +489,25 @@ function parseForecast(rawForecast) {
 // ==========================================
 
 /**
- * SECTION C SORT
- * Implements C.2 → C.3 → C.4/C.5 hierarchy.
- * Splits pool into four buckets: guaranteed×group, sorts each by seniority
- * then timestamp, concatenates in priority order.
+ * RANKING - SECTION C: Automatic Ranking Criteria for Teaching Assistantships
+ * Implements ASE Part I, Section C.2 → C.3 → C.4/C.5 hierarchy.
+ *
+ * Splits pool into four buckets based on funding and prior TA quarters,
+ * sorts each internally by seniority (progress in program), then application timestamp,
+ * and concatenates them in priority order.
  */
 function sortBySectionC(pool, quarter) {
+  
+  // RANKING - ASE Part I, Section C.4 & C.5: Apply seniority (progress in program)
   const senioritySortFn = (a, b) => {
     if (a.seniorityScore !== b.seniorityScore) return b.seniorityScore - a.seniorityScore;
+    
+    // Fallback sorting strictly by timestamp for those with identical rankings
     return a.timestamp.getTime() - b.timestamp.getTime();
   };
 
+  // RANKING - ASE Part I, Section C.2: Split by Guaranteed Funding 
+  // RANKING - ASE Part I, Section C.3: Split by Prior TA Quarters (<5 quarters vs >=6 quarters)
   const guaranteedA    = pool.filter(a =>  a.guaranteedFunding[quarter] &&  a.under5TAs);
   const guaranteedB    = pool.filter(a =>  a.guaranteedFunding[quarter] && !a.under5TAs);
   const nonGuaranteedA = pool.filter(a => !a.guaranteedFunding[quarter] &&  a.under5TAs);
@@ -520,8 +524,11 @@ function sortBySectionC(pool, quarter) {
 }
 
 /**
- * SECTION D SORT — tiebreaker only.
- * Preserves all C-tier ordering; only re-orders fully C-tied applicants.
+ * TIE-BREAKING - SECTION D: Additional Ranking Criteria
+ * Implements ASE Part I, Section D.
+ * 
+ * This is applied as a tiebreaker only. It preserves all C-tier ordering,
+ * and only re-orders applicants who are fully tied at the Section C level.
  */
 function applySectionDTiebreakers(cSortedPool, quarter) {
   const compareBoolFlag = (a, b) => {
@@ -539,41 +546,54 @@ function applySectionDTiebreakers(cSortedPool, quarter) {
   };
 
   return cSortedPool.slice().sort((a, b) => {
+    // Preserve Section C.2 Sorting (Funding)
     const aFund = a.guaranteedFunding[quarter] ? 1 : 0;
     const bFund = b.guaranteedFunding[quarter] ? 1 : 0;
     if (aFund !== bFund) return bFund - aFund;
 
+    // Preserve Section C.3 Sorting (TA Quarters)
     const cGroupDiff = a._cRankGroup === b._cRankGroup ? 0
       : (a._cRankGroup < b._cRankGroup ? -1 : 1);
     if (cGroupDiff !== 0) return cGroupDiff;
 
+    // Preserve Section C.4/C.5 Sorting (Seniority)
     const cSeniorityDiff = b.seniorityScore - a.seniorityScore;
     if (cSeniorityDiff !== 0) return cSeniorityDiff;
 
+    // TIE-BREAKING - ASE Part I, Section D.1: Evidence of readiness (e.g. Teaching@UW)
     const dReadyDiff = (b.isReady ? 1 : 0) - (a.isReady ? 1 : 0);
     if (dReadyDiff !== 0) return dReadyDiff;
 
+    // TIE-BREAKING - ASE Part I, Section D.2: Teaching excellence (mean ACM Score)
     const dAcmDiff = compareAcm(a.acmScore, b.acmScore);
     if (dAcmDiff !== 0) return dAcmDiff;
 
+    // TIE-BREAKING - ASE Part I, Section D.3: Academic merit (CV submitted)
     const dCvDiff = compareBoolFlag(a.cvSubmitted, b.cvSubmitted);
     if (dCvDiff !== 0) return dCvDiff;
 
+    // TIE-BREAKING - ASE Part I, Section D.4: Unofficial transcripts submitted
     const dTranscriptDiff = compareBoolFlag(a.transcriptSubmitted, b.transcriptSubmitted);
     if (dTranscriptDiff !== 0) return dTranscriptDiff;
 
+    // Final fallback
     return a.timestamp.getTime() - b.timestamp.getTime();
   });
 }
 
 /**
- * Full sort for a candidate pool against a specific course and quarter.
- * Order: credential strength → C.2→C.3→C.4/C.5 → D tiebreakers.
+ * RANKING - Full Candidate Sort
+ * Applies the entire sorting hierarchy for a candidate pool against a specific course.
+ * Order: Credential strength (C.1) → Hierarchy (C.2-C.5) → Tiebreakers (D.1-D.4).
  */
 function sortPoolForCourse(pool, courseCode, quarter) {
+  // Pass applicants through C and D criteria
   const cSorted  = sortBySectionC(pool, quarter);
   const cdSorted = applySectionDTiebreakers(cSorted, quarter);
+  
   return cdSorted.sort((a, b) => {
+    // RANKING - ASE Part I, Section C.1: The student must meet the specific course eligibility requirement
+    // In our system, this translates to "Satisfies" > "Relevant" > "None"
     const strengthA = getCredentialStrength(a, courseCode);
     const strengthB = getCredentialStrength(b, courseCode);
     return strengthB - strengthA;
@@ -581,31 +601,38 @@ function sortPoolForCourse(pool, courseCode, quarter) {
 }
 
 /**
- * Compares two applicants for a specific course and quarter using the full
- * sort order (credential strength → C → D). Returns a negative number if
- * applicant A ranks higher than B, positive if B ranks higher than A.
- *
- * Scales the return magnitude so higher-level tiebreakers easily outrank
- * lower-level (timestamp) ties during Pass 1B displacement scoring.
+ * TIE-BREAKING (Pass 1B Displacement): 
+ * Compares two applicants for a specific course and quarter using the full 
+ * sort order (Credential strength → C → D). 
+ * 
+ * Returns negative if A ranks higher than B, positive if B ranks higher than A.
+ * Scales the return magnitude so higher-level guidelines easily outrank 
+ * lower-level ties during Pass 1B displacement scoring.
  */
 function compareApplicantsForCourse(a, b, courseCode, quarter) {
+  // ASE Part I, Section C.1: Course Credential Eligibility Match
   const strengthA = getCredentialStrength(a, courseCode);
   const strengthB = getCredentialStrength(b, courseCode);
   if (strengthA !== strengthB) return (strengthB - strengthA) * 1000;
 
+  // ASE Part I, Section C.2: Guaranteed Funding
   const aFund = a.guaranteedFunding[quarter] ? 1 : 0;
   const bFund = b.guaranteedFunding[quarter] ? 1 : 0;
   if (aFund !== bFund) return (bFund - aFund) * 900;
 
+  // ASE Part I, Section C.3: Under 5 TA Quarters
   const aGroup = a.under5TAs ? 0 : 1;
   const bGroup = b.under5TAs ? 0 : 1;
   if (aGroup !== bGroup) return (aGroup - bGroup) * 800;
 
+  // ASE Part I, Section C.4 & C.5: Seniority
   if (a.seniorityScore !== b.seniorityScore) return Math.sign(b.seniorityScore - a.seniorityScore) * 700;
 
+  // ASE Part I, Section D.1: Readiness (Teaching@UW)
   const dReadyDiff = (b.isReady ? 1 : 0) - (a.isReady ? 1 : 0);
   if (dReadyDiff !== 0) return Math.sign(dReadyDiff) * 600;
 
+  // ASE Part I, Section D.2: Teaching Excellence
   const compareAcm = (x, y) => {
     if (x === y) return 0;
     if (x === null) return  1;
@@ -615,6 +642,7 @@ function compareApplicantsForCourse(a, b, courseCode, quarter) {
   const dAcmDiff = compareAcm(a.acmScore, b.acmScore);
   if (dAcmDiff !== 0) return dAcmDiff * 500;
 
+  // ASE Part I, Section D.3: CV submission
   const compareBool = (x, y) => {
     if (x === y) return 0;
     if (x === true)  return -1;
@@ -625,9 +653,11 @@ function compareApplicantsForCourse(a, b, courseCode, quarter) {
   const dCvDiff = compareBool(a.cvSubmitted, b.cvSubmitted);
   if (dCvDiff !== 0) return dCvDiff * 400;
 
+  // ASE Part I, Section D.4: Transcript submission
   const dTransDiff = compareBool(a.transcriptSubmitted, b.transcriptSubmitted);
   if (dTransDiff !== 0) return dTransDiff * 300;
 
+  // Application Timestamp
   return Math.sign(a.timestamp.getTime() - b.timestamp.getTime());
 }
 
@@ -637,6 +667,8 @@ function compareApplicantsForCourse(a, b, courseCode, quarter) {
 // ==========================================
 
 function allocateApplicants(applicants, forecast) {
+  // FILTERING - ASE Part I, Section B.1 & B.2: Minimum Eligibility Check
+  // Only applicants who are making satisfactory progress (i.e. not on Academic Notification) are included.
   const eligibleApplicants = applicants.filter(a => a.isEligible);
   const results      =[];
   const warnings     =[];
@@ -650,8 +682,9 @@ function allocateApplicants(applicants, forecast) {
 
   const quarters =["AU", "WI", "SP"];
 
-  // ── PASS 1: STANDARD GUARANTEED FUNDING ASSIGNMENT ────────────────────────
+  // ── PASS 1: STANDARD GUARANTEED FUNDING ASSIGNMENT (ASE Part I, Section C.2) ────────────────────────
   quarters.forEach(quarter => {
+    // FILTERING: Identify students with guaranteed funding who listed courses this quarter.
     const fundedStudents = eligibleApplicants.filter(a =>
       a.guaranteedFunding[quarter] &&
       a.eligibleCourses.some(code =>
@@ -674,6 +707,7 @@ function allocateApplicants(applicants, forecast) {
 
       const preferredProgram = CONFIG.FIELD_MATCH_MAP[extractPrefix(course.normalizedCode)];
 
+      // FILTERING: Only consider funded applicants who are eligible for this specific course.
       const candidatePool = fundedStudents.filter(a =>
         a.eligibleCourses.includes(course.normalizedCode) &&
         !assignedFunded[quarter][a.email]
@@ -693,11 +727,9 @@ function allocateApplicants(applicants, forecast) {
     });
   });
 
-  // ── PASS 1B: DISPLACEMENT OF OPEN-POOL APPLICANTS ─────────────────────────
+  // ── PASS 1B: DISPLACEMENT OF OPEN-POOL APPLICANTS (ASE Part I, Sections I.A & I.B) ──────────────────
   quarters.forEach(quarter => {
     // Identify funded students still unplaced after Pass 1.
-    // NOTE: Removed `eligibleCourses` array check so students who don't qualify 
-    // for anything still accurately trigger an UNPLACED warning.
     const stillUnplaced = eligibleApplicants.filter(a =>
       a.guaranteedFunding[quarter] &&
       !assignedFunded[quarter][a.email]
@@ -730,6 +762,7 @@ function allocateApplicants(applicants, forecast) {
 
           const weakestHolder = holders[holders.length - 1];
 
+          // Use full tiebreaking matrix to see if funded student outranks the weakest holder
           const comparison = compareApplicantsForCourse(
             fundedStudent, weakestHolder, course.normalizedCode, quarter
           );
@@ -801,6 +834,7 @@ function allocateApplicants(applicants, forecast) {
     const quarter          = course.quarter;
     const preferredProgram = CONFIG.FIELD_MATCH_MAP[extractPrefix(course.normalizedCode)];
 
+    // FILTERING: Generate final sorted arrays per course. Only include those who marked it as eligible.
     const pool = eligibleApplicants.filter(a =>
       a.eligibleCourses.includes(course.normalizedCode)
     );
@@ -914,6 +948,22 @@ function writeResultsToSheet(db, results) {
 
   const data = results.map(row => headers.map(h => row[h]));
   sheet.getRange(2, 1, data.length, headers.length).setValues(data);
+
+  // Apply bolding to the top ranked applicants based on TAs Needed
+  const rankIdx = headers.indexOf("Rank");
+  const tasNeededIdx = headers.indexOf("TAs_Needed");
+
+  if (rankIdx !== -1 && tasNeededIdx !== -1 && data.length > 0) {
+    const fontWeights = data.map(row => {
+      const rank = Number(row[rankIdx]);
+      const tasNeeded = Number(row[tasNeededIdx]);
+      // If the applicant's rank is within the number of needed TAs, bold the entire row
+      const isTopRanked = (rank > 0 && rank <= tasNeeded);
+      return new Array(headers.length).fill(isTopRanked ? "bold" : "normal");
+    });
+    // Set font weights in bulk
+    sheet.getRange(2, 1, data.length, headers.length).setFontWeights(fontWeights);
+  }
 
   const atIdx = headers.indexOf("Assignment_Type") + 1;
   if (atIdx > 0) {
@@ -1076,7 +1126,7 @@ function writeSummarySheet(db, results, warnings, displacements) {
 
       const rowVals  =[s.name, s.program];
       const rowBg    =[COLOR_NONE, COLOR_NONE];
-      const rowNotes = ["", ""];
+      const rowNotes =["", ""];
 
       quarterCols.forEach(qLabel => {
         const key        = `${s.emailLower}|${qLabel}`;
@@ -1091,7 +1141,7 @@ function writeSummarySheet(db, results, warnings, displacements) {
 
         if (placements.length > 0) {
           const cellLines = placements.map(p => {
-            const dispTag = p.isDisplacement ? " [D]" : "";
+            const dispTag = p.isDisplacement ? "[D]" : "";
             return `${p.course}${dispTag} (Rank ${p.rank} of ${p.tasNeeded})`;
           });
           rowVals.push(cellLines.join("\n"));
@@ -1162,9 +1212,7 @@ function writeSummarySheet(db, results, warnings, displacements) {
 
   currentRow++;
   sheet.getRange(currentRow, 1).setValue("Legend:").setFontWeight("bold");
-  const legendItems = [[COLOR_FIELD_MATCH,        "Guaranteed (Field Match) — subdiscipline and credentials match"],[COLOR_FALLBACK,           "Guaranteed (Fallback) — placed outside preferred subdiscipline or mixed credentials"],[COLOR_RELEVANT,           "Guaranteed — credential is 'Relevant To' only"],[COLOR_DISPLACEMENT_FIELD, "Guaranteed – Displacement, Field Match[D] — placed via open-pool displacement; subdiscipline matches (ASE I.A/I.B)"],
-    [COLOR_DISPLACEMENT_OTHER, "Guaranteed – Displacement, Fallback [D] — placed via open-pool displacement; subdiscipline does not match (ASE I.A/I.B)"],[COLOR_UNPLACED,           "UNPLACED ⚠️ — could not be placed even after displacement; manual review required"],
-    ["#e8e8e8",                "Subdiscipline group divider"],[COLOR_NO_OBLIGATION,      "No funding obligation for this quarter (or ranked outside TAs_Needed range)"]
+  const legendItems = [[COLOR_FIELD_MATCH,        "Guaranteed (Field Match) — subdiscipline and credentials match"],[COLOR_FALLBACK,           "Guaranteed (Fallback) — placed outside preferred subdiscipline or mixed credentials"],[COLOR_RELEVANT,           "Guaranteed — credential is 'Relevant To' only"],[COLOR_DISPLACEMENT_FIELD, "Guaranteed – Displacement, Field Match[D] — placed via open-pool displacement; subdiscipline matches (ASE I.A/I.B)"],[COLOR_DISPLACEMENT_OTHER, "Guaranteed – Displacement, Fallback [D] — placed via open-pool displacement; subdiscipline does not match (ASE I.A/I.B)"],[COLOR_UNPLACED,           "UNPLACED ⚠️ — could not be placed even after displacement; manual review required"],["#e8e8e8",                "Subdiscipline group divider"],[COLOR_NO_OBLIGATION,      "No funding obligation for this quarter (or ranked outside TAs_Needed range)"]
   ];
   legendItems.forEach((item, i) => {
     const legendRow = currentRow + 1 + i;
