@@ -412,18 +412,14 @@ function parseApplicants(rawApplicants, sheet, unlistedCourses) {
     if (seniorityStr.includes("PhD Candidate"))       seniorityScore = 3;
     else if (seniorityStr.includes("Obtained UW MA")) seniorityScore = 2;
 
-    const taCols =[
-      row["List your most recent TA position in this exact form: AU25 ANTH 101"],
-      row["List your second most recent TA position in this exact form: AU25 ANTH 101"],
-      row["List your third most recent TA position in this exact form: AU25 ANTH 101"],
-      row["List your fourth most recent TA position in this exact form: AU25 ANTH 101"],
-      row["List your fifth most recent TA position in this exact form: AU25 ANTH 101"]
-    ];
+    const taCols = Object.keys(row)
+      .filter(k => /list your .* TA position/i.test(k))
+      .map(k => row[k]);
     const taCount   = taCols.filter(t => {
       const s = (t || "").toString().trim().toUpperCase();
       return s && s !== "N/A" && s !== "NA";
     }).length;
-    const under5TAs = taCount < 5;
+    const under5TAs = taCount <= 4;
 
     const criteriaStr    = row["Choose *ALL* criteria that you meet to make you eligible to TA for as many courses as possible, then add any additional details in the next question"] || "";
     const eligibilityMap = parseEligibilityMap(criteriaStr, taCols);
@@ -515,10 +511,10 @@ function sortBySectionC(pool, quarter) {
 
   [guaranteedA, guaranteedB, nonGuaranteedA, nonGuaranteedB].forEach(g => g.sort(senioritySortFn));
 
-  guaranteedA.forEach(a    => { a._cRankGroup = "A (≤5 quarters)"; });
-  guaranteedB.forEach(a    => { a._cRankGroup = "B (≥6 quarters)"; });
-  nonGuaranteedA.forEach(a => { a._cRankGroup = "A (≤5 quarters)"; });
-  nonGuaranteedB.forEach(a => { a._cRankGroup = "B (≥6 quarters)"; });
+  guaranteedA.forEach(a    => { a._cRankGroup = "A (<5 quarters)"; });
+  guaranteedB.forEach(a    => { a._cRankGroup = "B (5+ quarters)"; });
+  nonGuaranteedA.forEach(a => { a._cRankGroup = "A (<5 quarters)"; });
+  nonGuaranteedB.forEach(a => { a._cRankGroup = "B (5+ quarters)"; });
 
   return[...guaranteedA,...guaranteedB,...nonGuaranteedA,...nonGuaranteedB];
 }
@@ -587,17 +583,16 @@ function applySectionDTiebreakers(cSortedPool, quarter) {
  * Order: Credential strength (C.1) → Hierarchy (C.2-C.5) → Tiebreakers (D.1-D.4).
  */
 function sortPoolForCourse(pool, courseCode, quarter) {
-  // Pass applicants through C and D criteria
   const cSorted  = sortBySectionC(pool, quarter);
   const cdSorted = applySectionDTiebreakers(cSorted, quarter);
-  
-  return cdSorted.sort((a, b) => {
-    // RANKING - ASE Part I, Section C.1: The student must meet the specific course eligibility requirement
-    // In our system, this translates to "Satisfies" > "Relevant" > "None"
+
+  cdSorted.sort((a, b) => {
     const strengthA = getCredentialStrength(a, courseCode);
     const strengthB = getCredentialStrength(b, courseCode);
     return strengthB - strengthA;
   });
+
+  return cdSorted;
 }
 
 /**
@@ -904,13 +899,14 @@ function allocateApplicants(applicants, forecast) {
         Title:                course.title,
         TAs_Needed:           course.tasNeeded,
         Rank:                 rank,
-        Assignment_Type:      assignmentType,
-        Credential_Strength:  credStrengthLabel,
-        C_Rank_Group:         applicant._cRankGroup || "",
         Applicant_Name:       applicant.name,
         Email:                applicant.email,
         Program:              applicant.program,
         Guaranteed_Funding:   applicant.guaranteedFunding[quarter] ? "Yes" : "No",
+        Appointment_Status:   rank <= course.tasNeeded ? "Appoint" : "Waitlist",
+        Assignment_Type:      assignmentType,
+        Credential_Strength:  credStrengthLabel,
+        C_Rank_Group:         applicant._cRankGroup || "",
         TA_Quarters_History:  applicant.taCount,
         Seniority:            applicant.seniorityText,
         Readiness_D1:         applicant.isReady ? "Yes" : "No",
@@ -976,6 +972,16 @@ function writeResultsToSheet(db, results) {
       else if (val === "Guaranteed – Displacement (Fallback)")        cell.setBackground("#f4b942"); 
       else if (val === "Displaced (Funded Student Accommodation)")    cell.setBackground("#d9d2e9"); 
       else                                                             cell.setBackground(null);
+    });
+  }
+
+  const apptIdx = headers.indexOf("Appointment_Status") + 1;
+  if (apptIdx > 0) {
+    data.forEach((row, i) => {
+      const cell = sheet.getRange(i + 2, apptIdx);
+      const val  = row[headers.indexOf("Appointment_Status")];
+      if      (val === "Appoint")  cell.setBackground("#c6efce");
+      else if (val === "Waitlist") cell.setBackground("#f4cccc");
     });
   }
 
@@ -1363,6 +1369,257 @@ function writeSummarySheet(db, results, warnings, displacements) {
       ).setFontStyle("italic");
     currentRow++;
   }
+
+  // ── APPLICANT POOL STATISTICS ────────────────────────────────────────────
+
+  currentRow += 2;
+  sheet.getRange(currentRow, 1).setValue("APPLICANT POOL STATISTICS")
+    .setFontWeight("bold")
+    .setFontSize(12);
+  currentRow++;
+
+  // ── SECTION 1: Applicant Pool Overview ──────────────────────────────────
+
+  sheet.getRange(currentRow, 1).setValue("Section 1: Applicant Pool Overview")
+    .setFontWeight("bold")
+    .setBackground("#d9d9d9");
+  currentRow++;
+
+  const poolHeaders1 = ["Program", "Total Applicants", "Eligible", "Ineligible"];
+  sheet.getRange(currentRow, 1, 1, poolHeaders1.length)
+    .setValues([poolHeaders1])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
+  // De-duplicate applicants across courses using email as key
+  const uniqueApplicants = new Map();
+  results.forEach(r => {
+    const email = (r.Email || "").toString().trim().toLowerCase();
+    if (!email || uniqueApplicants.has(email)) return;
+    uniqueApplicants.set(email, r);
+  });
+  const uniqueList = Array.from(uniqueApplicants.values());
+
+  const programs = [...new Set(uniqueList.map(r =>
+    (r.Program || "").toString().trim()
+  ))].filter(Boolean).sort();
+
+  programs.forEach(prog => {
+    const progApplicants = uniqueList.filter(r =>
+      (r.Program || "").toString().trim() === prog
+    );
+    const total      = progApplicants.length;
+    const ineligible = progApplicants.filter(r =>
+      (r.Assignment_Type || "") === "" && (r.Guaranteed_Funding || "") !== "Yes"
+    ).length;
+    const eligible   = total; // All results rows passed eligibility filter
+    sheet.getRange(currentRow, 1, 1, poolHeaders1.length)
+      .setValues([[prog, total, eligible, 0]]);
+    currentRow++;
+  });
+
+  // Totals row
+  const totalApplicants = uniqueList.length;
+  sheet.getRange(currentRow, 1, 1, poolHeaders1.length)
+    .setValues([["Total", totalApplicants, totalApplicants, 0]])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
+  currentRow++;
+
+  // ── SECTION 2: Seniority Distribution ───────────────────────────────────
+
+  sheet.getRange(currentRow, 1).setValue("Section 2: Seniority Distribution")
+    .setFontWeight("bold")
+    .setBackground("#d9d9d9");
+  currentRow++;
+
+  const seniorityHeaders = ["Seniority", ...programs, "Total"];
+  sheet.getRange(currentRow, 1, 1, seniorityHeaders.length)
+    .setValues([seniorityHeaders])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
+  const seniorityLevels = [
+    { label: "PhD Candidate",       match: "PhD Candidate" },
+    { label: "Obtained UW MA",      match: "Obtained UW MA" },
+    { label: "Pre-comprehensive",   match: "" }  // catch-all
+  ];
+
+  seniorityLevels.forEach(level => {
+    const rowVals = [level.label];
+    let rowTotal  = 0;
+    programs.forEach(prog => {
+      const count = uniqueList.filter(r => {
+        const sen  = (r.Seniority || "").toString();
+        const progMatch = (r.Program || "").toString().trim() === prog;
+        if (level.match === "") {
+          // Pre-comprehensive: does not include PhD Candidate or Obtained UW MA
+          return progMatch &&
+            !sen.includes("PhD Candidate") &&
+            !sen.includes("Obtained UW MA");
+        }
+        return progMatch && sen.includes(level.match);
+      }).length;
+      rowVals.push(count);
+      rowTotal += count;
+    });
+    rowVals.push(rowTotal);
+    sheet.getRange(currentRow, 1, 1, seniorityHeaders.length).setValues([rowVals]);
+    currentRow++;
+  });
+
+  // Totals row
+  const senTotalsRow = ["Total"];
+  let senGrandTotal = 0;
+  programs.forEach(prog => {
+    const count = uniqueList.filter(r =>
+      (r.Program || "").toString().trim() === prog
+    ).length;
+    senTotalsRow.push(count);
+    senGrandTotal += count;
+  });
+  senTotalsRow.push(senGrandTotal);
+  sheet.getRange(currentRow, 1, 1, seniorityHeaders.length)
+    .setValues([senTotalsRow])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
+  currentRow++;
+
+  // ── SECTION 3: TA History Distribution ──────────────────────────────────
+
+  sheet.getRange(currentRow, 1).setValue("Section 3: TA History Distribution")
+    .setFontWeight("bold")
+    .setBackground("#d9d9d9");
+  currentRow++;
+
+  const taHistHeaders = ["Prior TA Quarters", "# Applicants", "% of Pool"];
+  sheet.getRange(currentRow, 1, 1, taHistHeaders.length)
+    .setValues([taHistHeaders])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
+  const taBuckets = [
+    { label: "0",   match: r => Number(r.TA_Quarters_History) === 0 },
+    { label: "1",   match: r => Number(r.TA_Quarters_History) === 1 },
+    { label: "2",   match: r => Number(r.TA_Quarters_History) === 2 },
+    { label: "3",   match: r => Number(r.TA_Quarters_History) === 3 },
+    { label: "4",   match: r => Number(r.TA_Quarters_History) === 4 },
+    { label: "5+",  match: r => Number(r.TA_Quarters_History) >= 5 }
+  ];
+
+  const taTotal = uniqueList.length;
+  taBuckets.forEach(bucket => {
+    const count   = uniqueList.filter(bucket.match).length;
+    const pct     = taTotal > 0 ? ((count / taTotal) * 100).toFixed(1) + "%" : "0%";
+    sheet.getRange(currentRow, 1, 1, taHistHeaders.length)
+      .setValues([[bucket.label, count, pct]]);
+    currentRow++;
+  });
+
+  // Totals row
+  sheet.getRange(currentRow, 1, 1, taHistHeaders.length)
+    .setValues([["Total", taTotal, "100%"]])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
+  currentRow++;
+
+  // ── SECTION 5: Course Fill Rate ──────────────────────────────────────────
+
+  sheet.getRange(currentRow, 1).setValue("Section 5: Course Fill Rate")
+    .setFontWeight("bold")
+    .setBackground("#d9d9d9");
+  currentRow++;
+
+  const fillHeaders = ["Course", "Quarter", "Slots Needed", "Eligible Applicants", "Appoint", "Waitlist"];
+  sheet.getRange(currentRow, 1, 1, fillHeaders.length)
+    .setValues([fillHeaders])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
+  // Build a map of unique courses from results
+  const courseMap = new Map();
+  results.forEach(r => {
+    const key = `${r.Course}|${r.Quarter}`;
+    if (!courseMap.has(key)) {
+      courseMap.set(key, {
+        course:    r.Course,
+        quarter:   r.Quarter,
+        tasNeeded: Number(r.TAs_Needed) || 0,
+        rows:      []
+      });
+    }
+    courseMap.get(key).rows.push(r);
+  });
+
+  // Sort courses by quarter then course code
+  const quarterOrder2 = { "AU": 1, "WI": 2, "SP": 3 };
+  const sortedCourses = Array.from(courseMap.values()).sort((a, b) => {
+    const [qA, yA] = a.quarter.split(/\s+/);
+    const [qB, yB] = b.quarter.split(/\s+/);
+    const yearDiff  = (parseInt(yA) || 0) - (parseInt(yB) || 0);
+    if (yearDiff !== 0) return yearDiff;
+    const qDiff = (quarterOrder2[qA] || 99) - (quarterOrder2[qB] || 99);
+    if (qDiff !== 0) return qDiff;
+    return a.course.localeCompare(b.course);
+  });
+
+  let totalSlots     = 0;
+  let totalEligible  = 0;
+  let totalAppoint   = 0;
+  let totalWaitlist  = 0;
+
+  sortedCourses.forEach(c => {
+    const eligible  = c.rows.length;
+    const appoint   = c.rows.filter(r => (r.Appointment_Status || "") === "Appoint").length;
+    const waitlist  = c.rows.filter(r => (r.Appointment_Status || "") === "Waitlist").length;
+
+    totalSlots    += c.tasNeeded;
+    totalEligible += eligible;
+    totalAppoint  += appoint;
+    totalWaitlist += waitlist;
+
+    const rowData = [[c.course, c.quarter, c.tasNeeded, eligible, appoint, waitlist]];
+    const range   = sheet.getRange(currentRow, 1, 1, fillHeaders.length);
+    range.setValues(rowData);
+
+    // Flag courses where eligible applicants < slots needed
+    if (eligible < c.tasNeeded) {
+      range.setBackground("#f4cccc");
+    } else if (eligible === c.tasNeeded) {
+      range.setBackground("#ffeb9c");
+    }
+
+    currentRow++;
+  });
+
+  // Totals row
+  sheet.getRange(currentRow, 1, 1, fillHeaders.length)
+    .setValues([["Total", "", totalSlots, totalEligible, totalAppoint, totalWaitlist]])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
+  // Legend for Section 5
+  currentRow++;
+  sheet.getRange(currentRow, 1).setValue("Section 5 color key:").setFontWeight("bold");
+  currentRow++;
+  sheet.getRange(currentRow, 1).setBackground("#f4cccc").setValue("  ");
+  sheet.getRange(currentRow, 2).setValue("Eligible applicants < slots needed — understaffed risk");
+  currentRow++;
+  sheet.getRange(currentRow, 1).setBackground("#ffeb9c").setValue("  ");
+  sheet.getRange(currentRow, 2).setValue("Eligible applicants = slots needed — no waitlist buffer");
+  currentRow++;
+
 
   const maxCols = Math.max(11, numOverviewCols, summaryHeaders.length, dispHeaders.length, d34Headers.length);
   sheet.autoResizeColumns(1, maxCols);
