@@ -690,11 +690,23 @@ function allocateApplicants(applicants, forecast) {
     // Scarcity-first course ordering. 
     // Unlisted courses will have a massive eligibleCount (everyone is eligible) 
     // and will therefore be processed LAST, allowing listed courses to fill first.
-    const quarterCourses = forecast.filter(c => c.quarter === quarter).map(c => ({...c,
-        eligibleCount: eligibleApplicants.filter(a =>
-          a.eligibleCourses.includes(c.normalizedCode)
-        ).length
-      })).sort((a, b) => a.eligibleCount - b.eligibleCount);
+const quarterCourses = forecast.filter(c => c.quarter === quarter).map(c => {
+  const preferredProg = CONFIG.FIELD_MATCH_MAP[extractPrefix(c.normalizedCode)];
+  const eligibleCount = eligibleApplicants.filter(a =>
+    a.eligibleCourses.includes(c.normalizedCode)
+  ).length;
+  // Among funded students eligible for this course, how many are a field match?
+  const fieldMatchFundedCount = fundedStudents.filter(a =>
+    a.eligibleCourses.includes(c.normalizedCode) &&
+    (a.program || "").includes(preferredProg)
+  ).length;
+  return { ...c, eligibleCount, fieldMatchFundedCount };
+}).sort((a, b) => {
+  // Primary: scarcity (fewest eligible applicants first)
+  if (a.eligibleCount !== b.eligibleCount) return a.eligibleCount - b.eligibleCount;
+  // Secondary: courses with field-matched funded students get priority
+  return b.fieldMatchFundedCount - a.fieldMatchFundedCount;
+});
 
     quarterCourses.forEach(course => {
       const slotsAvailable = course.tasNeeded - fundedSlotsFilled[course.normalizedCode];
