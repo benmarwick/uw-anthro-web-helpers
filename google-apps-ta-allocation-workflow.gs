@@ -286,6 +286,7 @@ function mainWorkflow() {
 
     writeResultsToSheet(db, rankedResults);
     writeSummarySheet(db, rankedResults, warnings, displacements, applicants);
+    writeInstructorSheet(db, rankedResults);
 
     ui.alert(
       'Success',
@@ -995,6 +996,14 @@ let d3Flag = "CV column not found in form";
       const entry           = applicant.eligibilityMap[course.normalizedCode];
       const matchedCriteria = entry ? entry.reasons.join("\n\n") : "";
 
+
+      let courseFamiliarity = "Experienced TA (New to this Course) — Review general eval mean";
+      if (applicant.taCount === 0) {
+        courseFamiliarity = "First-Time TA — No past evaluations";
+      } else if (credStrengthLabel === "Prior TA History") {
+        courseFamiliarity = "Prior TA for this course — MUST review course-specific evals";
+      }
+
       results.push({
         Quarter:              `${course.quarter} ${course.year}`,
         Course:               `${course.prefix} ${course.courseNum}`,
@@ -1015,7 +1024,8 @@ let d3Flag = "CV column not found in form";
         ACM_Score_D2:         applicant.acmScore !== null ? applicant.acmScore : "No evaluations on file",
         CV_Status_D3:         d3Flag,
         Transcript_Status_D4: d4Flag,
-        Matched_Criteria:     matchedCriteria
+        Matched_Criteria:     matchedCriteria,
+        Course_Familiarity:   courseFamiliarity
       });
     });
   });
@@ -1488,6 +1498,8 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
     .setBackground("#d9d9d9");
   currentRow++;
 
+  const chart1StartRow = currentRow; // Track start of chart data
+
   const poolHeaders1 = ["Program", "Total Applicants", "Eligible", "Ineligible"];
   sheet.getRange(currentRow, 1, 1, poolHeaders1.length)
     .setValues([poolHeaders1])
@@ -1529,6 +1541,8 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
       .setValues([[prog, total, eligible, ineligible]]);
     currentRow++;
   });
+
+  const chart1EndRow = currentRow - 1;
 
   // Totals row
   const totalApplicants = uniqueList.length;
@@ -1653,6 +1667,7 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
   currentRow++;
 
   const fillHeaders = ["Course", "Quarter", "Slots Needed", "Eligible Applicants", "Appoint", "Waitlist"];
+  const chart2StartRow = currentRow;
   sheet.getRange(currentRow, 1, 1, fillHeaders.length)
     .setValues([fillHeaders])
     .setFontWeight("bold")
@@ -1714,6 +1729,8 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
 
     currentRow++;
   });
+
+    const chart2EndRow = currentRow - 1;
 
   // Totals row
   sheet.getRange(currentRow, 1, 1, fillHeaders.length)
@@ -1961,6 +1978,61 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
 
   // Final layout adjustments
   const maxCols = Math.max(11, numOverviewCols, summaryHeaders.length, dispHeaders.length, d34Headers.length);
+  
   sheet.autoResizeColumns(1, maxCols);
   sheet.setFrozenRows(2);
+}
+
+function writeInstructorSheet(db, results) {
+  const sheetName = "Instructor_View";
+  let sheet = db.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = db.insertSheet(sheetName);
+  } else {
+    sheet.clear();
+  }
+
+  // Filter only those actually appointed
+  const appointed = results.filter(r => r.Appointment_Status === "Appoint");
+  
+  if (appointed.length === 0) {
+    sheet.getRange("A1").setValue("No TAs have been appointed yet.");
+    return;
+  }
+
+  // Sort chronologically by Quarter, then by Course
+  const quarterOrder = { "AU": 1, "WI": 2, "SP": 3, "SU": 4 };
+  appointed.sort((a, b) => {
+    const [qA, yA] = (a.Quarter || "").split(/\s+/);
+    const [qB, yB] = (b.Quarter || "").split(/\s+/);
+    const yearDiff = (parseInt(yA) || 0) - (parseInt(yB) || 0);
+    if (yearDiff !== 0) return yearDiff;
+    const qDiff = (quarterOrder[qA] || 99) - (quarterOrder[qB] || 99);
+    if (qDiff !== 0) return qDiff;
+    return (a.Course || "").localeCompare(b.Course || "");
+  });
+
+  const headers =["Quarter", "Course", "Course Title", "TA Name", "Email", "Program", "Course Familiarity", "CV"];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+       .setFontWeight("bold").setBackground("#cfe2f3");
+
+  const data = appointed.map(r =>[
+    r.Quarter, r.Course, r.Title, r.Applicant_Name, r.Email, r.Program, 
+    r.Course_Familiarity, r.CV_Status_D3
+  ]);
+
+  sheet.getRange(2, 1, data.length, headers.length).setValues(data);
+  
+  // Format as a clean roster
+  sheet.autoResizeColumns(1, headers.length);
+  sheet.setFrozenRows(1);
+  
+  // Add a thin border to separate courses visually
+  let lastCourse = "";
+  for (let i = 0; i < data.length; i++) {
+    if (i > 0 && data[i][1] !== lastCourse) {
+      sheet.getRange(i + 2, 1, 1, headers.length).setBorder(true, null, null, null, null, null, "black", SpreadsheetApp.BorderStyle.SOLID);
+    }
+    lastCourse = data[i][1];
+  }
 }
