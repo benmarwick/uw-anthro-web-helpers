@@ -507,9 +507,7 @@ function sortBySectionC(pool, quarter) {
   const guaranteedA    = pool.filter(a =>  a.guaranteedFunding[quarter] &&  a.under5TAs);
   const guaranteedB    = pool.filter(a =>  a.guaranteedFunding[quarter] && !a.under5TAs);
   const nonGuaranteedA = pool.filter(a => !a.guaranteedFunding[quarter] &&  a.under5TAs);
-  const nonGuaranteedB = pool.filter(a => !a.guaranteedFunding[quarter] && !a.under5TAs);
-
-  [guaranteedA, guaranteedB, nonGuaranteedA, nonGuaranteedB].forEach(g => g.sort(senioritySortFn));
+  const nonGuaranteedB = pool.filter(a => !a.guaranteedFunding[quarter] && !a.under5TAs);[guaranteedA, guaranteedB, nonGuaranteedA, nonGuaranteedB].forEach(g => g.sort(senioritySortFn));
 
   guaranteedA.forEach(a    => { a._cRankGroup = "A (<5 quarters)"; });
   guaranteedB.forEach(a    => { a._cRankGroup = "B (5+ quarters)"; });
@@ -1013,8 +1011,8 @@ function writeResultsToSheet(db, results) {
     data.forEach((row, i) => {
       const cell = sheet.getRange(i + 2, crIdx);
       const val  = row[headers.indexOf("C_Rank_Group")];
-      if      (val === "A (≤5 quarters)") cell.setBackground("#dae8fc");
-      else if (val === "B (≥6 quarters)") cell.setBackground("#f8cecc");
+      if      (val === "A (<5 quarters)") cell.setBackground("#dae8fc");
+      else if (val === "B (5+ quarters)") cell.setBackground("#f8cecc");
     });
   }
 
@@ -1049,7 +1047,7 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
   const quarterSet   = new Set();
   results.forEach(r => { if (r && r.Quarter) quarterSet.add(r.Quarter.toString().trim()); });
   const quarterCols = Array.from(quarterSet).filter(Boolean).sort((a, b) => {
-    const [qA, yA] = a.split(/\s+/);
+    const[qA, yA] = a.split(/\s+/);
     const[qB, yB] = b.split(/\s+/);
     const yearDiff  = (parseInt(yA, 10) || 0) - (parseInt(yB, 10) || 0);
     if (yearDiff !== 0) return yearDiff;
@@ -1127,7 +1125,7 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
     sheet.getRange(currentRow, 1).setValue("No students with guaranteed funding were detected in the results.").setFontStyle("italic");
     currentRow++;
   } else {
-    const values   = [];
+    const values   =[];
     const bgColors =[];
     const notes    =[];
     let lastSubdiscipline = null;
@@ -1404,41 +1402,40 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
     .setBackground("#f3f3f3");
   currentRow++;
 
-  // De-duplicate applicants across courses using email as key
- // Build unique applicant list from the full pre-filter pool
+  // Build unique applicant list from the full pre-filter pool
   const uniqueApplicants = new Map();
   results.forEach(r => {
     const email = (r.Email || "").toString().trim().toLowerCase();
     if (!email || uniqueApplicants.has(email)) return;
     uniqueApplicants.set(email, r);
-});
-// Also register ineligible applicants (absent from results)
-(allApplicants || []).forEach(a => {
-  const email = (a.email || "").toString().trim().toLowerCase();
-  if (!email || uniqueApplicants.has(email)) return;
-  uniqueApplicants.set(email, {
-    Email:   a.email,
-    Program: a.program,
-    _ineligible: true
   });
-});
-const uniqueList = Array.from(uniqueApplicants.values());
+  // Also register ineligible applicants (absent from results)
+  (allApplicants ||[]).forEach(a => {
+    const email = (a.email || "").toString().trim().toLowerCase();
+    if (!email || uniqueApplicants.has(email)) return;
+    uniqueApplicants.set(email, {
+      Email:   a.email,
+      Program: a.program,
+      _ineligible: true
+    });
+  });
+  const uniqueList = Array.from(uniqueApplicants.values());
 
-  const programs = [...new Set(uniqueList.map(r =>
+  const programs =[...new Set(uniqueList.map(r =>
     (r.Program || "").toString().trim()
   ))].filter(Boolean).sort();
 
-programs.forEach(prog => {
-  const progApplicants = uniqueList.filter(r =>
-    (r.Program || "").toString().trim() === prog
-  );
-  const total      = progApplicants.length;
-  const ineligible = progApplicants.filter(r => r._ineligible === true).length;
-  const eligible   = total - ineligible;
-  sheet.getRange(currentRow, 1, 1, poolHeaders1.length)
-    .setValues([[prog, total, eligible, ineligible]]);
-  currentRow++;
-});
+  programs.forEach(prog => {
+    const progApplicants = uniqueList.filter(r =>
+      (r.Program || "").toString().trim() === prog
+    );
+    const total      = progApplicants.length;
+    const ineligible = progApplicants.filter(r => r._ineligible === true).length;
+    const eligible   = total - ineligible;
+    sheet.getRange(currentRow, 1, 1, poolHeaders1.length)
+      .setValues([[prog, total, eligible, ineligible]]);
+    currentRow++;
+  });
 
   // Totals row
   const totalApplicants = uniqueList.length;
@@ -1459,21 +1456,21 @@ programs.forEach(prog => {
     .setBackground("#d9d9d9");
   currentRow++;
 
-  const seniorityHeaders = ["Seniority", ...programs, "Total"];
+  const seniorityHeaders =["Seniority", ...programs, "Total"];
   sheet.getRange(currentRow, 1, 1, seniorityHeaders.length)
     .setValues([seniorityHeaders])
     .setFontWeight("bold")
     .setBackground("#f3f3f3");
   currentRow++;
 
-  const seniorityLevels = [
+  const seniorityLevels =[
     { label: "PhD Candidate",       match: "PhD Candidate" },
     { label: "Obtained UW MA",      match: "Obtained UW MA" },
     { label: "Pre-comprehensive",   match: "" }  // catch-all
   ];
 
   seniorityLevels.forEach(level => {
-    const rowVals = [level.label];
+    const rowVals =[level.label];
     let rowTotal  = 0;
     programs.forEach(prog => {
       const count = uniqueList.filter(r => {
@@ -1528,7 +1525,7 @@ programs.forEach(prog => {
     .setBackground("#f3f3f3");
   currentRow++;
 
-  const taBuckets = [
+  const taBuckets =[
     { label: "0",   match: r => Number(r.TA_Quarters_History) === 0 },
     { label: "1",   match: r => Number(r.TA_Quarters_History) === 1 },
     { label: "2",   match: r => Number(r.TA_Quarters_History) === 2 },
@@ -1555,9 +1552,9 @@ programs.forEach(prog => {
 
   currentRow++;
 
-  // ── SECTION 5: Course Fill Rate ──────────────────────────────────────────
+  // ── SECTION 4: Course Fill Rate ──────────────────────────────────────────
 
-  sheet.getRange(currentRow, 1).setValue("Section 5: Course Fill Rate")
+  sheet.getRange(currentRow, 1).setValue("Section 4: Course Fill Rate")
     .setFontWeight("bold")
     .setBackground("#d9d9d9");
   currentRow++;
@@ -1578,7 +1575,7 @@ programs.forEach(prog => {
         course:    r.Course,
         quarter:   r.Quarter,
         tasNeeded: Number(r.TAs_Needed) || 0,
-        rows:      []
+        rows:[]
       });
     }
     courseMap.get(key).rows.push(r);
@@ -1632,9 +1629,9 @@ programs.forEach(prog => {
     .setBackground("#f3f3f3");
   currentRow++;
 
-  // Legend for Section 5
+  // Legend for Section 4
   currentRow++;
-  sheet.getRange(currentRow, 1).setValue("Section 5 color key:").setFontWeight("bold");
+  sheet.getRange(currentRow, 1).setValue("Section 4 color key:").setFontWeight("bold");
   currentRow++;
   sheet.getRange(currentRow, 1).setBackground("#f4cccc").setValue("  ");
   sheet.getRange(currentRow, 2).setValue("Eligible applicants < slots needed — understaffed risk");
@@ -1643,7 +1640,233 @@ programs.forEach(prog => {
   sheet.getRange(currentRow, 2).setValue("Eligible applicants = slots needed — no waitlist buffer");
   currentRow++;
 
+// ── SECTION 5: Funding Allocation & Course Level Breakdown ───────────────
 
+  currentRow++;
+  sheet.getRange(currentRow, 1).setValue("Section 5: Funding Allocation Overview & Course Level Breakdown")
+    .setFontWeight("bold")
+    .setBackground("#d9d9d9");
+  currentRow++;
+
+  const fundingHeaders =["Course Level", "Guaranteed Funding", "Non-Guaranteed Funding", "Total Appointed"];
+  sheet.getRange(currentRow, 1, 1, fundingHeaders.length)
+    .setValues([fundingHeaders])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
+  const fundingStats = { "Overall Total": { guaranteed: 0, nonGuaranteed: 0, total: 0 } };
+  const appointedTAs = results.filter(r => (r.Appointment_Status || "") === "Appoint");
+  
+  appointedTAs.forEach(r => {
+    const match = (r.Course || "").match(/\s*(\d)\d{2}/);
+    const level = match ? match[1] + "00-level" : "Other";
+    const isGuaranteed = (r.Guaranteed_Funding || "").toString() === "Yes";
+
+    if (!fundingStats[level]) fundingStats[level] = { guaranteed: 0, nonGuaranteed: 0, total: 0 };
+
+    if (isGuaranteed) {
+      fundingStats[level].guaranteed++;
+      fundingStats["Overall Total"].guaranteed++;
+    } else {
+      fundingStats[level].nonGuaranteed++;
+      fundingStats["Overall Total"].nonGuaranteed++;
+    }
+    fundingStats[level].total++;
+    fundingStats["Overall Total"].total++;
+  });
+
+  const fundingRows =[];
+  // Output Overall Total first
+  fundingRows.push(["Overall Total", fundingStats["Overall Total"].guaranteed, fundingStats["Overall Total"].nonGuaranteed, fundingStats["Overall Total"].total]);
+  
+  // Output Course Levels
+  Object.keys(fundingStats).filter(k => k !== "Overall Total").sort().forEach(level => {
+    const stats = fundingStats[level];
+    fundingRows.push([level, stats.guaranteed, stats.nonGuaranteed, stats.total]);
+  });
+
+  if (fundingRows.length > 0) {
+    sheet.getRange(currentRow, 1, fundingRows.length, fundingHeaders.length).setValues(fundingRows);
+    // Bold the Overall Total row
+    sheet.getRange(currentRow, 1, 1, fundingHeaders.length).setFontWeight("bold");
+    currentRow += fundingRows.length;
+  } else {
+    sheet.getRange(currentRow, 1).setValue("No appointed TAs found.");
+    currentRow++;
+  }
+  
+  // ── SECTION 6: First-Time TAs (Mentorship Cross-Tab) ───────────────────────────
+
+  currentRow += 2;
+  sheet.getRange(currentRow, 1).setValue("Section 6: First-Time TAs (Mentorship Cross-Tab)")
+    .setFontWeight("bold")
+    .setBackground("#d9d9d9");
+  currentRow++;
+
+  const firstTimeTAs = appointedTAs.filter(r => Number(r.TA_Quarters_History) === 0);
+  
+  // Unique first-time TAs count (to display in header rather than total appointments)
+  const uniqueFtTAs = new Set(firstTimeTAs.map(r => r.Applicant_Name)).size;
+  sheet.getRange(currentRow, 1, 1, 4).setValue(`Unique First-Time Appointed TAs: ${uniqueFtTAs}`).setFontStyle("italic");
+  currentRow++;
+
+  if (firstTimeTAs.length > 0) {
+    // 1. Identify unique quarters to create dynamic columns
+    const ftQuarters =[...new Set(firstTimeTAs.map(r => r.Quarter))].filter(Boolean).sort((a, b) => {
+      const qOrder = { "AU": 1, "WI": 2, "SP": 3, "SU": 4 };
+      const [qA, yA] = a.split(/\s+/);
+      const [qB, yB] = b.split(/\s+/);
+      const yearDiff = (parseInt(yA, 10) || 0) - (parseInt(yB, 10) || 0);
+      if (yearDiff !== 0) return yearDiff;
+      return (qOrder[qA] || 99) - (qOrder[qB] || 99);
+    });
+
+    const ftHeaders = ["Student Name", ...ftQuarters];
+    sheet.getRange(currentRow, 1, 1, ftHeaders.length).setValues([ftHeaders]).setFontWeight("bold").setBackground("#f3f3f3");
+    currentRow++;
+
+    // 2. Group classes by Student -> Quarter
+    const ftStudents = {};
+    firstTimeTAs.forEach(r => {
+      const name = r.Applicant_Name;
+      if (!ftStudents[name]) {
+        ftStudents[name] = { email: r.Email, program: r.Program, classes: {} };
+      }
+      if (!ftStudents[name].classes[r.Quarter]) {
+        ftStudents[name].classes[r.Quarter] = [];
+      }
+      ftStudents[name].classes[r.Quarter].push(r.Course);
+    });
+
+    const ftRows = [];
+    const ftNotes =[]; // Used to apply comments/notes to cells
+
+    // 3. Flatten the dictionary into row arrays
+    Object.keys(ftStudents).sort().forEach(name => {
+      const student = ftStudents[name];
+      const rowVals = [name];
+      const rowNotes =[`Program: ${student.program}\nEmail: ${student.email}`];
+
+      ftQuarters.forEach(q => {
+        if (student.classes[q]) {
+          rowVals.push(student.classes[q].join(", "));
+        } else {
+          rowVals.push(""); // Leave cell blank if they aren't teaching this quarter
+        }
+        rowNotes.push(""); // Keep notes blank for the class cells
+      });
+
+      ftRows.push(rowVals);
+      ftNotes.push(rowNotes);
+    });
+
+    // 4. Write values and apply notes
+    const dataRange = sheet.getRange(currentRow, 1, ftRows.length, ftHeaders.length);
+    dataRange.setValues(ftRows);
+    dataRange.setNotes(ftNotes);
+    
+    currentRow += ftRows.length;
+  }
+  
+  // ── SECTION 7: Waitlist Depth Analysis ───────────────────────────────
+
+  currentRow += 2;
+  sheet.getRange(currentRow, 1).setValue("Section 7: Waitlist Depth Analysis")
+    .setFontWeight("bold")
+    .setBackground("#d9d9d9");
+  currentRow++;
+
+  const wlHeaders =["Course", "Quarter", "Total Waitlisted", "Prior TA History", "Satisfies", "Relevant To", "None/Unlisted"];
+  sheet.getRange(currentRow, 1, 1, wlHeaders.length).setValues([wlHeaders]).setFontWeight("bold").setBackground("#f3f3f3");
+  currentRow++;
+
+  const wlMap = {};
+  const waitlisted = results.filter(r => (r.Appointment_Status || "") === "Waitlist");
+  waitlisted.forEach(r => {
+    const key = `${r.Course}|${r.Quarter}`;
+    if (!wlMap[key]) wlMap[key] = { course: r.Course, quarter: r.Quarter, total: 0, prior: 0, satisfies: 0, relevant: 0, none: 0 };
+    wlMap[key].total++;
+    const cred = (r.Credential_Strength || "").toString();
+    if (cred === "Prior TA History") wlMap[key].prior++;
+    else if (cred === "Satisfies") wlMap[key].satisfies++;
+    else if (cred === "Relevant To") wlMap[key].relevant++;
+    else wlMap[key].none++;
+  });
+
+  const wlRows = Object.values(wlMap).sort((a, b) => {
+      // sort by quarter, then course
+      return a.quarter.localeCompare(b.quarter) || a.course.localeCompare(b.course);
+  }).map(w =>[w.course, w.quarter, w.total, w.prior, w.satisfies, w.relevant, w.none]);
+
+  if (wlRows.length > 0) {
+    sheet.getRange(currentRow, 1, wlRows.length, wlHeaders.length).setValues(wlRows);
+    currentRow += wlRows.length;
+  } else {
+    sheet.getRange(currentRow, 1).setValue("No applicants are currently waitlisted.");
+    currentRow++;
+  }
+
+  // ── SECTION 8: Credential Strength Distribution (Appointed) ──────────
+
+  currentRow += 2;
+  sheet.getRange(currentRow, 1).setValue("Section 8: Credential Strength Distribution (Appointed TAs)")
+    .setFontWeight("bold")
+    .setBackground("#d9d9d9");
+  currentRow++;
+
+  const credHeadersAppt =["Credential Strength", "Count", "% of Appointed"];
+  sheet.getRange(currentRow, 1, 1, credHeadersAppt.length).setValues([credHeadersAppt]).setFontWeight("bold").setBackground("#f3f3f3");
+  currentRow++;
+
+  const credStatsAppt = {};
+  appointedTAs.forEach(r => {
+    const cred = (r.Credential_Strength || "None/Unlisted").toString();
+    credStatsAppt[cred] = (credStatsAppt[cred] || 0) + 1;
+  });
+
+  const apptTotal = appointedTAs.length;
+  const credRowsAppt = Object.entries(credStatsAppt).sort((a, b) => b[1] - a[1]).map(([cred, count]) => {
+    const pct = apptTotal > 0 ? ((count / apptTotal) * 100).toFixed(1) + "%" : "0%";
+    return [cred, count, pct];
+  });
+
+  if (credRowsAppt.length > 0) {
+    sheet.getRange(currentRow, 1, credRowsAppt.length, credHeadersAppt.length).setValues(credRowsAppt);
+    currentRow += credRowsAppt.length;
+  }
+
+  // ── SECTION 9: Seniority Placement Summary (Appointed) ───────────────
+
+  currentRow += 2;
+  sheet.getRange(currentRow, 1).setValue("Section 9: Seniority Placement Summary (Appointed TAs)")
+    .setFontWeight("bold")
+    .setBackground("#d9d9d9");
+  currentRow++;
+
+  const senHeadersAppt =["Seniority Level", "Count", "% of Appointed"];
+  sheet.getRange(currentRow, 1, 1, senHeadersAppt.length).setValues([senHeadersAppt]).setFontWeight("bold").setBackground("#f3f3f3");
+  currentRow++;
+
+  const senStatsAppt = { "PhD Candidate": 0, "Obtained UW MA": 0, "Pre-comprehensive": 0 };
+  appointedTAs.forEach(r => {
+    const sen = (r.Seniority || "").toString();
+    if (sen.includes("PhD Candidate")) senStatsAppt["PhD Candidate"]++;
+    else if (sen.includes("Obtained UW MA")) senStatsAppt["Obtained UW MA"]++;
+    else senStatsAppt["Pre-comprehensive"]++;
+  });
+
+  const senRowsAppt = Object.entries(senStatsAppt).map(([level, count]) => {
+    const pct = apptTotal > 0 ? ((count / apptTotal) * 100).toFixed(1) + "%" : "0%";
+    return [level, count, pct];
+  });
+
+  if (senRowsAppt.length > 0) {
+    sheet.getRange(currentRow, 1, senRowsAppt.length, senHeadersAppt.length).setValues(senRowsAppt);
+    currentRow += senRowsAppt.length;
+  }
+
+  // Final layout adjustments
   const maxCols = Math.max(11, numOverviewCols, summaryHeaders.length, dispHeaders.length, d34Headers.length);
   sheet.autoResizeColumns(1, maxCols);
   sheet.setFrozenRows(2);
