@@ -34,7 +34,7 @@
  */
 
 // --- CONFIGURATION ---
-const CONFIG = {
+let CONFIG = {
   FORM_SHEET_NAME: "Form Responses 1",
   FORECAST_SPREADSHEET_ID: "1KTLT-PZzRjaZYCOdWGMEfAcZwEjby1mhXWoJMnUF8E0",
   FORECAST_SHEET_NAME: "TA needs",
@@ -61,9 +61,81 @@ const CONFIG = {
   }
 };
 
+
 // --- CUSTOM MENU ---
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('TA Allocation').addItem('1. Extract Evaluation Scores', 'processEvaluationsColumn').addItem('2. Run Ranking Workflow', 'mainWorkflow').addToUi();
+  SpreadsheetApp.getUi().createMenu('TA Allocation')
+    .addItem('1. Extract Evaluation Scores', 'processEvaluationsColumn')
+    .addItem('2. Run Ranking Workflow', 'mainWorkflow')
+    .addSeparator()
+    .addItem('⚙️ Initialize Settings Tab', 'createSettingsTab')
+    .addToUi();
+}
+
+
+function createSettingsTab() {
+  const db = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = db.getSheetByName("Settings");
+  if (!sheet) {
+    sheet = db.insertSheet("Settings", 0); // Insert at the front
+    const defaultSettings = [
+      ["Setting Key", "Value", "Description"],["FORM_SHEET_NAME", "Form Responses 1", "Tab name where form responses land"],["FORECAST_SPREADSHEET_ID", CONFIG.FORECAST_SPREADSHEET_ID, "ID of the Forecast spreadsheet"],["FORECAST_SHEET_NAME", "TA needs", "Tab name for forecast data"],["OUTPUT_SHEET_NAME", "Ranked_Applicants", "Tab name for final ranking output"],["QUARTER_FUNDING_MAP_AU", CONFIG.QUARTER_FUNDING_MAP["AU"], "Exact column header for Autumn funding"],
+      ["QUARTER_FUNDING_MAP_WI", CONFIG.QUARTER_FUNDING_MAP["WI"], "Exact column header for Winter funding"],["QUARTER_FUNDING_MAP_SP", CONFIG.QUARTER_FUNDING_MAP["SP"], "Exact column header for Spring funding"]
+    ];
+    sheet.getRange(1, 1, defaultSettings.length, 3).setValues(defaultSettings);
+    sheet.getRange(1, 1, 1, 3).setFontWeight("bold").setBackground("#d9ead3");
+    sheet.autoResizeColumns(1, 3);
+  }
+  SpreadsheetApp.getUi().alert("Settings tab generated! You can now safely update script variables there without touching the code.");
+}
+
+function loadSettings() {
+  const db = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = db.getSheetByName("Settings");
+  if (!sheet) return; // Fallback to hardcoded CONFIG if tab doesn't exist
+  
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    const key = (data[i][0] || "").toString().trim();
+    const value = data[i][1];
+    
+    if (key.startsWith("QUARTER_FUNDING_MAP_")) {
+      const q = key.split("_").pop();
+      CONFIG.QUARTER_FUNDING_MAP[q] = value;
+    } else if (CONFIG[key] !== undefined) {
+      CONFIG[key] = value;
+    }
+  }
+}
+
+function preFlightCheck() {
+  const db = SpreadsheetApp.getActiveSpreadsheet();
+  const formSheet = db.getSheetByName(CONFIG.FORM_SHEET_NAME);
+  if (!formSheet) return { valid: false, error: `Missing Form tab: "${CONFIG.FORM_SHEET_NAME}". Check your Settings tab.` };
+
+  let forecastDb;
+  try {
+    forecastDb = SpreadsheetApp.openById(CONFIG.FORECAST_SPREADSHEET_ID);
+  } catch(e) {
+    return { valid: false, error: `Cannot open Forecast spreadsheet. Ensure the ID in Settings is correct and you have access.` };
+  }
+  
+  const forecastSheet = forecastDb.getSheetByName(CONFIG.FORECAST_SHEET_NAME);
+  if (!forecastSheet) return { valid: false, error: `Missing Forecast tab: "${CONFIG.FORECAST_SHEET_NAME}" in the target spreadsheet.` };
+
+  // Check required Form columns
+  const formHeaders = formSheet.getRange(1, 1, 1, formSheet.getLastColumn()).getValues()[0].map(h => h.toString().trim());
+  const requiredForm =["Email Address", "Timestamp", CONFIG.QUARTER_FUNDING_MAP["AU"], "Which program are you in?"];
+  const missingForm = requiredForm.filter(h => !formHeaders.includes(h));
+  if (missingForm.length > 0) return { valid: false, error: `Missing critical columns in Form Responses: ${missingForm.join(" | ")}` };
+
+  // Check required Forecast columns
+  const fcHeaders = forecastSheet.getRange(1, 1, 1, forecastSheet.getLastColumn()).getValues()[0].map(h => h.toString().trim());
+  const requiredFc =["Quarter", "Year", "Prefix", "Course #", "# TAs"];
+  const missingFc = requiredFc.filter(h => !fcHeaders.includes(h));
+  if (missingFc.length > 0) return { valid: false, error: `Missing critical columns in Forecast sheet: ${missingFc.join(" | ")}` };
+
+  return { valid: true };
 }
 
 // ==========================================
@@ -76,7 +148,7 @@ function processEvaluationsColumn() {
   const sheet = db.getSheetByName(CONFIG.FORM_SHEET_NAME);
 
   if (!sheet) {
-    ui.alert("Error", "Could not find the Form Responses sheet. Check CONFIG.", ui.ButtonSet.OK);
+    ui.alert("Error", "Could not find the Form Responses sheet. Check Settings.", ui.ButtonSet.OK);
     return;
   }
 
@@ -134,9 +206,10 @@ function processEvaluationsColumn() {
     outputValues.push([outputText]);
   }
 
-  const targetColIndex = 27;
+const targetColIndex = 27;
   sheet.getRange(1, targetColIndex).setValue("Evaluation Summary (Auto)");
   sheet.getRange(2, targetColIndex, outputValues.length, 1).setValues(outputValues);
+  
   ui.alert("Success", "Evaluation extraction complete. Check Column AA.", ui.ButtonSet.OK);
 }
 
@@ -179,21 +252,29 @@ function extractDriveIdFromUrl(url) {
 
 function mainWorkflow() {
   const ui = SpreadsheetApp.getUi();
+  
+  loadSettings(); // Pull dynamic data from the Settings tab
+  
+  const validation = preFlightCheck(); // Validate all sheets/columns exist
+  if (!validation.valid) {
+    ui.alert("Error", validation.error, ui.ButtonSet.OK);
+    return;
+  }
+
   try {
     const db = SpreadsheetApp.getActiveSpreadsheet();
     const applicantsSheet = db.getSheetByName(CONFIG.FORM_SHEET_NAME);
-    if (!applicantsSheet) throw new Error("Could not find the Form Responses sheet.");
-
+    
     const forecastDb    = SpreadsheetApp.openById(CONFIG.FORECAST_SPREADSHEET_ID);
     const forecastSheet = forecastDb.getSheetByName(CONFIG.FORECAST_SHEET_NAME);
-    if (!forecastSheet) throw new Error("Could not find the 'TA needs' tab in the forecast workbook.");
+    if (!forecastSheet) throw new Error(`Could not find the '${CONFIG.FORECAST_SHEET_NAME}' tab in the forecast workbook.`);
 
     const rawApplicants = fetchSheetData(applicantsSheet);
     const rawForecast   = fetchSheetData(forecastSheet);
 
     const forecast = parseForecast(rawForecast);
     
-    // Identify unlisted courses dynamically by checking what courses actually appeared in the Form
+    // Identify unlisted courses dynamically
     const listedCoursesSet = extractAllListedCourses(rawApplicants);
     const unlistedCourses = forecast
       .filter(c => !listedCoursesSet.has(c.normalizedCode))
@@ -215,6 +296,7 @@ function mainWorkflow() {
     ui.alert('Error', error.message, ui.ButtonSet.OK);
   }
 }
+
 
 function fetchSheetData(sheet) {
   if (!sheet) throw new Error("A required sheet was not found. Please check sheet names.");
@@ -270,12 +352,14 @@ function readManualReviewFlags(sheet) {
   const cvData         = cvColIndex         !== -1 ? sheet.getRange(2, cvColIndex         + 1, numRows, 1).getValues() : null;
   const transcriptData = transcriptColIndex !== -1 ? sheet.getRange(2, transcriptColIndex + 1, numRows, 1).getValues() : null;
   const map = {};
-  for (let i = 0; i < emailData.length; i++) {
+for (let i = 0; i < emailData.length; i++) {
     const email = (emailData[i][0] || "").toString().trim().toLowerCase();
     if (!email) continue;
     map[email] = {
       cvSubmitted:         cvData         ? !!(cvData[i][0]         || "").toString().trim() : null,
-      transcriptSubmitted: transcriptData ? !!(transcriptData[i][0] || "").toString().trim() : null
+      cvUrl:               cvData         ? (cvData[i][0]           || "").toString().trim() : null,
+      transcriptSubmitted: transcriptData ? !!(transcriptData[i][0] || "").toString().trim() : null,
+      transcriptUrl:       transcriptData ? (transcriptData[i][0]   || "").toString().trim() : null
     };
   }
   return map;
@@ -462,7 +546,9 @@ function parseApplicants(rawApplicants, sheet, unlistedCourses) {
       isReady,
       acmScore,
       cvSubmitted:         reviewFlags.cvSubmitted,
-      transcriptSubmitted: reviewFlags.transcriptSubmitted
+      cvUrl:               reviewFlags.cvUrl,
+      transcriptSubmitted: reviewFlags.transcriptSubmitted,
+      transcriptUrl:       reviewFlags.transcriptUrl
     };
   });
 }
@@ -892,13 +978,19 @@ const quarterCourses = forecast.filter(c => c.quarter === quarter).map(c => {
 
       const credStrengthLabel = getCredentialStrengthLabel(applicant, course.normalizedCode);
 
-      const d3Flag = applicant.cvSubmitted === null
-        ? "CV column not found in form"
-        : applicant.cvSubmitted ? "CV submitted" : "⚠️ No CV submitted";
+let d3Flag = "CV column not found in form";
+      if (applicant.cvSubmitted !== null) {
+        d3Flag = applicant.cvSubmitted 
+          ? `=HYPERLINK("${applicant.cvUrl.split(',')[0].trim()}", "CV submitted")` 
+          : "⚠️ No CV submitted";
+      }
 
-      const d4Flag = applicant.transcriptSubmitted === null
-        ? "Transcript column not found in form"
-        : applicant.transcriptSubmitted ? "Transcript submitted" : "⚠️ No transcript submitted";
+      let d4Flag = "Transcript column not found in form";
+      if (applicant.transcriptSubmitted !== null) {
+        d4Flag = applicant.transcriptSubmitted 
+          ? `=HYPERLINK("${applicant.transcriptUrl.split(',')[0].trim()}", "Transcript submitted")` 
+          : "⚠️ No transcript submitted";
+      }
 
       const entry           = applicant.eligibilityMap[course.normalizedCode];
       const matchedCriteria = entry ? entry.reasons.join("\n\n") : "";
@@ -1036,6 +1128,7 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
     sheet = db.insertSheet(SUMMARY_SHEET_NAME);
   } else {
     sheet.clear();
+    sheet.clearNotes(); // Wipes out "ghost" comments from previous runs
   }
 
   let currentRow = 1;
@@ -1708,7 +1801,7 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
   
   // Unique first-time TAs count (to display in header rather than total appointments)
   const uniqueFtTAs = new Set(firstTimeTAs.map(r => r.Applicant_Name)).size;
-  sheet.getRange(currentRow, 1, 1, 4).setValue(`Unique First-Time Appointed TAs: ${uniqueFtTAs}`).setFontStyle("italic");
+  sheet.getRange(currentRow, 1).setValue(`Unique First-Time Appointed TAs: ${uniqueFtTAs}`).setFontStyle("italic");
   currentRow++;
 
   if (firstTimeTAs.length > 0) {
