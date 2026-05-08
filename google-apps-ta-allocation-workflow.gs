@@ -286,7 +286,6 @@ function mainWorkflow() {
 
     writeResultsToSheet(db, rankedResults);
     writeSummarySheet(db, rankedResults, warnings, displacements, applicants);
-    writeInstructorSheet(db, rankedResults);
 
     ui.alert(
       'Success',
@@ -571,6 +570,38 @@ function parseForecast(rawForecast) {
 // SORT FUNCTIONS
 // ==========================================
 
+function areApplicantsTied(a, b, courseCode, quarter) {
+  // 1. Department Status (General Provisions)
+  if (isInDepartment(a) !== isInDepartment(b)) return false;
+  // 2. Credential Strength (C.1)
+  if (getCredentialStrength(a, courseCode) !== getCredentialStrength(b, courseCode)) return false;
+  // 3. Guaranteed Funding (C.2)
+  if (a.guaranteedFunding[quarter] !== b.guaranteedFunding[quarter]) return false;
+  // 4. TA Quarters < 5 (C.3)
+  if (a.under5TAs !== b.under5TAs) return false;
+  // 5. Seniority (C.4 & C.5)
+  if (a.seniorityScore !== b.seniorityScore) return false;
+  // 6. Readiness / Teaching@UW (D.1)
+  if (a.isReady !== b.isReady) return false;
+  // 7. ACM Score / Evaluations (D.2)
+  if (a.acmScore !== b.acmScore) return false;
+  // 8. CV Submitted (D.3)
+  if (a.cvSubmitted !== b.cvSubmitted) return false;
+  // 9. Transcript Submitted (D.4)
+  if (a.transcriptSubmitted !== b.transcriptSubmitted) return false;
+  
+  // If ALL of the above match, the policy considers them 100% tied
+  return true; 
+}
+
+function isInDepartment(applicant) {
+  const prog = (applicant.program || "").toString().toLowerCase();
+  // Matches "Sociocultural PhD", "Archaeology PhD", "Biological Anthropology PhD", and MA variations
+  return prog.includes("anthropology") || 
+         prog.includes("archaeology") || 
+         prog.includes("sociocultural");
+}
+
 /**
  * RANKING - SECTION C: Automatic Ranking Criteria for Teaching Assistantships
  * Implements ASE Part I, Section C.2 → C.3 → C.4/C.5 hierarchy.
@@ -672,9 +703,18 @@ function sortPoolForCourse(pool, courseCode, quarter) {
   const cdSorted = applySectionDTiebreakers(cSorted, quarter);
 
   cdSorted.sort((a, b) => {
+    // 1. IN-DEPARTMENT CHECK: Absolute Priority (General Provisions C)
+    const aInDept = isInDepartment(a) ? 1 : 0;
+    const bInDept = isInDepartment(b) ? 1 : 0;
+    if (aInDept !== bInDept) return bInDept - aInDept;
+
+    // 2. CREDENTIAL STRENGTH (ASE Part I, Section C.1)
     const strengthA = getCredentialStrength(a, courseCode);
     const strengthB = getCredentialStrength(b, courseCode);
-    return strengthB - strengthA;
+    if (strengthA !== strengthB) return strengthB - strengthA;
+    
+    // 3. Preserve Section C and Section D sort order
+    return 0; 
   });
 
   return cdSorted;
@@ -690,6 +730,11 @@ function sortPoolForCourse(pool, courseCode, quarter) {
  * lower-level ties during Pass 1B displacement scoring.
  */
 function compareApplicantsForCourse(a, b, courseCode, quarter) {
+  // GENERAL PROVISIONS C: In-Department always outranks Out-of-Department
+  const aInDept = isInDepartment(a) ? 1 : 0;
+  const bInDept = isInDepartment(b) ? 1 : 0;
+  if (aInDept !== bInDept) return (bInDept - aInDept) * 2000;
+
   // ASE Part I, Section C.1: Course Credential Eligibility Match
   const strengthA = getCredentialStrength(a, courseCode);
   const strengthB = getCredentialStrength(b, courseCode);
@@ -945,12 +990,25 @@ const quarterCourses = forecast.filter(c => c.quarter === quarter).map(c => {
       return bMatch - aMatch;
     });
 
-    const openSorted = sortPoolForCourse(openPool, course.normalizedCode, quarter);
+const openSorted = sortPoolForCourse(openPool, course.normalizedCode, quarter);
 
-    const orderedPool = [...fundedSorted,...openSorted];
+    const orderedPool =[...fundedSorted,...openSorted];
+
+    let currentDenseRank = 1; // Tracks the visual rank (1, 2, 2, 3...)
 
     orderedPool.forEach((applicant, index) => {
-      const rank         = index + 1;
+      // If this isn't the first applicant, check if they are tied with the person above them
+      if (index > 0) {
+        const prevApplicant = orderedPool[index - 1];
+        if (!areApplicantsTied(applicant, prevApplicant, course.normalizedCode, quarter)) {
+          // They are NOT tied. Increment the rank number.
+          currentDenseRank++;
+        }
+      }
+      
+      const rank = currentDenseRank; // The visual Tie-Rank (e.g., 1, 2, 2, 3)
+      const actualPosition = index + 1; // The literal count in line (1, 2, 3, 4)
+
       const isFundedHere = assignedFunded[quarter][applicant.email] === course.normalizedCode;
       const isFieldMatch = isFundedHere && (applicant.program || "").includes(preferredProgram);
 
@@ -1014,7 +1072,7 @@ let d3Flag = "CV column not found in form";
         Email:                applicant.email,
         Program:              applicant.program,
         Guaranteed_Funding:   applicant.guaranteedFunding[quarter] ? "Yes" : "No",
-        Appointment_Status:   rank <= course.tasNeeded ? "Appoint" : "Waitlist",
+        Appointment_Status:   actualPosition <= course.tasNeeded ? "Appoint" : "Waitlist",
         Assignment_Type:      assignmentType,
         Credential_Strength:  credStrengthLabel,
         C_Rank_Group:         applicant._cRankGroup || "",
@@ -1169,13 +1227,13 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
     });
   });
 
-  const placementMap = new Map();
+const placementMap = new Map();
   results.forEach(r => {
     const at = (r.Assignment_Type || "").toString();
     if (!at.startsWith("Guaranteed")) return;
     const rank      = Number(r.Rank)       || 0;
     const tasNeeded = Number(r.TAs_Needed) || 1;
-    if (rank > tasNeeded) return;
+    if (r.Appointment_Status !== "Appoint") return; // Safely handles ties
     const emailLower = (r.Email   || "").toString().trim().toLowerCase();
     const qLabel     = (r.Quarter || "").toString().trim();
     if (!emailLower || !qLabel) return;
@@ -1979,60 +2037,87 @@ function writeSummarySheet(db, results, warnings, displacements, allApplicants) 
   // Final layout adjustments
   const maxCols = Math.max(11, numOverviewCols, summaryHeaders.length, dispHeaders.length, d34Headers.length);
   
+// ── SECTION 10: TA Requests by Prefix and Quarter ────────────────────
+  currentRow += 2;
+  sheet.getRange(currentRow, 1).setValue("Section 10: TA Requests by Prefix and Quarter")
+    .setFontWeight("bold")
+    .setBackground("#d9d9d9");
+  currentRow++;
+
+  // Collect all unique prefixes and quarters from the forecast
+  const prefixSet  = new Set();
+  const quarterSet10 = new Set();
+  results.forEach(r => {
+    const prefix = extractPrefix((r.Course || "").replace(/\s+/g, "").toUpperCase());
+    if (prefix) prefixSet.add(prefix);
+    if (r.Quarter) quarterSet10.add(r.Quarter.toString().trim());
+  });
+
+  const prefixes10   = [...prefixSet].sort();
+  const quarters10   = [...quarterSet10].sort((a, b) => {
+    const qOrd = { "AU": 1, "WI": 2, "SP": 3, "SU": 4 };
+    const [qA, yA] = a.split(/\s+/);
+    const [qB, yB] = b.split(/\s+/);
+    const yDiff = (parseInt(yA) || 0) - (parseInt(yB) || 0);
+    if (yDiff !== 0) return yDiff;
+    return (qOrd[qA] || 99) - (qOrd[qB] || 99);
+  });
+
+  const sec10Headers = ["Prefix", ...quarters10, "Total"];
+  sheet.getRange(currentRow, 1, 1, sec10Headers.length)
+    .setValues([sec10Headers])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
+  // Build a map: prefix -> quarter -> slots needed (de-duped by course)
+  const seenCourses10 = new Set();
+  const requestMap = {};
+  prefixes10.forEach(p => { requestMap[p] = {}; quarters10.forEach(q => { requestMap[p][q] = 0; }); });
+
+  results.forEach(r => {
+    const key = `${r.Course}|${r.Quarter}`;
+    if (seenCourses10.has(key)) return;
+    seenCourses10.add(key);
+    const prefix = extractPrefix((r.Course || "").replace(/\s+/g, "").toUpperCase());
+    const quarter = (r.Quarter || "").toString().trim();
+    if (prefix && requestMap[prefix] && quarter in requestMap[prefix]) {
+      requestMap[prefix][quarter] += Number(r.TAs_Needed) || 0;
+    }
+  });
+
+  const colTotals = {};
+  quarters10.forEach(q => { colTotals[q] = 0; });
+
+  prefixes10.forEach(prefix => {
+    const rowVals = [prefix];
+    let rowTotal  = 0;
+    quarters10.forEach(q => {
+      const val = requestMap[prefix][q];
+      rowVals.push(val);
+      rowTotal       += val;
+      colTotals[q]   += val;
+    });
+    rowVals.push(rowTotal);
+    sheet.getRange(currentRow, 1, 1, sec10Headers.length).setValues([rowVals]);
+    currentRow++;
+  });
+
+  // Totals row
+  const totalsRow10 = ["Total"];
+  let grandTotal10  = 0;
+  quarters10.forEach(q => {
+    totalsRow10.push(colTotals[q]);
+    grandTotal10 += colTotals[q];
+  });
+  totalsRow10.push(grandTotal10);
+  sheet.getRange(currentRow, 1, 1, sec10Headers.length)
+    .setValues([totalsRow10])
+    .setFontWeight("bold")
+    .setBackground("#f3f3f3");
+  currentRow++;
+
   sheet.autoResizeColumns(1, maxCols);
   sheet.setFrozenRows(2);
 }
 
-function writeInstructorSheet(db, results) {
-  const sheetName = "Instructor_View";
-  let sheet = db.getSheetByName(sheetName);
-  if (!sheet) {
-    sheet = db.insertSheet(sheetName);
-  } else {
-    sheet.clear();
-  }
-
-  // Filter only those actually appointed
-  const appointed = results.filter(r => r.Appointment_Status === "Appoint");
-  
-  if (appointed.length === 0) {
-    sheet.getRange("A1").setValue("No TAs have been appointed yet.");
-    return;
-  }
-
-  // Sort chronologically by Quarter, then by Course
-  const quarterOrder = { "AU": 1, "WI": 2, "SP": 3, "SU": 4 };
-  appointed.sort((a, b) => {
-    const [qA, yA] = (a.Quarter || "").split(/\s+/);
-    const [qB, yB] = (b.Quarter || "").split(/\s+/);
-    const yearDiff = (parseInt(yA) || 0) - (parseInt(yB) || 0);
-    if (yearDiff !== 0) return yearDiff;
-    const qDiff = (quarterOrder[qA] || 99) - (quarterOrder[qB] || 99);
-    if (qDiff !== 0) return qDiff;
-    return (a.Course || "").localeCompare(b.Course || "");
-  });
-
-  const headers =["Quarter", "Course", "Course Title", "TA Name", "Email", "Program", "Course Familiarity", "CV"];
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
-       .setFontWeight("bold").setBackground("#cfe2f3");
-
-  const data = appointed.map(r =>[
-    r.Quarter, r.Course, r.Title, r.Applicant_Name, r.Email, r.Program, 
-    r.Course_Familiarity, r.CV_Status_D3
-  ]);
-
-  sheet.getRange(2, 1, data.length, headers.length).setValues(data);
-  
-  // Format as a clean roster
-  sheet.autoResizeColumns(1, headers.length);
-  sheet.setFrozenRows(1);
-  
-  // Add a thin border to separate courses visually
-  let lastCourse = "";
-  for (let i = 0; i < data.length; i++) {
-    if (i > 0 && data[i][1] !== lastCourse) {
-      sheet.getRange(i + 2, 1, 1, headers.length).setBorder(true, null, null, null, null, null, "black", SpreadsheetApp.BorderStyle.SOLID);
-    }
-    lastCourse = data[i][1];
-  }
-}
