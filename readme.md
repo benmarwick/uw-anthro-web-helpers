@@ -23,7 +23,7 @@ This repository contains scripts to create browser bookmarklets to help visualiz
 -   Select all the code in the block under the heading 'Script for the bookmarklet', and paste it into the URL field of the new bookmark box.
 -   Click Save to finish making the bookmarklet. Look for the new bookmark in the list of bookmarks top menu bar for "Bookmarks" or on your bookmark bar. 
 
-## Time Schedule Dashboard Bookmarklet
+## Time Schedule Enrollment Dashboard Bookmarklet
 
 #### Overview
 
@@ -55,6 +55,31 @@ Current quarter view:
 Time series view: 
 
 ![Time-Schedule-Viz-Time-Series](Time-Schedule-Viz-Time-Series.png)
+
+## Time Schedule Instructor Workload Dashboard Bookmarklet
+
+#### Overview
+
+For a given academic year, this script collects data from the [UW Time Schedule](https://www.washington.edu/students/timeschd/) pages on ARCHY, ANTH, and BIO A classes and produces a simple dashboard that visualizes instructor workloads for all instructors. With minor modifications the script could make a similar dashboard for any UW course prefix. The dashboard calculates annual student credit hours (SCH) for every instructor and visualises the distribution with a histogram and a quantile-based bar plot of labour concentration (so we can see, for example, that 25% of instructors teach 54% of the total SCH). The script generates a Instructor Labor Distribution table with one row for each instructor, and columns to display the total number of courses, credits, SCH, an enrollment balance metric (so we can see if an instructor's SCH are concentrated in only one big course, or evenly disributed accross multiple courses), and a SCH target classification (relative to a target SCH value, this is adjustable with a slider). With minor modifications the script could make a similar dashboard for any UW course prefix. The script does not use or contain AI and does not use any data other than the Time Schedule pages for the three course prefixes. The script runs entirely in your browser. No data are collected from your computer or stored on your computer. No student-level data or other FERPA-protected data are collected or used by this script.
+
+#### Script for the bookmarklet:
+
+```
+javascript:(function(){
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-time-schedule-workload.js';
+  s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
+  s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
+  document.body.appendChild(s);
+})();
+```
+
+#### How to use:
+
+-   Use your UW credentials to log into the University of Washington Seattle Time Schedule for a given quarter-year, e.g. [https://www.washington.edu/students/timeschd/](https://www.washington.edu/students/timeschd/)
+-   Click the 'Time Schedule Workload' bookmark (or whatever you named it when you created it) in your browser and the dashboard will appear in a new tab, it should look similar to the screenshot below.
+-   Explore the dashboard by filtering the data using the checkboxes at the top, e.g. click or double-click on the plot legends to show/hide classes; sort the table at the bottom by each column.
+-   Close the Dashboard tab when finished. To share the dashboard, print it as a PDF or take a screenshot.
 
 ## MyGrad Table Audit Bookmarklet
 
