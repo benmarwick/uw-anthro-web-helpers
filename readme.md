@@ -81,7 +81,7 @@ javascript:(function(){
 -   Explore the dashboard by filtering the data using the checkboxes at the top, e.g. click or double-click on the plot legends to show/hide classes; sort the table at the bottom by each column.
 -   Close the Dashboard tab when finished. To share the dashboard, print it as a PDF or take a screenshot.
 
-  <img width="1637" height="1262" alt="image" src="https://github.com/user-attachments/assets/c4c91640-58b3-48e3-a030-257623efc0a4" />
+![Time-Schedule-Workload](Time-Schedule-Workload.png)
 
 
 ## MyGrad Table Audit Bookmarklet
