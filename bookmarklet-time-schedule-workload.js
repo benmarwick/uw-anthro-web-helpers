@@ -96,9 +96,9 @@ javascript:(function(){
                     <th title="The cleaned and standardized name of the instructor (LastName, FirstName).">Instructor</th>
                     <th title="Total assigned credits taught by this instructor across the targeted quarters.">Total Credits</th>
                     <th title="The total count of primary, single-letter lecture/seminar courses taught by this instructor across the targeted quarters.">Courses</th>
-                    <th title="Total Student Credit Hours (SCH) assigned to this instructor. Underneath each total, you will see a detailed chronological formula. If co-taught, the load is divided equally.">Split SCH & Formulas</th>
+                    <th title="Total Student Credit Hours (SCH) assigned to this instructor. Underneath each total, you will see a detailed chronological formula. If co-taught, the load is divided equally.">Total SCH & Breakdown</th>
                     <th title="Calculated using Pielou's Evenness Index. Shows if an instructor's SCH is generated evenly across all their sections (🟢), or artificially inflated by a single large lecture (🔴).">Enrollment Balance</th>
-                    <th title="Workload Classification dynamically scales based on the slider target (T). Brackets are calculated as: 🔴 Very High Load (>= 150% of T), 🟡 High Workload (>= 110% of T), 🟢 Balanced (40% to 110% of T), and ⚪ Under-utilized (< 40% of T). Formula: (Instructor Split SCH / Target SCH) * 100.">SCH Target Classification</th>
+                    <th title="Workload Classification dynamically scales based on the slider target (T). Brackets are calculated as: 🔴 Very High Load (>= 150% of T), 🟡 High Workload (>= 110% of T), 🟢 Balanced (40% to 110% of T), and ⚪ Under-utilized (< 40% of T). Formula: (Instructor SCH / Target SCH) * 100.">SCH Target Classification</th>
                 </tr></thead>
                 <tbody></tbody>
             </table>
@@ -315,7 +315,7 @@ javascript:(function(){
                 Plotly.react("chart-instructor-sch", histogramTraces, {
                     title: "Instructor SCH Workload Distribution Histogram (" + ayDisplay + ")",
                     barmode: "stack",
-                    xaxis: { title: "Annual Instructor Workload Bracket (Split SCH)" },
+                    xaxis: { title: "Annual Instructor Workload Bracket (SCH)" },
                     yaxis: { title: "Number of Instructors (by Discipline)" },
                     margin: { t: 50, l: 50, r: 20, b: 50 },
                     showlegend: true,
