@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Completed - TA Evaluation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --uw-purple: #4B2E83; --uw-gold: #B7A57A; --uw-dark: #1A1A2E; --uw-light: #F5F0E8; --uw-white: #FFFFFF; --uw-gray-500: #6C757D; --uw-success: #28A745; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--uw-light); color: var(--uw-dark); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .success-card { background: var(--uw-white); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); padding: 48px; max-width: 480px; width: 100%; text-align: center; }
+    .success-icon { width: 64px; height: 64px; background: #D4EDDA; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; color: var(--uw-success); }
+    h1 { font-size: 1.5rem; font-weight: 600; color: var(--uw-dark); margin-bottom: 12px; }
+    p { color: var(--uw-gray-500); margin-bottom: 24px; line-height: 1.6; }
+    .btn { display: inline-block; padding: 12px 28px; background: var(--uw-purple); color: var(--uw-white); text-decoration: none; border-radius: 6px; font-weight: 600; transition: background 0.2s; }
+    .btn:hover { background: #3d266b; }
+  </style>
+</head>
+<body>
+  <div class="success-card">
+    <div class="success-icon" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    </div>
+    <h1>Evaluation Complete</h1>
+    <p><?= message ?></p>
+    <a href="https://anthropology.washington.edu" class="btn">Return to Department Homepage</a>
+  </div>
+</body>
+</html>

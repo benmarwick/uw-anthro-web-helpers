@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TA Evaluation System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --uw-purple: #4B2E83;
+      --uw-gold: #B7A57A;
+      --uw-gold-light: #C8B273;
+      --uw-dark: #1A1A2E;
+      --uw-light: #F5F0E8;
+      --uw-white: #FFFFFF;
+      --uw-gray-100: #F8F9FA;
+      --uw-gray-200: #E9ECEF;
+      --uw-gray-300: #DEE2E6;
+      --uw-gray-500: #6C757D;
+      --uw-gray-700: #343A40;
+      --uw-success: #28A745;
+      --uw-danger: #DC3545;
+      --focus-ring: 0 0 0 3px rgba(75,46,131,0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--uw-light); color: var(--uw-dark); line-height: 1.6; min-height: 100vh; }
+    .container { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
+
+    /* Skip link for keyboard users */
+    .skip-link { position: absolute; top: -40px; left: 0; background: var(--uw-purple); color: var(--uw-white); padding: 8px 16px; z-index: 100; text-decoration: none; border-radius: 0 0 4px 0; }
+    .skip-link:focus { top: 0; }
+
+    .header { background: var(--uw-purple); color: var(--uw-white); padding: 24px; border-radius: 8px 8px 0 0; }
+    .header h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
+    .header p { opacity: 0.9; font-size: 0.95rem; }
+
+    /* Progress bar with proper ARIA */
+    .progress-bar { display: flex; margin-top: 16px; }
+    .progress-step { flex: 1; text-align: center; padding: 8px 0; position: relative; color: rgba(255,255,255,0.6); font-size: 0.8rem; font-weight: 500; }
+    .progress-step.active { color: var(--uw-white); font-weight: 600; }
+    .progress-step.completed { color: var(--uw-gold-light); }
+    .progress-step::after { content: ''; position: absolute; bottom: 0; left: 50%; width: 0; height: 3px; background: var(--uw-gold); transition: width 0.3s; }
+    .progress-step.active::after { width: 100%; left: 0; }
+    .progress-step.completed::after { width: 100%; left: 0; background: var(--uw-gold); }
+
+    .card { background: var(--uw-white); border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
+    .card-body { padding: 32px; }
+    .section { margin-bottom: 32px; }
+    .section:last-child { margin-bottom: 0; }
+    .section-title { font-size: 1.1rem; font-weight: 600; color: var(--uw-purple); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--uw-gold); display: inline-block; }
+    .readonly-notice { background: var(--uw-gray-100); border-left: 4px solid var(--uw-gold); padding: 12px 16px; margin-bottom: 20px; font-size: 0.9rem; color: var(--uw-gray-700); }
+
+    .form-group { margin-bottom: 20px; }
+    .char-counter { font-size: 0.8rem; color: var(--uw-gray-500); margin-top: 4px; text-align: right; }
+    label { display: block; font-weight: 500; margin-bottom: 6px; color: var(--uw-gray-700); }
+    .required::after { content: ' *'; color: var(--uw-danger); }
+    fieldset { border: 0; margin: 0; padding: 0; }
+    legend { padding: 0; margin-bottom: 6px; font-weight: 500; color: var(--uw-gray-700); }
+    input[type="text"], input[type="email"], input[type="number"], textarea, select {
+      width: 100%; padding: 12px 16px; border: 1px solid var(--uw-gray-200); border-radius: 6px; font-family: inherit; font-size: 1rem; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--uw-purple); box-shadow: var(--focus-ring); }
+    textarea { min-height: 120px; resize: vertical; }
+
+    /* Custom radio buttons - accessible */
+    .rating-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+    .rating-item { background: var(--uw-gray-100); padding: 16px; border-radius: 6px; }
+
+    .duty-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .duty-table th, .duty-table td { padding: 10px 12px; border: 1px solid var(--uw-gray-200); text-align: left; }
+    .duty-table th { background: var(--uw-purple); color: #fff; font-weight: 600; white-space: nowrap; }
+    .duty-table tbody tr:nth-child(even) { background: var(--uw-gray-100); }
+    .duty-table tbody tr:hover { background: #e8dff0; }
+    .duty-table td { text-align: center; }
+    .duty-radio { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px; cursor: pointer; }
+    .duty-table input[type="radio"] { width: 20px; height: 20px; cursor: pointer; margin: 0; }
+    .duty-table input[type="radio"]:focus-visible { outline: 3px solid var(--uw-purple); outline-offset: 2px; box-shadow: none; }
+    .rating-label { font-weight: 500; margin-bottom: 8px; }
+    .radio-group { display: flex; gap: 12px; flex-wrap: wrap; }
+    .radio-option { flex: 1; min-width: 40px; }
+    .radio-option input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    .radio-option label {
+      display: flex; align-items: center; justify-content: center; padding: 10px; background: var(--uw-white); border: 2px solid var(--uw-gray-200); border-radius: 6px; cursor: pointer; transition: all 0.2s; font-weight: 500;
+    }
+    .radio-option input:checked + label { background: var(--uw-purple); color: var(--uw-white); border-color: var(--uw-purple); }
+    .radio-option input:focus + label { box-shadow: var(--focus-ring); }
+    .radio-option input:disabled + label { opacity: 0.5; cursor: not-allowed; }
+
+    .signature-block { background: var(--uw-gray-100); padding: 20px; border-radius: 6px; margin-top: 16px; }
+    .signature-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 600px) { .signature-fields { grid-template-columns: 1fr; } }
+    .checkbox-group { display: flex; align-items: flex-start; gap: 12px; margin-top: 16px; }
+    .checkbox-group input { margin-top: 4px; width: 20px; height: 20px; accent-color: var(--uw-purple); }
+    .checkbox-group label { margin: 0; font-size: 0.95rem; }
+    .checkbox-group a { color: var(--uw-purple); text-decoration: underline; }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 28px; font-size: 1rem; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+    .btn-primary { background: var(--uw-purple); color: var(--uw-white); }
+    .btn-primary:hover { background: #3d266b; }
+    .btn-primary:focus { box-shadow: var(--focus-ring); }
+    .btn-primary:disabled { background: var(--uw-gray-500); cursor: not-allowed; }
+    .btn-secondary { background: var(--uw-gray-200); color: var(--uw-gray-700); }
+    .btn-secondary:hover { background: var(--uw-gray-300); }
+    .actions { display: flex; gap: 12px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--uw-gray-200); }
+    @media (max-width: 600px) { .actions { flex-direction: column; } .actions .btn { width: 100%; } }
+
+    .eval-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--uw-gray-200); flex-wrap: wrap; gap: 12px; }
+    .eval-meta { display: flex; flex-direction: column; gap: 4px; }
+    .eval-meta span { font-size: 0.9rem; color: var(--uw-gray-500); }
+    .eval-meta strong { color: var(--uw-dark); }
+    .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
+    .status-pending { background: #FFF3CD; color: #856404; }
+    .status-generating { background: #D1ECF1; color: #0C5460; }
+    .status-completed { background: #D4EDDA; color: #155724; }
+
+    .feedback-display { background: var(--uw-gray-100); padding: 20px; border-radius: 6px; white-space: pre-wrap; font-family: inherit; line-height: 1.7; }
+    .readonly-text { color: var(--uw-gray-700); }
+
+    .alert { padding: 16px; border-radius: 6px; margin-bottom: 20px; }
+    .alert-error { background: #F8D7DA; color: #721C24; border: 1px solid #F5C6CB; }
+    .alert-success { background: #D4EDDA; color: #155724; border: 1px solid #C3E6CB; }
+
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+    /* Draft saved indicator */
+    .draft-indicator { font-size: 0.8rem; color: var(--uw-gray-500); margin-top: 8px; display: none; }
+    .draft-indicator.visible { display: block; }
+    .draft-indicator.saved { color: var(--uw-success); }
+
+    /* Print styles */
+    @media print {
+      .skip-link, .progress-bar, .actions, .btn, .checkbox-group, .readonly-notice, .eval-header .status-badge, footer { display: none !important; }
+      .header { background: none !important; color: var(--uw-dark) !important; padding: 0; border-bottom: 2px solid var(--uw-purple); margin-bottom: 24px; }
+      .header h1 { color: var(--uw-purple); }
+      .card { box-shadow: none; border: 1px solid var(--uw-gray-300); }
+      .card-body { padding: 0; }
+      .section { page-break-inside: avoid; }
+      .rating-item { background: none; border: 1px solid var(--uw-gray-200); }
+      .radio-group { display: none; }
+      .rating-value { font-weight: 600; color: var(--uw-purple); font-size: 1.2rem; margin-top: 8px; }
+      .signature-block { background: none; border: 1px solid var(--uw-gray-200); }
+      .feedback-display { background: none; border: 1px solid var(--uw-gray-200); }
+      body { background: white; }
+      .container { max-width: 100%; padding: 0; }
+      .char-counter { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <div class="container">
+    <header class="header" role="banner">
+      <h1>TA Evaluation System</h1>
+      <p><?= row.courseCode ?> (<?= row.term ?>) — <?= row.taName ?></p>
+      <nav class="progress-bar" aria-label="Evaluation progress" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="<?= action === 'prof_eval' ? 1 : (action === 'ta_respond' ? 2 : 3) ?>" aria-valuetext="Step <?= action === 'prof_eval' ? '1 of 3: Professor Evaluation' : (action === 'ta_respond' ? '2 of 3: TA Response' : '3 of 3: Professor Sign-off') ?>">
+        <div class="progress-step <?= action === 'prof_eval' ? 'active' : (['ta_respond', 'prof_sign'].includes(action) ? 'completed' : '') ?>" data-step="1" aria-label="Step 1: Professor Evaluation <?= action === 'prof_eval' ? '(current)' : 'completed' ?>">
+          Professor Evaluation
+        </div>
+        <div class="progress-step <?= action === 'ta_respond' ? 'active' : (action === 'prof_sign' ? 'completed' : '') ?>" data-step="2" aria-label="Step 2: TA Response <?= action === 'ta_respond' ? '(current)' : (action === 'prof_sign' ? 'completed' : 'pending') ?>">
+          TA Response
+        </div>
+        <div class="progress-step <?= action === 'prof_sign' ? 'active' : '' ?>" data-step="3" aria-label="Step 3: Professor Sign-off <?= action === 'prof_sign' ? '(current)' : 'pending' ?>">
+          Professor Sign-off
+        </div>
+      </nav>
+    </header>
+
+    <? function decodeEntities(s) { return s.replace(/&apos;/g,"'").replace(/&#x2F;/g,'/').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"'); } ?>
+    <? function dutyKey(d) { return d.replace(/ /g,'_').toLowerCase(); } ?>
+    <? function dutyDisplayName(key) { return decodeEntities(key).replace(/^task_/,'').replace(/_/g,' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); }); } ?>
+    <? function renderDutyTable(taskStatus, label) { ?>
+      <? var rawKeys = Object.keys(taskStatus).filter(function(k) { return k.indexOf('task_') === 0; }).sort(); ?>
+      <? if (rawKeys.length === 0) { return; } ?>
+      <? var seen = {}; var keys = []; for (var ki = 0; ki < rawKeys.length; ki++) { var dk = decodeEntities(rawKeys[ki]); if (!seen[dk]) { seen[dk] = rawKeys[ki]; keys.push(rawKeys[ki]); } } ?>
+      <div style="overflow-x:auto;">
+        <table class="duty-table" aria-label="<?= label ?>">
+          <thead>
+            <tr><th scope="col" style="min-width:200px;">Duty</th><th scope="col" style="width:100px;text-align:center;">Satisfactory</th><th scope="col" style="width:110px;text-align:center;">Unsatisfactory</th><th scope="col" style="width:110px;text-align:center;">Not Applicable</th></tr>
+          </thead>
+          <tbody>
+            <? keys.forEach(function(k) { ?>
+            <? var val = taskStatus[k] || ''; ?>
+            <tr>
+              <td><?= dutyDisplayName(k) ?></td>
+              <td style="text-align:center;color:#2E7D32;font-weight:bold;"><?= val === 'satisfactory' ? '\u2713' : '' ?></td>
+              <td style="text-align:center;color:#C62828;font-weight:bold;"><?= val === 'unsatisfactory' ? '\u2717' : '' ?></td>
+              <td style="text-align:center;color:#757575;font-weight:bold;"><?= val === 'na' ? '\u2014' : '' ?></td>
+            </tr>
+            <? }); ?>
+          </tbody>
+        </table>
+      </div>
+    <? } ?>
+
+    <main class="card" role="main" id="main-content">
+      <div class="card-body">
+        <div class="eval-header">
+          <div class="eval-meta">
+            <span><strong>Evaluation ID:</strong> <?= row.evaluationId ?></span>
+            <span><strong>Professor:</strong> <?= row.profName ?> (<?= row.profEmail ?>)</span>
+            <span><strong>TA:</strong> <?= row.taName ?> (<?= row.taEmail ?>)</span>
+          </div>
+          <span class="status-badge status-<?= row.status.toLowerCase().includes('pending') ? 'pending' : (row.status === 'PDF_GENERATING' ? 'generating' : 'completed') ?>" aria-live="polite">
+            <?= row.status.replace(/_/g, ' ') ?>
+          </span>
+        </div>
+
+        <? if (action === 'prof_eval') { ?>
+          <?= renderProfEvalForm(row) ?>
+        <? } else if (action === 'ta_respond') { ?>
+          <?= renderTARespondForm(row) ?>
+        <? } else if (action === 'prof_sign') { ?>
+          <?= renderProfSignForm(row) ?>
+        <? } ?>
+      </div>
+    </main>
+
+    <footer style="text-align:center;padding:24px;color:var(--uw-gray-500);font-size:0.85rem;">
+      University of Washington Department of Anthropology · TA Evaluation System
+    </footer>
+  </div>
+
+  <script nonce="<?= nonce || '' ?>">
+    (function() {
+      var form = document.getElementById('evalForm');
+      if (!form) return;
+
+      var submitBtn = document.getElementById('submitBtn');
+      var action = form.dataset.action;
+      var token = form.dataset.token;
+      var draftIndicator = document.getElementById('draftIndicator');
+
+      function validateRequiredFields(form) {
+        var missing = [];
+        var seen = {};
+        form.querySelectorAll('[required]').forEach(function(el) {
+          var name = el.name || el.id || '';
+          if (el.type === 'radio') {
+            if (seen[name]) return;
+            seen[name] = true;
+            if (!form.querySelector('input[name="' + name + '"]:checked')) {
+              missing.push(prettyFieldName(name));
+            }
+          } else if (el.type === 'checkbox') {
+            if (!el.checked) missing.push(name === 'signatureAck' ? 'Signature acknowledgment' : prettyFieldName(name));
+          } else if (!el.value.trim()) {
+            missing.push(fieldLabel(el));
+          }
+        });
+        return missing;
+      }
+
+      function fieldLabel(el) {
+        if (el.name === 'signatureAck') return 'Signature acknowledgment';
+        var lbl = el.id ? form.querySelector('label[for="' + el.id + '"]') : null;
+        var name = lbl ? lbl.textContent.trim() : (el.name || '').replace(/[_-]/g, ' ');
+        name = name.replace(/\s+/g, ' ');
+        return name.length > 60 ? name.slice(0, 57) + '...' : name;
+      }
+
+      function prettyFieldName(name) {
+        return name.charAt(0).toUpperCase() + name.slice(1).replace(/[_-]/g, ' ');
+      }
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (submitBtn.disabled) return;
+
+        if (action === 'prof_eval') {
+          var allTasks = form.querySelectorAll('[name^="task_"]');
+          var taskNames = {};
+          allTasks.forEach(function(el) { taskNames[el.name] = true; });
+          var missing = [];
+          Object.keys(taskNames).forEach(function(name) {
+            if (!form.querySelector('[name="' + name + '"]:checked')) {
+              var label = name.replace('task_', '').replace(/_/g, ' ');
+              missing.push(label.charAt(0).toUpperCase() + label.slice(1));
+            }
+          });
+          if (missing.length > 0) {
+            showAlert('Please provide a rating for all ' + missing.length + ' unmarked duties: ' + missing.slice(0, 5).join(', ') + (missing.length > 5 ? '...' : ''), 'error');
+            return;
+          }
+        }
+
+        var missingRequired = validateRequiredFields(form);
+        if (missingRequired.length > 0) {
+          showAlert('Please complete the required fields: ' + missingRequired.join('; '), 'error');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        showAlert('Submitting...', 'success');
+
+        var payload = collectFormData(form);
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              if (action === 'prof_eval') {
+                localStorage.removeItem('eval_draft_' + token);
+              }
+              var nextAction = getNextAction(action, result);
+              var messages = {
+                prof_eval: 'Your evaluation has been submitted. The TA will receive an email with instructions to respond.',
+                ta_respond: 'Your response has been submitted. The professor will receive an email to review and sign off.',
+                prof_sign: 'The evaluation is finalized. A PDF has been generated and emailed to all parties.'
+              };
+              var headerText = 'Evaluation complete';
+              if (nextAction === 'completed') {
+                headerText = 'Evaluation complete';
+              } else {
+                headerText = 'Step submitted';
+              }
+              document.querySelector('.card-body').innerHTML =
+                '<div style="text-align:center;padding:48px 24px;">' +
+                '<div style="font-size:3rem;margin-bottom:16px;">&#10003;</div>' +
+                '<h2 style="color:var(--uw-purple);margin-bottom:12px;">Thank You</h2>' +
+                '<p style="font-size:1.1rem;color:var(--uw-gray-700);margin-bottom:8px;">' + (messages[action] || 'Your submission has been received successfully.') + '</p>' +
+                '<p style="color:var(--uw-gray-500);">You can close this window.</p>' +
+                '</div>';
+              document.querySelector('.progress-bar').style.display = 'none';
+              document.querySelector('.header p').textContent = headerText;
+            } else {
+              showAlert(result.error || 'Submission failed. Please try again.', 'error');
+              submitBtn.disabled = false;
+              submitBtn.textContent = getButtonText(action);
+            }
+          })
+          .withFailureHandler(function(err) {
+            showAlert('Server error: ' + (err.message || err || 'Unknown error'), 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = getButtonText(action);
+          })
+          .submitForm(token, action, payload);
+      });
+
+      function collectFormData(form) {
+        var data = {};
+        var ratings = {};
+        var responses = {};
+        var taskStatus = {};
+
+        form.querySelectorAll('[name^="rating_"]').forEach(function(el) {
+          if (el.checked) ratings[el.name.replace('rating_', '')] = el.value;
+        });
+        if (Object.keys(ratings).length) data.ratings = ratings;
+
+        form.querySelectorAll('[name^="task_"]').forEach(function(el) {
+          if (el.checked) taskStatus[el.name] = el.value;
+        });
+        if (Object.keys(taskStatus).length) data.taskStatus = taskStatus;
+
+        var evalBasis = form.querySelector('[name="evalBasis"]:checked');
+        if (evalBasis) data.evalBasis = evalBasis.value;
+
+        var visitationDate = form.querySelector('[name="visitationDate"]');
+        if (visitationDate && visitationDate.value) data.visitationDate = visitationDate.value;
+
+        var visitationDesc = form.querySelector('[name="visitationDescription"]');
+        if (visitationDesc && visitationDesc.value.trim()) data.visitationDescription = visitationDesc.value.trim();
+
+        var strengths = form.querySelector('[name="strengths"]');
+        if (strengths && strengths.value.trim()) data.strengths = strengths.value.trim();
+
+        var concerns = form.querySelector('[name="concerns"]');
+        if (concerns && concerns.value.trim()) data.concerns = concerns.value.trim();
+
+        var otherDuties = form.querySelector('[name="otherDuties"]');
+        if (otherDuties && otherDuties.value.trim()) data.otherDuties = otherDuties.value.trim();
+
+        var feedback = form.querySelector('[name="feedback"]');
+        if (feedback && feedback.value.trim()) data.feedback = feedback.value.trim();
+
+        form.querySelectorAll('[name^="response_"]').forEach(function(el) {
+          if (el.value.trim()) responses[el.name.replace('response_', '')] = el.value.trim();
+        });
+        if (Object.keys(responses).length) data.responses = responses;
+
+        var sigName = form.querySelector('[name="signatureName"]');
+        var sigCheck = form.querySelector('[name="signatureAck"]');
+        if (sigName && sigName.value.trim()) data.signatureName = sigName.value.trim();
+        if (sigCheck && sigCheck.checked) {
+          data.signatureTimestamp = new Date().toISOString();
+          if (action === 'ta_respond') { data.taSignatureName = data.signatureName; data.taSignatureTimestamp = data.signatureTimestamp; }
+          if (action === 'prof_sign') { data.profSignatureName = data.signatureName; data.profSignatureTimestamp = data.signatureTimestamp; }
+        }
+
+        return data;
+      }
+
+      function getNextAction(current, result) {
+        if (current === 'prof_sign' && result && result.newStatus === 'PROF_SIGN_PENDING') return 'prof_sign';
+        var map = { prof_eval: 'ta_respond', ta_respond: 'prof_sign', prof_sign: 'completed' };
+        return map[current] || 'completed';
+      }
+
+      function getButtonText(action) {
+        var map = { prof_eval: 'Submit Evaluation', ta_respond: 'Submit Response', prof_sign: 'Sign & Finalize' };
+        return map[action] || 'Submit';
+      }
+
+        function showAlert(message, type) {
+          var existing = document.querySelectorAll('.alert');
+          existing.forEach(function(el) { el.remove(); });
+          var div = document.createElement('div');
+          div.className = 'alert alert-' + type;
+          div.textContent = message;
+          div.setAttribute('role', 'alert');
+          div.setAttribute('aria-live', 'assertive');
+          div.tabIndex = -1;
+          form.prepend(div);
+
+          var actionsDiv = form.querySelector('.actions');
+          if (actionsDiv) {
+            var bottomDiv = document.createElement('div');
+            bottomDiv.className = 'alert alert-' + type;
+            bottomDiv.textContent = message;
+            bottomDiv.setAttribute('role', 'alert');
+            bottomDiv.setAttribute('aria-live', 'assertive');
+            bottomDiv.tabIndex = -1;
+            actionsDiv.parentNode.insertBefore(bottomDiv, actionsDiv);
+          }
+          div.focus();
+        }
+
+      if (action === 'prof_eval') {
+        var STORAGE_KEY = 'eval_draft_' + token;
+        var saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          try { populateForm(JSON.parse(saved)); updateDraftIndicator('restored'); } catch(e) {}
+        }
+        loadDraftFromServer();
+
+        var saveTimer;
+        form.addEventListener('input', function() {
+          clearTimeout(saveTimer);
+          saveTimer = setTimeout(function() {
+            var data = collectFormData(form);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            updateDraftIndicator('saved');
+            saveDraftToServer(data);
+          }, 1000);
+        });
+      }
+
+      function loadDraftFromServer() {
+        try {
+          google.script.run
+            .withSuccessHandler(function(result) {
+              if (result.success && result.payload && Object.keys(result.payload).length > 0) {
+                var local = localStorage.getItem(STORAGE_KEY);
+                if (!local || JSON.stringify(result.payload) !== local) {
+                  populateForm(result.payload);
+                  updateDraftIndicator('synced');
+                }
+              }
+            })
+            .withFailureHandler(function() {})
+            .loadDraftData(token);
+        } catch (e) {}
+      }
+
+      function updateDraftIndicator(status) {
+        if (!draftIndicator) return;
+        draftIndicator.className = 'draft-indicator visible ' + (status === 'saved' || status === 'synced' ? 'saved' : '');
+        if (status === 'saved') draftIndicator.textContent = 'Draft saved locally';
+        else if (status === 'synced') draftIndicator.textContent = 'Draft synced from server';
+        else draftIndicator.textContent = 'Draft restored';
+      }
+
+      function saveDraftToServer(data) {
+        try {
+          google.script.run
+            .withSuccessHandler(function() {})
+            .withFailureHandler(function() {})
+            .saveDraftData(token, data);
+        } catch (e) {}
+      }
+
+      function populateForm(data) {
+        if (data.ratings) {
+          Object.keys(data.ratings).forEach(function(key) {
+            var val = data.ratings[key];
+            var el = form.querySelector('[name="rating_' + key + '"][value="' + val + '"]');
+            if (el) el.checked = true;
+          });
+        }
+        if (data.feedback) {
+          var el = form.querySelector('[name="feedback"]');
+          if (el) el.value = data.feedback;
+        }
+        if (data.responses) {
+          Object.keys(data.responses).forEach(function(key) {
+            var val = data.responses[key];
+            var el = form.querySelector('[name="response_' + key + '"]');
+            if (el) el.value = val;
+          });
+        }
+        if (data.signatureName) {
+          var el = form.querySelector('[name="signatureName"]');
+          if (el) el.value = data.signatureName;
+        }
+        updateCharCounters();
+      }
+
+      function setupCharCounters() {
+        form.querySelectorAll('textarea, input[type="text"]').forEach(function(el) {
+          var max = el.getAttribute('maxlength');
+          if (!max) return;
+          if (el._counterEl) return;
+          var counter = document.createElement('div');
+          counter.className = 'char-counter';
+          counter.setAttribute('aria-live', 'polite');
+          el.insertAdjacentElement('afterend', counter);
+          el._counterEl = counter;
+          el.addEventListener('input', function() { updateCharCounters(); });
+        });
+        updateCharCounters();
+      }
+
+      function updateCharCounters() {
+        form.querySelectorAll('textarea, input[type="text"]').forEach(function(el) {
+          var max = el.getAttribute('maxlength');
+          if (!max) return;
+          var counter = el._counterEl;
+          if (counter) {
+            var len = el.value.length;
+            counter.textContent = len + '/' + max + ' characters (' + (max - len) + ' remaining)';
+          }
+        });
+      }
+
+      setupCharCounters();
+    })();
+  </script>
+
+  <? function renderProfEvalForm(row) { ?>
+  <form id="evalForm" data-action="prof_eval" data-token="<?= token ?>" novalidate>
+    <div class="section">
+      <details open>
+        <summary style="cursor:pointer;font-weight:600;color:var(--uw-purple);margin-bottom:12px;">Instructions</summary>
+        <div style="background:var(--uw-gray-100);padding:16px;border-radius:6px;font-size:0.9rem;line-height:1.7;color:var(--uw-gray-700);margin-bottom:20px;">
+          <p style="margin-bottom:10px;">The Graduate School requires that new Academic Student Employees (ASEs, including TAs, RAs and predoctoral instructors) be evaluated during their first two ASE assignments. Anthropology has generally gone further, expecting an evaluation every quarter for every ASE position. This form is to be completed by the instructor. <strong>The instructor must discuss and review their responses to this form together with the ASE who is the subject of the evaluation.</strong></p>
+          <p style="margin-bottom:10px;">Per <a href="https://grad.uw.edu/policies/5-1-departmental-responsibilities-regarding-instruction-by-tas/" target="_blank" rel="noopener">Graduate School Policy 5.1: Departmental Responsibilities Regarding Instruction by TAs</a>, criteria for teaching competence and procedures for observations are to be determined by each department and are to be communicated to the ASE prior to the observation, at the beginning of the quarter.</p>
+          <p style="margin-bottom:10px;">In the Anthropology Department, we have documented some expectations in <a href="https://docs.google.com/document/d/125QsnrvzL8rYAgptmEsJAETYDHPsbe9zmoZEFIfo7dw/edit?usp=sharing" target="_blank" rel="noopener">'Working Together for Student Success: A Guide for Faculty and TAs in the UW Anthropology Department'</a>. Departmental evaluations are generally distributed during the 7th week of each quarter. Contact <a href="mailto:agp-advisor@uw.edu">agp-advisor@uw.edu</a> if you wish to evaluate your appointee prior to that time.</p>
+          <p style="margin-bottom:10px;">Guidelines for these evaluations are governed by <a href="https://grad.uw.edu/policies/5-1-departmental-responsibilities-regarding-instruction-by-tas/" target="_blank" rel="noopener">Graduate School Policy 5.1</a> and <a href="https://policy.uw.edu/directory/po/executive-orders/eo-28-graduate-student-service-appointments/" target="_blank" rel="noopener">Executive Order 28: Graduate Student Service Appointments</a>. Please review these before completing your review.</p>
+          <p>Responses to this form will be included in the official personnel file of the academic student employee (cf. <a href="https://hr.uw.edu/labor/academic-and-student-unions/uaw-ase/ase-contract" target="_blank" rel="noopener">article 22 of the contract</a>) which ASEs have the right to examine and request corrections or respond.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Basis of Evaluation</h2>
+      <div class="form-group">
+        <fieldset>
+        <legend class="required">This ASE evaluation is based on</legend>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;min-height:44px;padding:4px;">
+            <input type="radio" name="evalBasis" value="class_visitation" required> Class visitation
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;min-height:44px;padding:4px;">
+            <input type="radio" name="evalBasis" value="other"> Other
+          </label>
+        </div>
+      </fieldset>
+      </div>
+      <div class="form-group">
+        <label for="visitationDate">Date of class visitation</label>
+        <input type="date" id="visitationDate" name="visitationDate">
+      </div>
+      <div class="form-group">
+        <label for="visitationDescription">Please describe how you observed the ASE for evaluation</label>
+        <textarea id="visitationDescription" name="visitationDescription" rows="3" maxlength="5000" placeholder="Describe your observation method..."></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Job Description Duties</h2>
+      <p style="margin-bottom:16px;color:var(--uw-gray-500);font-size:0.9rem;">Please evaluate the ASE's teaching duties with reference to the fields of the Job Description that you provided them before the quarter started. These evaluations will be sent to the student for review and response. A selection is required for every row.</p>
+      <div style="overflow-x:auto;">
+        <? var allDuties = ['Attend lectures','Conduct quiz section meetings','Facilitate discussions','Prepare lectures for quiz sections','Prepare review materials for quiz sections','Hold extra review sessions for exams','Obtain room for review sessions','Request or acquire necessary equipment','Hold regular office hours','Tutor students','Manage and respond to course-related e-mail','Prepare webpage for course materials','Maintain (update) webpage for course materials','Develop and maintain electronic bulletin boards, discussion sites, etc.','Prepare test questions','Proctor exams','Score exams','Maintain grading records','Maintain records on individual students\' assignment completion','Calculate quarter grades','Request student assessments for course','Coordinate with OEA for course evaluations','Prepare lecture materials','Present lectures','Prepare overheads','Prepare handout materials','Review literature','Place course materials on library reserve','Attend instructor/TA meetings','Act as liaison/mediator between student and professor']; ?>
+        <table class="duty-table" aria-label="Job duties evaluation">
+          <thead>
+            <tr><th scope="col" style="min-width:200px;">Duty</th><th scope="col" style="width:100px;text-align:center;">Satisfactory</th><th scope="col" style="width:110px;text-align:center;">Unsatisfactory</th><th scope="col" style="width:110px;text-align:center;">Not Applicable</th></tr>
+          </thead>
+          <tbody>
+            <? allDuties.forEach(function(d) { ?>
+            <tr>
+              <td><?= d ?></td>
+              <td style="text-align:center;"><label class="duty-radio"><input type="radio" name="task_<?= dutyKey(d) ?>" value="satisfactory" required aria-label="<?= d ?> - Satisfactory"></label></td>
+              <td style="text-align:center;"><label class="duty-radio"><input type="radio" name="task_<?= dutyKey(d) ?>" value="unsatisfactory" aria-label="<?= d ?> - Unsatisfactory"></label></td>
+              <td style="text-align:center;"><label class="duty-radio"><input type="radio" name="task_<?= dutyKey(d) ?>" value="na" aria-label="<?= d ?> - Not Applicable"></label></td>
+            </tr>
+            <? }); ?>
+          </tbody>
+        </table>
+      </div>
+      <div class="form-group" style="margin-top:16px;">
+        <label for="otherDuties">Other specific duties</label>
+        <textarea id="otherDuties" name="otherDuties" rows="3" maxlength="5000" placeholder="Describe any other specific duties not listed above..."></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Comments</h2>
+      <div class="form-group">
+        <label for="strengths" class="required">Please comment on strengths demonstrated by the ASE</label>
+        <textarea id="strengths" name="strengths" rows="4" maxlength="5000" required placeholder="Describe the ASE's strengths..."></textarea>
+      </div>
+      <div class="form-group">
+        <label for="concerns" class="required">Please comment on any concerns/challenges about the ASE's performance</label>
+        <textarea id="concerns" name="concerns" rows="4" maxlength="5000" required placeholder="Describe any concerns or challenges..."></textarea>
+      </div>
+      <div class="form-group">
+        <label for="feedback" class="required">Additional feedback for the TA</label>
+        <textarea id="feedback" name="feedback" maxlength="10000" placeholder="Provide specific, constructive feedback on strengths and areas for improvement..." required aria-describedby="feedback-hint"></textarea>
+        <div id="feedback-hint" style="font-size:0.85rem;color:var(--uw-gray-500);margin-top:4px;">Minimum 10 characters. Be specific and constructive.</div>
+      </div>
+    </div>
+
+    <div class="section signature-block">
+      <h2 class="section-title">Digital Signature & Acknowledgment</h2>
+      <p style="margin-bottom:16px;">By signing below, you confirm that this evaluation is complete and accurate.</p>
+      <div class="signature-fields">
+        <div class="form-group">
+          <label for="signatureName" class="required">Your Full Name (as signature)</label>
+          <input type="text" id="signatureName" name="signatureName" maxlength="200" placeholder="Enter your full name" required autocomplete="name" aria-describedby="sig-name-hint">
+          <div id="sig-name-hint" style="font-size:0.85rem;color:var(--uw-gray-500);margin-top:4px;">Must match your UW directory name</div>
+        </div>
+        <div class="form-group">
+          <label for="signatureDate">Date</label>
+          <input type="text" id="signatureDate" name="signatureDate" value="<?= Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM d, yyyy') ?>" readonly aria-readonly="true">
+        </div>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="signatureAck" name="signatureAck" required>
+        <label for="signatureAck">I acknowledge that this electronic signature has the same legal effect as a handwritten signature.</label>
+      </div>
+    </div>
+
+    <div id="draftIndicator" class="draft-indicator" aria-live="polite" aria-atomic="true"></div>
+
+    <div class="actions">
+      <button type="submit" id="submitBtn" class="btn btn-primary">Submit Evaluation</button>
+    </div>
+  </form>
+  <? } ?>
+
+  <? function renderTARespondForm(row) { ?>
+  <form id="evalForm" data-action="ta_respond" data-token="<?= token ?>" novalidate>
+    <div class="section">
+      <details open>
+        <summary style="cursor:pointer;font-weight:600;color:var(--uw-purple);margin-bottom:12px;">Instructions</summary>
+        <div style="background:var(--uw-gray-100);padding:16px;border-radius:6px;font-size:0.9rem;line-height:1.7;color:var(--uw-gray-700);margin-bottom:20px;">
+          <p style="margin-bottom:10px;">The Graduate School requires that new Academic Student Employees (ASEs, including TAs, RAs and predoctoral instructors) be evaluated during their first two ASE assignments. Anthropology has generally gone further, expecting an evaluation every quarter for every ASE position. This evaluation is based on the Teaching Assistant Job Description distributed to ASEs and their supervisors before the start of each quarter.</p>
+          <p style="margin-bottom:10px;">Per <a href="https://grad.uw.edu/policies/5-1-departmental-responsibilities-regarding-instruction-by-tas/" target="_blank" rel="noopener">Graduate School Policy 5.1: Departmental Responsibilities Regarding Instruction by TAs</a>, criteria for teaching competence and procedures for observations are to be determined by each department and are to be communicated to the ASE prior to the observation, at the beginning of the quarter.</p>
+          <p style="margin-bottom:10px;">In the Anthropology Department, we have documented some expectations in <a href="https://docs.google.com/document/d/125QsnrvzL8rYAgptmEsJAETYDHPsbe9zmoZEFIfo7dw/edit?usp=sharing" target="_blank" rel="noopener">'Working Together for Student Success: A Guide for Faculty and TAs in the UW Anthropology Department'</a>.</p>
+          <p style="margin-bottom:10px;">Please review your professor's evaluation carefully and provide thoughtful responses below. Your responses will be included in the official personnel file of the academic student employee (cf. <a href="https://hr.uw.edu/labor/academic-and-student-unions/uaw-ase/ase-contract" target="_blank" rel="noopener">article 22 of the contract</a>) which you have the right to examine and request corrections or respond.</p>
+          <p>Guidelines for these evaluations are governed by <a href="https://grad.uw.edu/policies/5-1-departmental-responsibilities-regarding-instruction-by-tas/" target="_blank" rel="noopener">Graduate School Policy 5.1</a> and <a href="https://policy.uw.edu/directory/po/executive-orders/eo-28-graduate-student-service-appointments/" target="_blank" rel="noopener">Executive Order 28: Graduate Student Service Appointments</a>.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Professor's Evaluation (Read-Only)</h2>
+      <div class="readonly-notice" role="status">The following evaluation was provided by the Professor. You cannot edit this section.</div>
+
+      <? if (row.dataPayload.taskStatus) { ?>
+      <?= renderDutyTable(row.dataPayload.taskStatus, "Professor's job duties evaluation") ?>
+      <? } ?>
+
+      <? if (row.dataPayload.strengths) { ?>
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Strengths</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.strengths ?></div>
+      <? } ?>
+
+      <? if (row.dataPayload.concerns) { ?>
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Concerns/Challenges</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.concerns ?></div>
+      <? } ?>
+
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Additional Feedback</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.feedback || '(No feedback provided)' ?></div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">TA Self-Evaluation</h2>
+      <p style="margin-bottom:16px;color:var(--uw-gray-500);">Your responses will be included in the official personnel file.</p>
+
+      <div class="form-group">
+        <label for="response_context" class="required">Context: What class? Your roles? Additional features of your context that are important for understanding your self-evaluation?</label>
+        <textarea id="response_context" name="response_context" rows="4" maxlength="5000" required placeholder="Describe your class, your role, and relevant context..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="response_self_eval" class="required">Self-evaluation: Looking at your contributions to your assigned class, what went well? What could have gone better? What supports were helpful in what went well?</label>
+        <textarea id="response_self_eval" name="response_self_eval" rows="4" maxlength="5000" required placeholder="Reflect on your contributions, successes, and challenges..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="response_looking_ahead" class="required">Looking ahead: What would you do differently? What kinds of support would have helped you?</label>
+        <textarea id="response_looking_ahead" name="response_looking_ahead" rows="4" maxlength="5000" required placeholder="Describe what you would change and what support would help..."></textarea>
+      </div>
+    </div>
+
+    <div class="section signature-block">
+      <h2 class="section-title">Digital Signature & Acknowledgment</h2>
+      <p style="margin-bottom:16px;">By signing below, you acknowledge that you have reviewed the Professor's evaluation and provided your responses above.</p>
+      <div class="signature-fields">
+        <div class="form-group">
+          <label for="signatureName" class="required">Your Full Name (as signature)</label>
+          <input type="text" id="signatureName" name="signatureName" maxlength="200" placeholder="Enter your full name" required autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="signatureDate">Date</label>
+          <input type="text" id="signatureDate" name="signatureDate" value="<?= Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM d, yyyy') ?>" readonly aria-readonly="true">
+        </div>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="signatureAck" name="signatureAck" required>
+        <label for="signatureAck">I acknowledge that this electronic signature has the same legal effect as a handwritten signature.</label>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" id="submitBtn" class="btn btn-primary">Submit Response</button>
+    </div>
+  </form>
+  <? } ?>
+
+  <? function renderProfSignForm(row) { ?>
+  <form id="evalForm" data-action="prof_sign" data-token="<?= token ?>" novalidate>
+    <div class="section">
+      <details open>
+        <summary style="cursor:pointer;font-weight:600;color:var(--uw-purple);margin-bottom:12px;">Instructions</summary>
+        <div style="background:var(--uw-gray-100);padding:16px;border-radius:6px;font-size:0.9rem;line-height:1.7;color:var(--uw-gray-700);margin-bottom:20px;">
+          <p style="margin-bottom:10px;">Please review your original evaluation and the TA's response below. By signing, you confirm that you have reviewed the TA's responses and the evaluation is finalized.</p>
+          <p style="margin-bottom:10px;">Responses to this form will be included in the official personnel file of the academic student employee (cf. <a href="https://hr.uw.edu/labor/academic-and-student-unions/uaw-ase/ase-contract" target="_blank" rel="noopener">article 22 of the contract</a>) which ASEs have the right to examine and request corrections or respond.</p>
+          <p>Guidelines for these evaluations are governed by <a href="https://grad.uw.edu/policies/5-1-departmental-responsibilities-regarding-instruction-by-tas/" target="_blank" rel="noopener">Graduate School Policy 5.1</a> and <a href="https://policy.uw.edu/directory/po/executive-orders/eo-28-graduate-student-service-appointments/" target="_blank" rel="noopener">Executive Order 28: Graduate Student Service Appointments</a>.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Professor's Original Evaluation (Read-Only)</h2>
+      <div class="readonly-notice" role="status">Your original evaluation is shown below for reference.</div>
+
+      <? if (row.dataPayload.taskStatus) { ?>
+      <?= renderDutyTable(row.dataPayload.taskStatus, "Professor's job duties evaluation") ?>
+      <? } ?>
+
+      <? if (row.dataPayload.strengths) { ?>
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Strengths</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.strengths ?></div>
+      <? } ?>
+
+      <? if (row.dataPayload.concerns) { ?>
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Concerns/Challenges</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.concerns ?></div>
+      <? } ?>
+
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Additional Feedback</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.feedback || '(No feedback provided)' ?></div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">TA's Self-Evaluation (Read-Only)</h2>
+      <div class="readonly-notice" role="status">The TA's self-evaluation responses are shown below.</div>
+
+      <? var resp = row.dataPayload.responses || {}; ?>
+      <h3 style="margin:20px 0 8px;color:var(--uw-purple);">Context</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= resp.context || '(Not provided)' ?></div>
+
+      <h3 style="margin:20px 0 8px;color:var(--uw-purple);">Self-evaluation</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= resp.self_eval || '(Not provided)' ?></div>
+
+      <h3 style="margin:20px 0 8px;color:var(--uw-purple);">Looking ahead</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= resp.looking_ahead || '(Not provided)' ?></div>
+    </div>
+
+    <div class="section signature-block">
+      <h2 class="section-title">Final Professor Sign-off</h2>
+      <p style="margin-bottom:16px;">By signing below, you confirm that you have reviewed the TA's responses and the evaluation is finalized.</p>
+      <div class="signature-fields">
+        <div class="form-group">
+          <label for="signatureName" class="required">Your Full Name (as signature)</label>
+          <input type="text" id="signatureName" name="signatureName" maxlength="200" placeholder="Enter your full name" required autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="signatureDate">Date</label>
+          <input type="text" id="signatureDate" name="signatureDate" value="<?= Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM d, yyyy') ?>" readonly aria-readonly="true">
+        </div>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="signatureAck" name="signatureAck" required>
+        <label for="signatureAck">I acknowledge that this electronic signature has the same legal effect as a handwritten signature.</label>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" id="submitBtn" class="btn btn-primary">Sign & Finalize</button>
+    </div>
+  </form>
+  <? } ?>
+</body>
+</html>
