@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Encode+Sans:wght@400;700;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+      /* --- Base Styles --- */
+      body { font-family: 'Open Sans', Arial, sans-serif; margin: 0; padding: 20px; color: #333; background-color: #fff; }
+      h1 { font-family: 'Encode Sans', sans-serif; color: #4b2e83; font-size: 28px; font-weight: 800; margin-bottom: 10px; line-height: 1.1; }
+      .subtitle { font-size: 14px; margin-bottom: 25px; line-height: 1.5; color: #555; }
+      
+      /* --- Layout Management --- */
+      #dashboard-container { display: flex; align-items: flex-start; gap: 15px; flex-direction: row; }
+      
+      /* Sidebar / Filters */
+      .sidebar { width: 150px; background-color: #e8e8e9; padding: 12px; flex-shrink: 0; border-radius: 4px; }
+      .filter-group { margin-bottom: 20px; }
+      .filter-group h3 { font-family: 'Encode Sans', sans-serif; color: #4b2e83; font-size: 13px; font-weight: 700; margin: 0 0 8px 0; border-bottom: 1px solid #ccc; padding-bottom: 2px; }
+      .filter-item { display: flex; align-items: center; font-size: 12px; margin-bottom: 6px; cursor: pointer; min-height: 20px; }
+      .filter-item input { margin-right: 8px; transform: scale(1.0); }
+      .filter-item a { color: #0055a4; text-decoration: none; }
+
+      /* Main Content & Table */
+      .main-content { flex-grow: 1; overflow-x: auto; width: 100%; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
+      th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: top; }
+      th { background-color: #4b2e83; color: #fff; font-weight: 700; position: sticky; top: 0; z-index: 10; }
+      tr:nth-child(even) { background-color: #f9f9f9; }
+      
+      .course-title { cursor: pointer; border-bottom: 1px dotted #888; display: inline-block; font-weight: 600; color: #4b2e83; }
+      .course-desc { display: none; margin-top: 10px; padding: 12px; background-color: #fff; border-left: 4px solid #4b2e83; font-size: 12px; color: #444; line-height: 1.5; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .w-badge { color: #d60000; font-weight: 800; border: 1.5px solid #d60000; padding: 0 3px; border-radius: 3px; font-size: 10px; display: inline-block; vertical-align: middle; }
+      
+      /* Option Tags - Clickable style */
+      .opt-tag { font-size: 11px; margin-right: 5px; display: inline-block; padding: 2px 4px; background: #eee; border-radius: 3px; margin-bottom: 4px; text-decoration: none; color: inherit; border: 1px solid transparent; }
+      .opt-tag:hover { background: #ddd; border-color: #4b2e83; }
+      .opt-tag b { color: #4b2e83; }
+      
+      #loading { font-style: italic; color: #666; font-size: 16px; padding: 20px; }
+      a { color: #0055a4; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .nowrap { white-space: nowrap; }
+
+      /* --- MOBILE RESPONSIVE STYLES --- */
+      @media (max-width: 768px) {
+        body { padding: 15px; }
+        h1 { font-size: 24px; }
+        #dashboard-container { flex-direction: column; } 
+        .sidebar { 
+          width: calc(100% - 24px); 
+          display: flex; 
+          flex-wrap: wrap; 
+          gap: 15px; 
+          margin-bottom: 20px;
+        }
+        .filter-group { flex: 1 1 120px; margin-bottom: 10px; }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Anthropology Curriculum Forecast</h1>
+    <p class="subtitle">Future listings are tentative and subject to change at any time. For official details, visit the <a href="http://www.washington.edu/students/timeschd" target="_blank">UW Time Schedule</a>.</p>
+    
+    <div id="loading">Syncing course data with faculty planning sheets...</div>
+    
+    <div id="dashboard-container" style="display:none;">
+      <aside class="sidebar" id="sidebar-filters"></aside>
+
+      <main class="main-content">
+        <table id="course-table">
+          <thead>
+            <tr>
+              <th class="nowrap">Quarter/Year</th>
+              <th class="nowrap">Course</th>
+              <th>Title (click for description)</th>
+              <th class="nowrap">Gen Ed</th>
+              <th>Options</th>
+              <th>Instructor</th>
+            </tr>
+          </thead>
+          <tbody id="course-body"></tbody>
+        </table>
+        <div id="no-results" style="display:none; padding:40px; text-align:center;">No courses match current filters.</div>
+      </main>
+    </div>
+
+    <script>
+      let allCourses = [];
+      const catalogLinks = {
+        "ANTH": "https://www.washington.edu/students/crscat/anthro.html",
+        "ARCHY": "https://www.washington.edu/students/crscat/archeo.html",
+        "BIO A": "https://www.washington.edu/students/crscat/bioanth.html"
+      };
+      const optionLinks = {
+        "MAGH": "https://anthropology.washington.edu/medical-anthropology-global-health-ba",
+        "GLOB": "https://anthropology.washington.edu/anthropology-globalization-ba",
+        "ASCI": "https://anthropology.washington.edu/archaeological-sciences-ba",
+        "HEB":  "https://anthropology.washington.edu/human-evolutionary-biology-ba",
+        "INDG": "https://anthropology.washington.edu/indigenous-archaeology-ba"
+      };
+
+      window.onload = () => google.script.run.withSuccessHandler(initDashboard).getCourseData();
+
+      function initDashboard(courses) {
+        allCourses = courses;
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboard-container').style.display = 'flex';
+        buildFilters();
+        renderTable(allCourses);
+      }
+
+      function buildFilters() {
+        const prefixes = [...new Set(allCourses.map(c => c.prefix))].sort();
+        const quarters = [...new Set(allCourses.map(c => c.quarter))];
+        const years = [...new Set(allCourses.map(c => c.year))].sort();
+        const instructors = [...new Set(allCourses.map(c => c.instructor))].filter(Boolean).sort();
+        
+        let html = '<div class="filter-group"><h3>Prefix</h3>';
+        prefixes.forEach(p => {
+          html += `<label class="filter-item"><input type="checkbox" value="${p}" class="filter-cb" data-category="prefix" onchange="applyFilters()"> <a href="${catalogLinks[p]}" target="_blank">${p}</a></label>`;
+        });
+        html += '</div>';
+
+        html += createCheckboxGroup('Quarter', quarters, 'quarter');
+        html += createCheckboxGroup('Year', years, 'year');
+        html += createCheckboxGroup('<a href="https://advising.uw.edu/degree-overview/general-education/" target="_blank">Gen Ed</a>', ["NSc", "SSc", "A&H", "DIV"], 'genEd');
+        html += createCheckboxGroup('Writing', ["W Credit"], 'wCredit');
+        
+        html += `<div class="filter-group"><h3>Options</h3>`;
+        Object.keys(optionLinks).forEach(opt => {
+          html += `<label class="filter-item"><input type="checkbox" value="${opt}" class="filter-cb" data-category="option" onchange="applyFilters()"> <a href="${optionLinks[opt]}" target="_blank">${opt}</a></label>`;
+        });
+        html += `</div>`;
+        
+        html += createCheckboxGroup('Instructor', instructors, 'instructor');
+        document.getElementById('sidebar-filters').innerHTML = html;
+      }
+
+      function createCheckboxGroup(title, items, category) {
+        let html = `<div class="filter-group"><h3>${title}</h3>`;
+        items.forEach(item => {
+          html += `<label class="filter-item"><input type="checkbox" value="${item}" class="filter-cb" data-category="${category}" onchange="applyFilters()"> ${item}</label>`;
+        });
+        return html + `</div>`;
+      }
+
+      function applyFilters() {
+        const checked = Array.from(document.querySelectorAll('.filter-cb:checked'));
+        const filters = { prefix: [], quarter: [], year: [], genEd: [], wCredit: [], option: [], instructor: [] };
+        checked.forEach(cb => filters[cb.dataset.category].push(cb.value));
+
+        const filtered = allCourses.filter(c => {
+          const mPre = !filters.prefix.length || filters.prefix.includes(c.prefix);
+          const mQtr = !filters.quarter.length || filters.quarter.includes(c.quarter);
+          const mYr = !filters.year.length || filters.year.includes(c.year);
+          const mGen = !filters.genEd.length || filters.genEd.some(g => c.genEd.includes(g));
+          const mInst = !filters.instructor.length || filters.instructor.includes(c.instructor);
+          const mOpt = !filters.option.length || filters.option.some(o => c.options.some(opt => opt.name === o));
+          const mW = !filters.wCredit.length || (c.wCredit === true);
+          return mPre && mQtr && mYr && mGen && mInst && mOpt && mW;
+        });
+        renderTable(filtered);
+      }
+
+      function toggleDescription(id) {
+        const el = document.getElementById('desc-' + id);
+        el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+      }
+
+      function renderTable(courses) {
+        const tbody = document.getElementById('course-body');
+        const noResults = document.getElementById('no-results');
+        if (!courses.length) { tbody.innerHTML = ""; noResults.style.display = "block"; return; }
+        noResults.style.display = "none";
+
+        tbody.innerHTML = courses.map((c, i) => {
+          const myPlan = `https://myplan.uw.edu/course/#/courses/${c.prefix.replace(/\s/g,'')}${c.courseNum}`;
+          const genEdDisplay = (c.genEd || "") + (c.wCredit ? (c.genEd ? ' ' : '') + '<span class="w-badge">W</span>' : '');
+          
+          // Generate clickable Option tags
+          const opts = c.options.map(o => {
+            const url = optionLinks[o.name] || "#";
+            return `<a href="${url}" target="_blank" class="opt-tag">${o.isBold ? '<b>' + o.label + '</b>' : o.label}</a>`;
+          }).join("");
+
+          return `<tr>
+            <td class="nowrap">${c.quarter} ${c.year}</td>
+            <td class="nowrap"><a href="${myPlan}" target="_blank"><b>${c.prefix} ${c.courseNum}</b></a></td>
+            <td>
+              <div class="course-title" onclick="toggleDescription(${i})">${c.title}</div>
+              <div id="desc-${i}" class="course-desc">${c.description}</div>
+            </td>
+            <td class="nowrap">${genEdDisplay}</td>
+            <td>${opts}</td>
+            <td>${c.instructor}</td>
+          </tr>`;
+        }).join("");
+      }
+    </script>
+  </body>
+</html>
