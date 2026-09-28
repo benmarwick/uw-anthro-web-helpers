@@ -168,7 +168,7 @@ javascript:(function(){
                         var line = lines[i].trim();
                         if(!line) continue;
                         
-                        var headerMatch = line.match(/^([A-Z]{3,5}(?:\s+[A-Z])?)\s+(\d{3}[A-Z]?)\s+(.*)/);
+                        var headerMatch = line.match(/^([A-Z]{3,5}(?:\s+[A-Z])?)\s+(\d{3}[A-Z]?)\s{2,}(.*)/);
                         if(headerMatch && !line.includes("SLN")){
                             var rawName = headerMatch[3].split(",")[0].trim().replace(/\s{2,}/g, " ");
                             var numStr = headerMatch[2];
