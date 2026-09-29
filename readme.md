@@ -73,7 +73,7 @@ For a given academic year, this script collects data from the [UW Time Schedule]
 ```
 javascript:(function(){
   var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-time-schedule-workload-generic.js';
+  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-time-schedule-workload-generic.js?t=' + Date.now();
   s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
   s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
   document.body.appendChild(s);
@@ -128,7 +128,7 @@ The script does not collect or use any information about the student outside of 
 ```
 javascript:(function(){
   var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-mygrad-table-audit.js';
+  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-mygrad-table-audit.js?t=' + Date.now();
   s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
   s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
   document.body.appendChild(s);
@@ -157,7 +157,7 @@ For a given graduate student, this script collects data from [MyGrad's](https://
 ```
 javascript:(function(){
   var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-mygrad-student-summary.js';
+  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-mygrad-student-summary.js?t=' + Date.now();
   s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
   s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
   document.body.appendChild(s);
@@ -189,7 +189,7 @@ For a undergraduate student in the Data Science Minor, this script collects data
 ```
 javascript:(function(){
   var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-ears-dsm-overlap.js';
+  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-ears-dsm-overlap.js?t=' + Date.now();
   s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
   s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
   document.body.appendChild(s);
