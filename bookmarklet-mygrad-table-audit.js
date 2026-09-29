@@ -77,7 +77,10 @@ const CACHE_KEY = 'uw-milestones-v2';   /* bump to invalidate */
 const CONCURRENCY = 4;
 const DISSERTATION_CREDITS = 27;        /* ANTH 800 requirement */
 
-const YES = '✓', NO = '–', FAILED = '?', PENDING = '…';
+/* A cross is the complement of the check, so "no" reads as a
+   definite answer rather than as absent information. "?" remains the
+   unknown state, and "…" the not-yet-fetched one. */
+const YES = '✓', NO = '✗', FAILED = '?', PENDING = '…';
 
 const CLS = { [YES]:'uwy', [NO]:'uwn', [FAILED]:'uwf', [PENDING]:'uwp' };
 const TIP = { [YES]:'yes', [NO]:'no', [FAILED]:'fetch failed', [PENDING]:'not fetched yet' };
@@ -310,17 +313,25 @@ async function requestsSignal(d){
        rows actually read:
          0 action ("View Info")   1 status   2 name
          3 exam date and time     4 degree   5 date submitted
-         6 petition               7 enroll status                        */
+         6 petition               7 enroll status
+
+       Only the row's own direct td children are read. A descendant
+       query also collects cells from any nested table, which shifts
+       every index and can pull a stray column label into the status
+       position, where it would be mistaken for a value. */
     let cand = NO, candDate = null, candTip;
     let finalPassed = NO, finalDate = null;
     const candRows = [];
     if(r.doc){
         Array.prototype.slice.call(r.doc.querySelectorAll('table')).forEach(t => {
-            const head = Array.prototype.slice.call(t.querySelectorAll('th'))
+            const head = Array.prototype.slice.call(t.children)
+                .flatMap(sec => Array.prototype.slice.call(sec.querySelectorAll('th')))
                 .map(x => norm(x.textContent)).join('|');
             if(head.indexOf('Exam Date') === -1) return;
             Array.prototype.slice.call(t.querySelectorAll('tr')).forEach(tr => {
-                const cells = Array.prototype.slice.call(tr.querySelectorAll('td')).map(td => norm(td.textContent));
+                const cells = Array.prototype.slice.call(tr.children)
+                    .filter(c => c.tagName === 'TD')
+                    .map(td => norm(td.textContent));
                 if(cells.length < 4) return;
                 if(RE_CANDIDACY.test(cells[1])) candRows.push(cells);
                 if(isFinalPassed(cells[1])) { finalPassed = YES; finalDate = cells[3]; }
@@ -370,7 +381,9 @@ async function transcriptSignal(d){
             .map(x => norm(x.textContent)).join('|');
         if(head.indexOf('Course Title') === -1) return;
         Array.prototype.slice.call(t.querySelectorAll('tbody tr')).forEach(tr => {
-            const c = Array.prototype.slice.call(tr.querySelectorAll('td')).map(td => norm(td.textContent));
+            const c = Array.prototype.slice.call(tr.children)
+                .filter(x => x.tagName === 'TD')
+                .map(td => norm(td.textContent));
             if(c.length >= 4 && RE_ANTH800_CRS.test(c[0])) rows.push(c);
         });
     });
@@ -521,12 +534,20 @@ async function fetchAll(g, force){
    COLUMN DEFINITIONS
    ============================================================ */
 
+/* Links take the whole data item, not just the id, because a
+   column can be sourced from different pages for different degree
+   levels. Graduated is read from the master's requests page for a
+   master's student and from the doctoral exam requests page for
+   everyone else, so its link has to follow the same split. Pointing
+   every row at one page would send a PhD student to the master's
+   page, which does not carry the value shown. */
 const COLS = [
-    {key:'ma',   label:'Anthropology MA',  width:104, link:mastersUrl},
-    {key:'comm', label:'Committee',        width:96,  link:committeeUrl},
-    {key:'cand', label:'Candidacy Granted',width:112, link:requestsUrl},
-    {key:'cred', label:'ANTH 800 Credits', width:112, link:transcriptUrl},
-    {key:'grad', label:'Graduated',        width:96,  link:mastersUrl}
+    {key:'ma',   label:'Anthropology MA',  width:104, link:d => mastersUrl(d.SystemKey)},
+    {key:'comm', label:'Committee',        width:96,  link:d => committeeUrl(d.SystemKey)},
+    {key:'cand', label:'Candidacy Granted',width:112, link:d => requestsUrl(d.SystemKey)},
+    {key:'cred', label:'ANTH 800 Credits', width:112, link:d => transcriptUrl(d.SystemKey)},
+    {key:'grad', label:'Graduated',        width:96,
+     link:d => fromModel(d).isMasters ? mastersUrl(d.SystemKey) : requestsUrl(d.SystemKey)}
 ];
 
 /* ============================================================
@@ -580,13 +601,13 @@ function glyphCell(d, m, model, k){
         v = m ? m.grad : PENDING;
         tip = m && (m.gradTip || m.error) || 'Not fetched yet';
     }
-    const link = COLS.find(c => c.key === k).link(d.SystemKey);
+    const link = COLS.find(c => c.key === k).link(d);
     return '<a class="uw-flag ' + (CLS[v] || 'uwp') + '" href="' + esc(link) +
            '" target="_blank" rel="noopener" title="' + esc(tip) + '">' + v + '</a>';
 }
 
 function creditsCell(d, m){
-    const link = COLS[3].link(d.SystemKey);
+    const link = COLS[3].link(d);
     if(!m || m.credits == null){
         const g = m && m.error ? FAILED : PENDING;
         return '<a class="uw-flag ' + (CLS[g] || 'uwp') + '" href="' + esc(link) +
