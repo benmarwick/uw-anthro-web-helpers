@@ -36,7 +36,7 @@ For a given quarter, this script collects data from the [UW Time Schedule](https
 ```
 javascript:(function(){
   var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-time-schedule-viz-generic.js';
+  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-time-schedule-viz-generic.js?t=' + Date.now();
   s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
   s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
   document.body.appendChild(s);
