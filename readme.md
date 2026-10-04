@@ -48,6 +48,7 @@ javascript:(function(){
 -   Use your UW credentials to log into the University of Washington Seattle Time Schedule for a given quarter-year, e.g. [https://www.washington.edu/students/timeschd/SPR2026/](https://www.washington.edu/students/timeschd/SPR2026/)
 -   Click the 'Time Schedule Viz' bookmark (or whatever you named it when you created it) in your browser and the dashboard will appear in a new tab, it should look similar to the screenshot below.
 -   Type the prefixes you want to see (e.g. `ANTH, ARCHY, BIO A`) into the box at the top of the dashboard; each prefix loads its data and is shown as a colored chip that you can remove.
+-   If you click the bookmark while on a department's page (e.g. [https://www.washington.edu/students/timeschd/SPR2026/anthro.html](https://www.washington.edu/students/timeschd/SPR2026/anthro.html)), that department's prefix (here `ANTH`) is already loaded when the dashboard opens; add more prefixes as usual.
 -   Use the Instructors checkboxes below the prefix chips to show or hide the sections taught by particular instructors; the stats, charts, and table update to match.
 -   Explore the dashboard by filtering the data using the checkboxes at the top, e.g. click or double-click on the plot legends to show/hide classes; sort the table at the bottom by %Full.
 -   Use the checkboxes in the first column of the table to leave individual sections out of the stats and charts; unchecked sections stay in the table, grayed out. The checkbox in the header includes or excludes all listed sections, respecting the Text Search box, and the "Count only" buttons above the table check just one course level (e.g. only 100-level sections) or all levels.
@@ -85,6 +86,7 @@ javascript:(function(){
 -   Use your UW credentials to log into the University of Washington Seattle Time Schedule for a given quarter-year, e.g. [https://www.washington.edu/students/timeschd/](https://www.washington.edu/students/timeschd/)
 -   Click the 'Time Schedule Workload' bookmark (or whatever you named it when you created it) in your browser and the dashboard will appear in a new tab, it should look similar to the screenshot below.
 -   Type the prefixes you want to see (e.g. `ANTH, ARCHY, BIO A`) into the box at the top of the dashboard; each prefix loads its Autumn/Winter/Spring data and is shown as a colored chip that you can remove.
+-   If you click the bookmark while on a department's page (e.g. [https://www.washington.edu/students/timeschd/SPR2026/anthro.html](https://www.washington.edu/students/timeschd/SPR2026/anthro.html)), that department's prefix (here `ANTH`) is already loaded when the dashboard opens; add more prefixes as usual.
 -   Explore the dashboard by filtering the data using the checkboxes at the top, e.g. click or double-click on the plot legends to show/hide classes; sort the table at the bottom by each column.
 -   Close the Dashboard tab when finished. To share the dashboard, print it as a PDF or take a screenshot.
 
