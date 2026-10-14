@@ -186,7 +186,7 @@ javascript:(function(){
                         
                         if(!currentCourse) continue;
                         
-                        var slnMatch = line.match(/^(?:[A-Za-z]+\s*)*>?\s*(\d{4,5})\s+([A-Z0-9]{1,3})\s+([0-9\-VAR]+)\b/);
+                        var slnMatch = line.match(/^(?:[A-Za-z]+(?![A-Za-z])\s*)*>?\s*(\d{4,5})\s+([A-Z0-9]{1,3})\s+([0-9\-VAR]+)\b/);
                         if(slnMatch){
                             if(line.includes("QZ")) continue;
                             var sln = slnMatch[1];
