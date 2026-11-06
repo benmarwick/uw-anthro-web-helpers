@@ -24,6 +24,7 @@ This repository contains scripts, e.g. to create browser bookmarklets or web app
 -   For the name field, use 'Time Schedule Viz' or similar for the first bookmarklet (quotes not required)
 -   Select all the code in the block under the heading 'Script for the bookmarklet', and paste it into the URL field of the new bookmark box.
 -   Click Save to finish making the bookmarklet. Look for the new bookmark in the list of bookmarks top menu bar for "Bookmarks" or on your bookmark bar. 
+-   Each bookmarklet loads the latest version of its script every time you click it, so you only need to install it once. 
 
 ## Time Schedule Enrollment Dashboard Bookmarklet
 
@@ -35,11 +36,18 @@ For a given quarter, this script collects data from the [UW Time Schedule](https
 
 ```
 javascript:(function(){
-  var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-time-schedule-viz-generic.js?t=' + Date.now();
-  s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
-  s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
-  document.body.appendChild(s);
+  var repo = 'benmarwick/uw-anthro-web-helpers';
+  var file = 'bookmarklet-time-schedule-viz-generic.js';
+  var hint = 'Open a UW Time Schedule quarter page, then click the bookmark again.';
+  function load(ref) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/gh/' + repo + '@' + ref + '/' + file + (ref === 'main' ? '?t=' + Date.now() : '');
+    s.onerror = function() { alert('The tool could not load. Check your internet connection. ' + hint); };
+    document.body.appendChild(s);
+  }
+  fetch('https://api.github.com/repos/' + repo + '/commits/main', { headers: { Accept: 'application/vnd.github.sha' } })
+    .then(function(r) { return r.ok ? r.text() : ''; })
+    .then(function(sha) { load(/^[0-9a-f]{40}$/.test(sha) ? sha : 'main'); }, function() { load('main'); });
 })();
 ```
 
@@ -76,11 +84,18 @@ For a given academic year, this script collects data from the [UW Time Schedule]
 
 ```
 javascript:(function(){
-  var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-time-schedule-workload-generic.js?t=' + Date.now();
-  s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
-  s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
-  document.body.appendChild(s);
+  var repo = 'benmarwick/uw-anthro-web-helpers';
+  var file = 'bookmarklet-time-schedule-workload-generic.js';
+  var hint = 'Open a UW Time Schedule quarter page, then click the bookmark again.';
+  function load(ref) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/gh/' + repo + '@' + ref + '/' + file + (ref === 'main' ? '?t=' + Date.now() : '');
+    s.onerror = function() { alert('The tool could not load. Check your internet connection. ' + hint); };
+    document.body.appendChild(s);
+  }
+  fetch('https://api.github.com/repos/' + repo + '/commits/main', { headers: { Accept: 'application/vnd.github.sha' } })
+    .then(function(r) { return r.ok ? r.text() : ''; })
+    .then(function(sha) { load(/^[0-9a-f]{40}$/.test(sha) ? sha : 'main'); }, function() { load('main'); });
 })();
 ```
 
@@ -133,11 +148,18 @@ The script does not collect or use any information about the student outside of 
 
 ```
 javascript:(function(){
-  var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-mygrad-table-audit.js?t=' + Date.now();
-  s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
-  s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
-  document.body.appendChild(s);
+  var repo = 'benmarwick/uw-anthro-web-helpers';
+  var file = 'bookmarklet-mygrad-table-audit.js';
+  var hint = 'Open the Current Student List in MyGrad, then click the bookmark again.';
+  function load(ref) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/gh/' + repo + '@' + ref + '/' + file + (ref === 'main' ? '?t=' + Date.now() : '');
+    s.onerror = function() { alert('The tool could not load. Check your internet connection. ' + hint); };
+    document.body.appendChild(s);
+  }
+  fetch('https://api.github.com/repos/' + repo + '/commits/main', { headers: { Accept: 'application/vnd.github.sha' } })
+    .then(function(r) { return r.ok ? r.text() : ''; })
+    .then(function(sha) { load(/^[0-9a-f]{40}$/.test(sha) ? sha : 'main'); }, function() { load('main'); });
 })();
 ```
 
@@ -162,11 +184,18 @@ For a given graduate student, this script collects data from [MyGrad's](https://
 
 ```
 javascript:(function(){
-  var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-mygrad-student-summary.js?t=' + Date.now();
-  s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
-  s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
-  document.body.appendChild(s);
+  var repo = 'benmarwick/uw-anthro-web-helpers';
+  var file = 'bookmarklet-mygrad-student-summary.js';
+  var hint = 'Open the Student Detail page for a student in MyGrad, then click the bookmark again.';
+  function load(ref) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/gh/' + repo + '@' + ref + '/' + file + (ref === 'main' ? '?t=' + Date.now() : '');
+    s.onerror = function() { alert('The tool could not load. Check your internet connection. ' + hint); };
+    document.body.appendChild(s);
+  }
+  fetch('https://api.github.com/repos/' + repo + '/commits/main', { headers: { Accept: 'application/vnd.github.sha' } })
+    .then(function(r) { return r.ok ? r.text() : ''; })
+    .then(function(sha) { load(/^[0-9a-f]{40}$/.test(sha) ? sha : 'main'); }, function() { load('main'); });
 })();
 ```
 
@@ -194,11 +223,18 @@ For a undergraduate student in the Data Science Minor, this script collects data
 
 ```
 javascript:(function(){
-  var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/gh/benmarwick/uw-anthro-web-helpers@main/bookmarklet-ears-dsm-overlap.js?t=' + Date.now();
-  s.onload = function() { console.log('[Bookmarklet] Script loaded'); };
-  s.onerror = function() { console.error('[Bookmarklet] Failed to load script'); };
-  document.body.appendChild(s);
+  var repo = 'benmarwick/uw-anthro-web-helpers';
+  var file = 'bookmarklet-ears-dsm-overlap.js';
+  var hint = 'Open the Degree Audit tab for the student in EARS, then click the bookmark again.';
+  function load(ref) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/gh/' + repo + '@' + ref + '/' + file + (ref === 'main' ? '?t=' + Date.now() : '');
+    s.onerror = function() { alert('The tool could not load. Check your internet connection. ' + hint); };
+    document.body.appendChild(s);
+  }
+  fetch('https://api.github.com/repos/' + repo + '/commits/main', { headers: { Accept: 'application/vnd.github.sha' } })
+    .then(function(r) { return r.ok ? r.text() : ''; })
+    .then(function(sha) { load(/^[0-9a-f]{40}$/.test(sha) ? sha : 'main'); }, function() { load('main'); });
 })();
 ```
 
