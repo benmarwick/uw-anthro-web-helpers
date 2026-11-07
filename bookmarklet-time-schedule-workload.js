@@ -63,7 +63,7 @@ javascript:(function(){
             <a href="${baseUrl}anthro.html" target="_blank">ANTH ↗</a>
             <a href="${baseUrl}bioanth.html" target="_blank">BIO A ↗</a>
             <a href="${baseUrl}archeo.html" target="_blank">ARCHY ↗</a>
-            <a href="https://admin.artsci.washington.edu/curriculum/curriculum-planning-general-information" target="_blank">CAS Curriculum Policies ↗</a>
+            <a href="https://admin.artsci.washington.edu/curriculum" target="_blank">CAS Curriculum ↗</a>
         </div>
     </div>
     <div id="current-quarter-view">
@@ -79,11 +79,6 @@ javascript:(function(){
                 <label class="filter-label"><input type="checkbox" class="gened-filter" value="SSc" checked> SSc</label>
                 <label class="filter-label"><input type="checkbox" class="gened-filter" value="NSc" checked> NSc</label>
                 <label class="filter-label"><input type="checkbox" class="gened-filter" value="None" checked> Unspecified/Other</label>
-            </div>
-            <div class="filter-group" style="margin-left: 10px; border-left: 1px solid #ddd; padding-left: 15px;">
-                <span style="font-size: 12px; font-style: italic; color: #555;">
-                    <span style="opacity:0.7;">⚠️</span> <a href="https://admin.artsci.washington.edu/curriculum/curriculum-planning-general-information" target="_blank" style="color:#4b2e83;">CAS enrollment minimums</a>
-                </span>
             </div>
             <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
                 <strong style="color: #4b2e83; font-size: 13px; text-transform: uppercase;"><span class="ay-tag">AY</span> SCH Target:</strong>
@@ -102,7 +97,7 @@ javascript:(function(){
                     <th title="The cleaned and standardized name of the instructor (LastName, FirstName).">Instructor</th>
                     <th title="Total assigned credits taught by this instructor across the targeted quarters.">Total Credits</th>
                     <th title="The total count of primary, single-letter lecture/seminar courses taught by this instructor across the targeted quarters.">Courses</th>
-                    <th title="Total Student Credit Hours (SCH) assigned to this instructor. Includes checks against CAS Curriculum Guidelines for minimum class sizes. Underneath each total, you will see a detailed chronological formula. If co-taught, the load is divided equally.">Total SCH & Breakdown</th>
+                    <th title="Total Student Credit Hours (SCH) assigned to this instructor. Underneath each total, you will see a detailed chronological formula. If co-taught, the load is divided equally.">Total SCH & Breakdown</th>
                     <th title="Calculated using Pielou's Evenness Index. Shows if an instructor's SCH is generated evenly across all their sections (🟢), or artificially inflated by a single large lecture (🔴).">Enrollment Balance</th>
                     <th title="Workload Classification dynamically scales based on the slider target (T). Brackets are calculated as: 🔴 Very High Load (>= 150% of T), 🟡 High Workload (>= 110% of T), 🟢 Balanced (40% to 110% of T), and ⚪ Under-utilized (< 40% of T). Formula: (Instructor SCH / Target SCH) * 100.">SCH Target Classification</th>
                 </tr></thead>
@@ -386,17 +381,7 @@ javascript:(function(){
                             var qYrShort = qYearMatch ? qYearMatch[0].substring(2) : "";
                             var qDisplay = qAbbr + qYrShort;
                             
-                            // CAS Enrollment Minimums Logic
-                            var levelDigit = parseInt(c.number.charAt(0), 10);
-                            var policyFlag = "";
-                            if (levelDigit >= 1 && levelDigit <= 5) {
-                                var minReq = (levelDigit <= 3) ? 10 : 5;
-                                if (c.enrl < minReq) {
-                                    policyFlag = " <span title='Below CAS minimum (" + minReq + " students)' style='opacity: 0.7; cursor: help; font-size: 11px;'>⚠️</span>";
-                                }
-                            }
-                            
-                            return "• " + qDisplay + " " + c.prefix + " " + c.number + " " + c.credits + " cr " + c.enrl + "/" + c.lim + " students" + policyFlag;
+                            return "• " + qDisplay + " " + c.prefix + " " + c.number + " " + c.credits + " cr " + c.enrl + "/" + c.lim + " students";
                         }).join("<br>");
                         
                         var schCellContent = mainSch + "<div style='font-size: 10px; color: rgb(75, 85, 99); font-family: monospace; line-height: 1.4; margin-top: 5px; border-top: 1px solid rgb(229, 231, 235); padding-top: 4px;'>" + detailLines + "</div>"; 
