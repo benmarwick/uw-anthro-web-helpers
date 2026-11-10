@@ -12,6 +12,97 @@ The app digitizes the department's paper "[Academic Student Employee (ASE) Evalu
 
 ---
 
+## Quick Start: Send the Evaluations for a Quarter
+
+These steps are for the coordinator who sends out the evaluations each quarter. You need edit access to the master spreadsheet. You do not need to touch the code. The technical sections after this one are for whoever maintains the system.
+
+### Step 1. Make the List of Evaluations
+
+For every TA you want evaluated, collect six pieces of information:
+
+- the course (for example `ANTH 101`)
+- the quarter (for example `Autumn 2025`)
+- the instructor's name and UW email address
+- the TA's name and UW email address
+
+Each evaluation is one TA in one course. A course with three TAs needs three evaluations. A TA who worked in two courses needs two.
+
+Use the email address the person signs in to UW Google with. For most people this is their UW NetID followed by `@uw.edu`. You can look addresses up in the [UW Directory](https://directory.uw.edu). The system checks that the person who submits a form is signed in with exactly the address in the spreadsheet. A capital letter, an extra space, or a different alias (such as `jane.doe@uw.edu` instead of `jdoe@uw.edu`) will stop that person from submitting.
+
+### Step 2. Open the Spreadsheet
+
+1. Open the [master spreadsheet](https://docs.google.com/spreadsheets/d/1hCvDujkSyjmbtH9ZOyntV6Va1c8ye7Hxt0RbSOFIxDc/edit).
+2. Wait a few seconds for a menu called **TA Evaluation System** to appear at the right end of the menu bar (after **Help**). If it does not appear, reload the page.
+3. Click the **TA_Evaluations** tab at the bottom of the window.
+4. If there is no **TA_Evaluations** tab, or its first row has no column headings, choose **TA Evaluation System > Initialize Sheets**.
+
+The first time you use a menu item, Google asks you to authorize the script. Follow the prompts, choose your UW account, and allow access.
+
+### Step 3. Enter One Row per Evaluation
+
+Start at the first empty row below any earlier evaluations. Fill in columns A to H only:
+
+| Column | Heading | What to type | Example |
+|---|---|---|---|
+| A | `Evaluation_ID` | A label that no other row uses, now or in past quarters | `EVAL-AUT25-001` |
+| B | `Course_Code` | Course prefix and number | `ANTH 101` |
+| C | `Term` | Quarter and year, as you want them to appear in the emails | `Autumn 2025` |
+| D | `Prof_Name` | The instructor's name, as it should appear after "Dear" in the email | `Prof. Jane Doe` |
+| E | `Prof_Email` | The instructor's UW email address (see Step 1) | `jdoe@uw.edu` |
+| F | `TA_Name` | The TA's full name | `Alex Johnson` |
+| G | `TA_Email` | The TA's UW email address (see Step 1) | `ajohnson@uw.edu` |
+| H | `Status` | Leave blank for now | |
+
+Leave columns I to R empty. The system fills them in.
+
+### Step 4. Mark the Rows That Are Ready to Send
+
+In column H (`Status`), type `NOT_STARTED` (capital letters, with the underscore) in each row you want to send now.
+
+**Launching sends every row marked `NOT_STARTED`, not only the rows you have selected**, despite the menu item's name. Leave `Status` blank in any row you are not ready to send. Rows from earlier quarters have other statuses (such as `COMPLETED`), and launching skips them.
+
+If this is your first time, do a trial run first. Add one row with your own email address as both the instructor and the TA, and mark only that row `NOT_STARTED`. Launch it (Step 5), work through all three forms yourself, and check that the PDF arrives.
+
+### Step 5. Launch
+
+1. Choose **TA Evaluation System > Launch Selected Evaluation(s)**.
+2. A message says **Launched N evaluation(s)**. Check that N equals the number of rows you marked in Step 4.
+3. In each launched row, `Status` changes to `PROF_EVAL_PENDING` and the system fills in dates, a reminder count and a secure token in columns I to R.
+
+Each instructor receives an email with the subject "TA Evaluation Request: *TA name* - *course* (*term*)" and a **Start Evaluation** button. The emails are sent from the Google account of the person who chose **Launch**.
+
+### Step 6. Follow Progress
+
+The `Status` column shows where each evaluation is. You do not need to forward anything: each email goes out automatically when the previous person submits.
+
+| Status | Who has to act next |
+|---|---|
+| `PROF_EVAL_PENDING` | The instructor fills in the evaluation form |
+| `TA_RESPONSE_PENDING` | The TA reads the evaluation and writes a response |
+| `PROF_SIGN_PENDING` | The instructor reads the TA's response and signs |
+| `PDF_GENERATING` | Nobody; the system is making the PDF |
+| `COMPLETED` | Nobody. Both people have received the signed PDF by email. A copy is in the archive Drive folder, linked in the `Final_PDF_Link` column |
+| `ESCALATED` | You. The person did not act after two reminders (see Problems below) |
+
+The system sends a reminder after 3 days without action, and a second reminder 3 days later. After two reminders with no action, it marks the row `ESCALATED` and emails the administrator (`ADMIN_EMAIL` in `Config.gs`). Reminders only run if the triggers are installed. Choose **TA Evaluation System > Run Health Check** and confirm that it says **Triggers Healthy: Yes**. If it says **No**, choose **Create/Refresh All Triggers** once.
+
+After launch, do not edit columns H to R by hand except as described below.
+
+### Problems and What to Do
+
+- **Someone did not get an email.** Ask them to check their spam folder. Check the email address in their row. Choose **View Error Logs (Last 50)** and **View Dead Letter Queue** to see whether the system failed to send it.
+- **Someone sees "Not authorized for this action."** The address in their row does not match the account they are signed in with. Either they sign in with the address in the sheet, or you correct the address in the sheet.
+- **An address was wrong when you launched.** Correct it in the row, then follow the next item to send a new link to the right person. The new link stops the old one from working.
+- **Someone sees "Token has expired" or "Invalid or expired evaluation link."** Links expire after 30 days. Choose **Regenerate Token for Evaluation** and enter the row's `Evaluation_ID`. The box shows a new token. Send the person this link, with the token pasted at the end:
+  - status `PROF_EVAL_PENDING`: `<web app URL>?action=prof_eval&token=`
+  - status `TA_RESPONSE_PENDING`: `<web app URL>?action=ta_respond&token=`
+  - status `PROF_SIGN_PENDING`: `<web app URL>?action=prof_sign&token=`
+
+  The web app URL is in **Links** at the top of this page.
+- **A row is `ESCALATED`.** The forms cannot be submitted while a row is `ESCALATED`. Contact the person who has not acted. When they are ready, change `Status` back to the stage named in the escalation email (for example `TA_RESPONSE_PENDING`) and set `Reminder_Count` (column L) to `0`. The next daily run, at about 9 a.m., sends them a reminder with their link. If the row was launched or last moved more than 30 days ago, regenerate the token first (previous item) so the reminder carries a link that still works.
+
+---
+
 ## 1. Lifecycle
 
 Each evaluation row in the master sheet moves through a strict state machine:
@@ -28,7 +119,7 @@ Each evaluation row in the master sheet moves through a strict state machine:
 
 Flow:
 
-1. **Launch** — the coordinator selects `NOT_STARTED` rows in the Sheets menu and runs *Launch Selected Evaluation(s)*. Each row gets a UUID access token (`Secure_Token`, 30-day expiry), status moves to `PROF_EVAL_PENDING`, and an invitation email goes to the professor.
+1. **Launch** — the coordinator runs *Launch Selected Evaluation(s)* from the Sheets menu, which launches every `NOT_STARTED` row (the current selection is ignored). Each row gets a UUID access token (`Secure_Token`, 30-day expiry), status moves to `PROF_EVAL_PENDING`, and an invitation email goes to the professor.
 2. **Stage 1 — Professor Evaluation** (`prof_eval`): the professor completes the evaluation form via a tokenized web link, signs it, and submits. Status → `TA_RESPONSE_PENDING`; the TA gets an email invite.
 3. **Stage 2 — TA Review & Response** (`ta_respond`): the TA views the professor's evaluation read-only, writes a self-evaluation (context / self-evaluation / looking ahead), signs, and submits. Status → `PROF_SIGN_PENDING`; the professor gets an email invite.
 4. **Stage 3 — Professor Final Sign-off** (`prof_sign`): the professor reviews the full evaluation + TA response read-only and signs. Status → `PDF_GENERATING`.
@@ -67,7 +158,6 @@ Every transition is written to the `Audit_Log` sheet and the `Data_Payload` JSON
 ├── Index.html            # Single dynamic web app UI (UW palette, WCAG 2.1 AA)
 ├── ErrorView.html        # Error page template
 ├── CompletedView.html    # Completion page template
-├── Template_Doc_Spec.md  # LEGACY: placeholder spec for the old tokenized template approach (no longer used)
 ├── appsscript.json       # Script manifest (scopes, runtime, timezone)
 └── examples/             # Original paper ASE evaluation forms (reference)
 ```
@@ -202,7 +292,7 @@ The PDF is **built programmatically** — no template doc. A temporary Google Do
 - **Completion:** emails the PDF to both professor and TA, sets `Completed_Date`, moves status to `COMPLETED`, and audits `PDF_GENERATED`.
 - **Failure:** reverts status to `PROF_SIGN_PENDING`, audits `PDF_FAILED`, emails the admin, and enqueues a `GENERATE_PDF` DLQ item for retry.
 
-`Template_Doc_Spec.md` documents the superseded `{{TOKEN}}`-placeholder template approach; it is retained as a reference but is **not used** by the current engine. The `TEMPLATE_DOC_ID` in `Config.gs` is only checked for existence by the health check.
+The `TEMPLATE_DOC_ID` in `Config.gs` is only checked for existence by the health check.
 
 ---
 
@@ -218,9 +308,9 @@ Failed emails and PDF generation are enqueued with a 60 s base delay that double
 
 ### Alerting (`Alerting.gs`)
 Hourly trigger runs `checkAlertThresholds()`, which checks:
-- PDF failures / hour (> 5)
-- Email failures / hour (> 10)
-- Trigger failures / 24 h (> 3)
+- PDF failures / hour (5 or more)
+- Email failures / hour (10 or more)
+- Trigger failures / 24 h (3 or more)
 - Missing expected triggers (`checkRemindersAndEscalations`, `processDeadLetterQueue`)
 - Quota usage (> 80%)
 - DLQ backlog (> 50 pending, > 10 max-retries-exceeded)
@@ -297,14 +387,11 @@ Key settings (all in the `CONFIG` object):
 | `APP_URL` | Web App deployment URL (used to build email links) |
 | `REMINDER_INTERVAL_DAYS` / `MAX_REMINDERS` | `3` / `2` |
 | `TOKEN_TTL_DAYS` | `30` |
-| `LOG_LEVEL` / `LOG_RETENTION_DAYS` | `INFO` / `90` |
 | `DEAD_LETTER_MAX_RETRIES` / `DEAD_LETTER_BASE_DELAY_MS` | `3` / `60000` |
-| `SECURITY.RATE_LIMIT_MAX_REQUESTS` | `30` per hour |
 | `SECURITY.TOKEN_ROTATION_ON_STAGE_CHANGE` | `true` |
 | `SECURITY.CSP_NONCE_ENABLED` | `false` |
-| `SECURITY.SHEET_PROTECTION_ENABLED` | `true` |
 | `PDF.MAX_RETRIES` / `PDF.BASE_RETRY_DELAY_MS` / `PDF.MAX_FILE_SIZE_MB` | `3` / `5000` / `10` |
-| `ALERT_THRESHOLDS` | PDF > 5/hr, email > 10/hr, triggers > 3/day, quota > 80% |
+| `ALERT_THRESHOLDS` | PDF ≥ 5/hr, email ≥ 10/hr, triggers ≥ 3/day, quota > 80% |
 
 ---
 
@@ -323,5 +410,5 @@ Key settings (all in the `CONFIG` object):
 ## 13. Logging & Audit
 
 - `AuditLog.gs` records every lifecycle event (`logEvent`) — launch, each submit, PDF success/failure, reminders, escalations, and token rotations — with actor, old/new status, and JSON details.
-- `Logs.gs` writes leveled, structured logs (`logInfo`/`logWarn`/`logError`/`logFatal`) with function name, context JSON, actor, evaluation ID, and duration. Helpers `withLogging`/`withLoggingAsync` wrap function entry/exit. `pruneOldLogs()` removes entries older than the retention window.
+- `Logs.gs` writes leveled, structured logs (`logInfo`/`logWarn`/`logError`/`logFatal`) with function name, context JSON, actor, evaluation ID, and duration. Helpers `withLogging`/`withLoggingAsync` wrap function entry/exit. `pruneOldLogs()` removes entries older than 90 days; nothing calls it automatically, so run it by hand from the Apps Script editor.
 - `Alerting.gs` surfaces failures to the admin by email and in the health check.
