@@ -1,4 +1,4 @@
-function C() { return getConfig(); }
+function C_() { return getConfig_(); }
 const LOG_LEVELS = {
   DEBUG: 0,
   INFO: 1,
@@ -9,12 +9,10 @@ const LOG_LEVELS = {
 
 const CURRENT_LOG_LEVEL = LOG_LEVELS.INFO;
 
-function ensureLogsSheet() {
-  const ss = getSpreadsheet();
-  let sheet = ss.getSheetByName(C().LOGS_SHEET_NAME || 'Logs');
-  if (!sheet) {
-    sheet = ss.insertSheet(C().LOGS_SHEET_NAME || 'Logs');
-  }
+function ensureLogsSheet_() {
+  const sheet = getLogsSheet_();
+  if (HEADERS_CHECKED_.logs) return sheet;
+  HEADERS_CHECKED_.logs = true;
   const headers = [
     'Timestamp',
     'Level',
@@ -35,11 +33,11 @@ function ensureLogsSheet() {
   return sheet;
 }
 
-function log(level, functionName, message, context = {}, extras = {}) {
+function log_(level, functionName, message, context = {}, extras = {}) {
   if (LOG_LEVELS[level] < CURRENT_LOG_LEVEL) return;
-  const sheet = ensureLogsSheet();
+  const sheet = ensureLogsSheet_();
   const timestamp = new Date().toISOString();
-  const actorEmail = extras.actorEmail || getCurrentUserEmailSafe();
+  const actorEmail = extras.actorEmail || getCurrentUserEmailSafe_();
   const evaluationId = extras.evaluationId || '';
   const durationMs = extras.durationMs || '';
   const row = [
@@ -56,64 +54,56 @@ function log(level, functionName, message, context = {}, extras = {}) {
   if (level === 'ERROR' || level === 'FATAL') {
     SpreadsheetApp.flush();
   }
-  return sheet.getLastRow();
 }
 
-function logDebug(functionName, message, context, extras) {
-  return log('DEBUG', functionName, message, context, extras);
+function logDebug_(functionName, message, context, extras) {
+  return log_('DEBUG', functionName, message, context, extras);
 }
 
-function logInfo(functionName, message, context, extras) {
-  return log('INFO', functionName, message, context, extras);
+function logInfo_(functionName, message, context, extras) {
+  return log_('INFO', functionName, message, context, extras);
 }
 
-function logWarn(functionName, message, context, extras) {
-  return log('WARN', functionName, message, context, extras);
+function logWarn_(functionName, message, context, extras) {
+  return log_('WARN', functionName, message, context, extras);
 }
 
-function logError(functionName, message, context, extras) {
-  return log('ERROR', functionName, message, context, extras);
+function logError_(functionName, message, context, extras) {
+  return log_('ERROR', functionName, message, context, extras);
 }
 
-function logFatal(functionName, message, context, extras) {
-  return log('FATAL', functionName, message, context, extras);
+function logFatal_(functionName, message, context, extras) {
+  return log_('FATAL', functionName, message, context, extras);
 }
 
-function getCurrentUserEmailSafe() {
-  try {
-    const email = Session.getActiveUser().getEmail();
-    return (email && email.includes('@uw.edu')) ? email : 'SYSTEM';
-  } catch (e) {
-    return 'SYSTEM';
-  }
-}
+/* getCurrentUserEmailSafe_() is defined once, in Security.gs. */
 
-function withLogging(functionName, fn, context = {}) {
+function withLogging_(functionName, fn, context = {}) {
   const start = Date.now();
   try {
     const result = fn();
-    logInfo(functionName, 'Completed successfully', { ...context, success: true }, { durationMs: Date.now() - start });
+    logInfo_(functionName, 'Completed successfully', { ...context, success: true }, { durationMs: Date.now() - start });
     return result;
   } catch (err) {
-    logError(functionName, err.message, { ...context, error: err.message, stack: err.stack }, { durationMs: Date.now() - start });
+    logError_(functionName, err.message, { ...context, error: err.message, stack: err.stack }, { durationMs: Date.now() - start });
     throw err;
   }
 }
 
-async function withLoggingAsync(functionName, fn, context = {}) {
+async function withLoggingAsync_(functionName, fn, context = {}) {
   const start = Date.now();
   try {
     const result = await fn();
-    logInfo(functionName, 'Completed successfully', { ...context, success: true }, { durationMs: Date.now() - start });
+    logInfo_(functionName, 'Completed successfully', { ...context, success: true }, { durationMs: Date.now() - start });
     return result;
   } catch (err) {
-    logError(functionName, err.message, { ...context, error: err.message, stack: err.stack }, { durationMs: Date.now() - start });
+    logError_(functionName, err.message, { ...context, error: err.message, stack: err.stack }, { durationMs: Date.now() - start });
     throw err;
   }
 }
 
-function queryLogs(filter = {}) {
-  const sheet = ensureLogsSheet();
+function queryLogs_(filter = {}) {
+  const sheet = ensureLogsSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return [];
   const headers = data[0];
@@ -137,24 +127,24 @@ function queryLogs(filter = {}) {
     .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
 }
 
-function getRecentErrors(limit = 50) {
-  return queryLogs({ level: 'ERROR' }).slice(0, limit);
+function getRecentErrors_(limit = 50) {
+  return queryLogs_({ level: 'ERROR' }).slice(0, limit);
 }
 
-function getRecentFatals(limit = 50) {
-  return queryLogs({ level: 'FATAL' }).slice(0, limit);
+function getRecentFatals_(limit = 50) {
+  return queryLogs_({ level: 'FATAL' }).slice(0, limit);
 }
 
-function getLogsForEvaluation(evaluationId, limit = 100) {
-  return queryLogs({ evaluationId }).slice(0, limit);
+function getLogsForEvaluation_(evaluationId, limit = 100) {
+  return queryLogs_({ evaluationId }).slice(0, limit);
 }
 
-function getLogsByFunction(functionName, limit = 100) {
-  return queryLogs({ function: functionName }).slice(0, limit);
+function getLogsByFunction_(functionName, limit = 100) {
+  return queryLogs_({ function: functionName }).slice(0, limit);
 }
 
-function pruneOldLogs(daysToKeep = 90) {
-  const sheet = ensureLogsSheet();
+function pruneOldLogs_(daysToKeep = 90) {
+  const sheet = ensureLogsSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return 0;
   const cutoff = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000);
@@ -169,6 +159,6 @@ function pruneOldLogs(daysToKeep = 90) {
     }
     SpreadsheetApp.flush();
   }
-  logInfo('Logs.pruneOldLogs', `Pruned ${deleted} log entries older than ${daysToKeep} days`, { deleted, kept: keepRows.length });
+  logInfo_('Logs.pruneOldLogs', `Pruned ${deleted} log entries older than ${daysToKeep} days`, { deleted, kept: keepRows.length });
   return deleted;
 }

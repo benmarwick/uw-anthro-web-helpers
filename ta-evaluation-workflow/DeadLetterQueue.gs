@@ -1,4 +1,4 @@
-function C() { return getConfig(); }
+function C_() { return getConfig_(); }
 const DLQ_ACTIONS = {
   SEND_EMAIL: 'SEND_EMAIL',
   GENERATE_PDF: 'GENERATE_PDF',
@@ -7,8 +7,10 @@ const DLQ_ACTIONS = {
   SEND_COMPLETION: 'SEND_COMPLETION'
 };
 
-function ensureDeadLetterSheet() {
-  const sheet = getDeadLetterSheet();
+function ensureDeadLetterSheet_() {
+  const sheet = getDeadLetterSheet_();
+  if (HEADERS_CHECKED_.dlq) return sheet;
+  HEADERS_CHECKED_.dlq = true;
   const headers = [
     'ID',
     'Created_Timestamp',
@@ -33,11 +35,11 @@ function ensureDeadLetterSheet() {
   return sheet;
 }
 
-function enqueueDeadLetter(action, payload, error, maxRetries = C().DEAD_LETTER_MAX_RETRIES) {
-  const sheet = ensureDeadLetterSheet();
+function enqueueDeadLetter_(action, payload, error, maxRetries = C_().DEAD_LETTER_MAX_RETRIES) {
+  const sheet = ensureDeadLetterSheet_();
   const id = 'DLQ_' + Utilities.getUuid();
   const now = new Date();
-  const delayMs = C().DEAD_LETTER_BASE_DELAY_MS;
+  const delayMs = C_().DEAD_LETTER_BASE_DELAY_MS;
   const nextRetry = new Date(now.getTime() + delayMs);
 
   const row = [
@@ -58,12 +60,21 @@ function enqueueDeadLetter(action, payload, error, maxRetries = C().DEAD_LETTER_
   sheet.appendRow(row);
   SpreadsheetApp.flush();
 
-  logWarn('DeadLetterQueue.enqueueDeadLetter', `Enqueued failed ${action}`, { id, action, error: error.message, maxRetries }, { evaluationId: payload.evaluationId });
+  logWarn_('DeadLetterQueue.enqueueDeadLetter', `Enqueued failed ${action}`, { id, action, error: error.message, maxRetries }, { evaluationId: payload.evaluationId });
   return id;
 }
 
-function processDeadLetterQueue() {
-  const sheet = ensureDeadLetterSheet();
+/* 10-minute trigger. It runs only for a real trigger event or for the script owner. */
+function processDeadLetterQueue(e) {
+  assertTriggerOrOwner_(e);
+  const result = processDeadLetterQueue_();
+  // Safety net for the background PDF: build any PDF still waiting after its one-off trigger.
+  try { generatePendingPdfs_(); } catch (err) { logError_('DeadLetterQueue.processDeadLetterQueue', 'Pending PDF run failed', { error: err.message }); }
+  return result;
+}
+
+function processDeadLetterQueue_() {
+  const sheet = ensureDeadLetterSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return { processed: 0, succeeded: 0, failed: 0 };
 
@@ -83,7 +94,7 @@ function processDeadLetterQueue() {
 
     if (status !== 'PENDING') continue;
     if (retryCount >= maxRetries) {
-      updateDeadLetterStatus(r + 1, col, 'MAX_RETRIES_EXCEEDED', now, 'Max retries exceeded');
+      updateDeadLetterStatus_(r + 1, col, 'MAX_RETRIES_EXCEEDED', now, 'Max retries exceeded');
       failed++;
       continue;
     }
@@ -99,30 +110,31 @@ function processDeadLetterQueue() {
       let result;
       switch (action) {
         case DLQ_ACTIONS.SEND_EMAIL:
-          result = executeEmailRetry(payload);
+          result = executeEmailRetry_(payload);
           break;
         case DLQ_ACTIONS.GENERATE_PDF:
-          result = executePdfRetry(payload);
+          result = executePdfRetry_(payload);
           break;
         case DLQ_ACTIONS.SEND_REMINDER:
-          result = executeReminderRetry(payload);
+          result = executeReminderRetry_(payload);
           break;
         case DLQ_ACTIONS.SEND_ESCALATION:
-          result = executeEscalationRetry(payload);
+          result = executeEscalationRetry_(payload);
           break;
         case DLQ_ACTIONS.SEND_COMPLETION:
-          result = executeCompletionRetry(payload);
+          result = executeCompletionRetry_(payload);
           break;
         default:
           throw new Error('Unknown DLQ action: ' + action);
       }
 
-      updateDeadLetterStatus(r + 1, col, 'SUCCESS', now, '');
+      updateDeadLetterStatus_(r + 1, col, 'SUCCESS', now, '');
+      sheet.getRange(r + 1, col.Payload_JSON + 1).setValue('');
       succeeded++;
-      logInfo('DeadLetterQueue.processDeadLetterQueue', `Retry succeeded for ${action}`, { id: row[col.ID], action }, { evaluationId: payload.evaluationId });
+      logInfo_('DeadLetterQueue.processDeadLetterQueue', `Retry succeeded for ${action}`, { id: row[col.ID], action }, { evaluationId: payload.evaluationId });
     } catch (err) {
       const newRetryCount = retryCount + 1;
-      const nextRetry = new Date(now.getTime() + C().DEAD_LETTER_BASE_DELAY_MS * Math.pow(2, newRetryCount));
+      const nextRetry = new Date(now.getTime() + C_().DEAD_LETTER_BASE_DELAY_MS * Math.pow(2, newRetryCount));
       const newStatus = newRetryCount >= maxRetries ? 'MAX_RETRIES_EXCEEDED' : 'PENDING';
 
       sheet.getRange(r + 1, col.Retry_Count + 1).setValue(newRetryCount);
@@ -132,63 +144,48 @@ function processDeadLetterQueue() {
       sheet.getRange(r + 1, col.Status + 1).setValue(newStatus);
 
       failed++;
-      logError('DeadLetterQueue.processDeadLetterQueue', `Retry failed for ${action}`, { id: row[col.ID], action, error: err.message, retryCount: newRetryCount, nextRetry: nextRetry.toISOString() }, { evaluationId: payload.evaluationId });
+      logError_('DeadLetterQueue.processDeadLetterQueue', `Retry failed for ${action}`, { id: row[col.ID], action, error: err.message, retryCount: newRetryCount, nextRetry: nextRetry.toISOString() }, { evaluationId: payload.evaluationId });
 
       if (newStatus === 'MAX_RETRIES_EXCEEDED') {
-        sendAdminAlert({
+        sendAdminAlert_({
           subject: 'Dead Letter Queue: Max Retries Exceeded',
-          body: `Action: ${action}\nID: ${row[col.ID]}\nPayload: ${row[col.Payload_JSON]}\nError: ${err.message}\nStack: ${err.stack}\nRetries: ${newRetryCount}`
+          body: `Action: ${action}\nID: ${row[col.ID]}\nEvaluation: ${payload.evaluationId || 'N/A'}\nError: ${err.message}\nStack: ${err.stack}\nRetries: ${newRetryCount}`
         });
       }
     }
   }
 
   SpreadsheetApp.flush();
-  logInfo('DeadLetterQueue.processDeadLetterQueue', 'DLQ processing complete', { processed, succeeded, failed });
+  logInfo_('DeadLetterQueue.processDeadLetterQueue', 'DLQ processing complete', { processed, succeeded, failed });
   return { processed, succeeded, failed };
 }
 
-function updateDeadLetterStatus(rowNum, col, status, timestamp, error) {
-  const sheet = getDeadLetterSheet();
+function updateDeadLetterStatus_(rowNum, col, status, timestamp, error) {
+  const sheet = getDeadLetterSheet_();
   sheet.getRange(rowNum, col.Status + 1).setValue(status);
   sheet.getRange(rowNum, col.Last_Attempt_Timestamp + 1).setValue(timestamp.toISOString());
   if (error) sheet.getRange(rowNum, col.Last_Attempt_Error + 1).setValue(error);
 }
 
-function executeEmailRetry(payload) {
+function executeEmailRetry_(payload) {
   const params = payload.emailParams || payload;
-  const { to, subject, htmlBody, body, attachments, name } = params;
-  const options = {};
-  if (htmlBody) options.htmlBody = htmlBody;
-  if (name) options.name = name;
-  if (attachments) options.attachments = attachments;
-  GmailApp.sendEmail(to, subject, body || '', options);
+  rawSendEmail_(params);
 }
 
-function executePdfRetry(payload) {
-  return generateAndDistributePdf(payload, { enqueue: false });
+function executePdfRetry_(payload) {
+  return generateAndDistributePdf_(payload, { enqueue: false });
 }
 
-function executeReminderRetry(payload) {
-  const params = payload.emailParams || payload;
-  const { to, subject, htmlBody, body, name } = params;
-  const options = {};
-  if (htmlBody) options.htmlBody = htmlBody;
-  if (name) options.name = name;
-  GmailApp.sendEmail(to, subject, body || '', options);
+function executeReminderRetry_(payload) {
+  rawSendEmail_(payload.emailParams || payload);
 }
 
-function executeEscalationRetry(payload) {
-  const params = payload.emailParams || payload;
-  const { to, subject, htmlBody, body, name } = params;
-  const options = {};
-  if (htmlBody) options.htmlBody = htmlBody;
-  if (name) options.name = name;
-  GmailApp.sendEmail(to, subject, body || '', options);
+function executeEscalationRetry_(payload) {
+  rawSendEmail_(payload.emailParams || payload);
 }
 
-function executeCompletionRetry(payload) {
-  const { profEmail, taEmail, subject, htmlBody, row, fileId } = payload;
+function executeCompletionRetry_(payload) {
+  const { profEmail, taEmail, subject, htmlBody, body, row, fileId } = payload;
   let pdfBlob = null;
   if (fileId) {
     try {
@@ -198,14 +195,14 @@ function executeCompletionRetry(payload) {
     }
   }
   if (pdfBlob) {
-    GmailApp.sendEmail([profEmail, taEmail].join(','), subject, '', { htmlBody, attachments: [pdfBlob], name: 'TA Evaluation System' });
+    GmailApp.sendEmail([profEmail, taEmail].join(','), subject, body || '', mailOptions_({ htmlBody: htmlBody, attachments: [pdfBlob] }));
   } else {
-    generateAndDistributePdf(row, { enqueue: false });
+    generateAndDistributePdf_(row, { enqueue: false });
   }
 }
 
-function getDeadLetterStats() {
-  const sheet = ensureDeadLetterSheet();
+function getDeadLetterStats_() {
+  const sheet = ensureDeadLetterSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return { pending: 0, success: 0, maxRetries: 0, total: 0 };
 
@@ -223,8 +220,8 @@ function getDeadLetterStats() {
   return { pending, success, maxRetries, total: data.length - 1 };
 }
 
-function requeueDeadLetter(id) {
-  const sheet = ensureDeadLetterSheet();
+function requeueDeadLetter_(id) {
+  const sheet = ensureDeadLetterSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return false;
 
@@ -241,14 +238,14 @@ function requeueDeadLetter(id) {
       sheet.getRange(r + 1, col.Last_Attempt_Timestamp + 1).setValue('');
       sheet.getRange(r + 1, col.Last_Attempt_Error + 1).setValue('');
       SpreadsheetApp.flush();
-      logInfo('DeadLetterQueue.requeueDeadLetter', `Requeued DLQ item`, { id });
+      logInfo_('DeadLetterQueue.requeueDeadLetter', `Requeued DLQ item`, { id });
       return true;
     }
   }
   return false;
 }
 
-function createDeadLetterTrigger() {
+function createDeadLetterTrigger_() {
   ScriptApp.getProjectTriggers().forEach(t => {
     if (t.getHandlerFunction() === 'processDeadLetterQueue') {
       ScriptApp.deleteTrigger(t);

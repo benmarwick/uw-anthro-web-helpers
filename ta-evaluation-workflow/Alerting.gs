@@ -1,6 +1,12 @@
-function C() { return getConfig(); }
+function C_() { return getConfig_(); }
 
-function checkAlertThresholds() {
+/* Hourly trigger. It runs only for a real trigger event or for the script owner. */
+function checkAlertThresholds(e) {
+  assertTriggerOrOwner_(e);
+  return checkAlertThresholds_();
+}
+
+function checkAlertThresholds_() {
   const alerts = [];
 
   alerts.push(...checkPdfFailureRate());
@@ -11,16 +17,16 @@ function checkAlertThresholds() {
   alerts.push(...checkStaleEvaluations());
 
   if (alerts.length > 0) {
-    sendAlertSummary(alerts);
+    sendAlertSummary_(alerts);
   }
 
   return alerts;
 }
 
-function checkPdfFailureRate() {
+function checkPdfFailureRate_() {
   const alerts = [];
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const logs = queryLogs({
+  const logs = queryLogs_({
     level: 'ERROR',
     function: 'PdfEngine',
     startDate: oneHourAgo.toISOString()
@@ -30,24 +36,24 @@ function checkPdfFailureRate() {
     l.Message.includes('PDF') || l.Message.includes('generateAndDistributePdf')
   ).length;
 
-  if (pdfFailures >= C().ALERT_THRESHOLDS.PDF_FAILURES_PER_HOUR) {
+  if (pdfFailures >= C_().ALERT_THRESHOLDS.PDF_FAILURES_PER_HOUR) {
     alerts.push({
       type: 'PDF_FAILURE_RATE',
       severity: 'HIGH',
-      message: `PDF generation failures in last hour: ${pdfFailures} (threshold: ${C().ALERT_THRESHOLDS.PDF_FAILURES_PER_HOUR})`,
+      message: `PDF generation failures in last hour: ${pdfFailures} (threshold: ${C_().ALERT_THRESHOLDS.PDF_FAILURES_PER_HOUR})`,
       count: pdfFailures,
-      threshold: C().ALERT_THRESHOLDS.PDF_FAILURES_PER_HOUR,
+      threshold: C_().ALERT_THRESHOLDS.PDF_FAILURES_PER_HOUR,
       window: '1 hour'
     });
-    logWarn('Alerting.checkPdfFailureRate', 'PDF failure rate threshold exceeded', { count: pdfFailures, threshold: C().ALERT_THRESHOLDS.PDF_FAILURES_PER_HOUR });
+    logWarn_('Alerting.checkPdfFailureRate', 'PDF failure rate threshold exceeded', { count: pdfFailures, threshold: C_().ALERT_THRESHOLDS.PDF_FAILURES_PER_HOUR });
   }
   return alerts;
 }
 
-function checkEmailFailureRate() {
+function checkEmailFailureRate_() {
   const alerts = [];
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const logs = queryLogs({
+  const logs = queryLogs_({
     level: 'ERROR',
     function: 'EmailEngine',
     startDate: oneHourAgo.toISOString()
@@ -55,24 +61,24 @@ function checkEmailFailureRate() {
 
   const emailFailures = logs.length;
 
-  if (emailFailures >= C().ALERT_THRESHOLDS.EMAIL_FAILURES_PER_HOUR) {
+  if (emailFailures >= C_().ALERT_THRESHOLDS.EMAIL_FAILURES_PER_HOUR) {
     alerts.push({
       type: 'EMAIL_FAILURE_RATE',
       severity: 'HIGH',
-      message: `Email failures in last hour: ${emailFailures} (threshold: ${C().ALERT_THRESHOLDS.EMAIL_FAILURES_PER_HOUR})`,
+      message: `Email failures in last hour: ${emailFailures} (threshold: ${C_().ALERT_THRESHOLDS.EMAIL_FAILURES_PER_HOUR})`,
       count: emailFailures,
-      threshold: C().ALERT_THRESHOLDS.EMAIL_FAILURES_PER_HOUR,
+      threshold: C_().ALERT_THRESHOLDS.EMAIL_FAILURES_PER_HOUR,
       window: '1 hour'
     });
-    logWarn('Alerting.checkEmailFailureRate', 'Email failure rate threshold exceeded', { count: emailFailures, threshold: C().ALERT_THRESHOLDS.EMAIL_FAILURES_PER_HOUR });
+    logWarn_('Alerting.checkEmailFailureRate', 'Email failure rate threshold exceeded', { count: emailFailures, threshold: C_().ALERT_THRESHOLDS.EMAIL_FAILURES_PER_HOUR });
   }
   return alerts;
 }
 
-function checkTriggerHealth() {
+function checkTriggerHealth_() {
   const alerts = [];
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const logs = queryLogs({
+  const logs = queryLogs_({
     level: 'ERROR',
     startDate: oneDayAgo.toISOString()
   });
@@ -82,16 +88,16 @@ function checkTriggerHealth() {
     l.Function.includes('DeadLetterQueue') || l.Function.includes('processDeadLetterQueue')
   ).length;
 
-  if (triggerFailures >= C().ALERT_THRESHOLDS.TRIGGER_FAILURES_PER_DAY) {
+  if (triggerFailures >= C_().ALERT_THRESHOLDS.TRIGGER_FAILURES_PER_DAY) {
     alerts.push({
       type: 'TRIGGER_FAILURE_RATE',
       severity: 'HIGH',
-      message: `Trigger failures in last 24 hours: ${triggerFailures} (threshold: ${C().ALERT_THRESHOLDS.TRIGGER_FAILURES_PER_DAY})`,
+      message: `Trigger failures in last 24 hours: ${triggerFailures} (threshold: ${C_().ALERT_THRESHOLDS.TRIGGER_FAILURES_PER_DAY})`,
       count: triggerFailures,
-      threshold: C().ALERT_THRESHOLDS.TRIGGER_FAILURES_PER_DAY,
+      threshold: C_().ALERT_THRESHOLDS.TRIGGER_FAILURES_PER_DAY,
       window: '24 hours'
     });
-    logWarn('Alerting.checkTriggerHealth', 'Trigger failure rate threshold exceeded', { count: triggerFailures, threshold: C().ALERT_THRESHOLDS.TRIGGER_FAILURES_PER_DAY });
+    logWarn_('Alerting.checkTriggerHealth', 'Trigger failure rate threshold exceeded', { count: triggerFailures, threshold: C_().ALERT_THRESHOLDS.TRIGGER_FAILURES_PER_DAY });
   }
 
   const triggers = ScriptApp.getProjectTriggers();
@@ -106,32 +112,32 @@ function checkTriggerHealth() {
       message: `Missing expected triggers: ${missing.join(', ')}`,
       missing
     });
-    logError('Alerting.checkTriggerHealth', 'Missing expected triggers', { missing });
+    logError_('Alerting.checkTriggerHealth', 'Missing expected triggers', { missing });
   }
   return alerts;
 }
 
-function checkQuotaUsage() {
+function checkQuotaUsage_() {
   const alerts = [];
-  const quota = getQuotaStatus();
+  const quota = getQuotaStatus_();
 
-  if (quota.maxUsagePct > C().ALERT_THRESHOLDS.QUOTA_USAGE_PCT) {
+  if (quota.maxUsagePct > C_().ALERT_THRESHOLDS.QUOTA_USAGE_PCT) {
     alerts.push({
       type: 'QUOTA_HIGH',
       severity: 'WARNING',
-      message: `Quota usage at ${quota.maxUsagePct}% (threshold: ${C().ALERT_THRESHOLDS.QUOTA_USAGE_PCT}%)`,
+      message: `Quota usage at ${quota.maxUsagePct}% (threshold: ${C_().ALERT_THRESHOLDS.QUOTA_USAGE_PCT}%)`,
       usagePct: quota.maxUsagePct,
-      threshold: C().ALERT_THRESHOLDS.QUOTA_USAGE_PCT,
+      threshold: C_().ALERT_THRESHOLDS.QUOTA_USAGE_PCT,
       details: quota
     });
-    logWarn('Alerting.checkQuotaUsage', 'Quota usage threshold exceeded', { usagePct: quota.maxUsagePct, threshold: C().ALERT_THRESHOLDS.QUOTA_USAGE_PCT });
+    logWarn_('Alerting.checkQuotaUsage', 'Quota usage threshold exceeded', { usagePct: quota.maxUsagePct, threshold: C_().ALERT_THRESHOLDS.QUOTA_USAGE_PCT });
   }
   return alerts;
 }
 
-function checkDeadLetterBacklog() {
+function checkDeadLetterBacklog_() {
   const alerts = [];
-  const dlqStats = getDeadLetterStats();
+  const dlqStats = getDeadLetterStats_();
 
   if (dlqStats.pending > 50) {
     alerts.push({
@@ -141,7 +147,7 @@ function checkDeadLetterBacklog() {
       pending: dlqStats.pending,
       maxRetriesExceeded: dlqStats.maxRetries
     });
-    logWarn('Alerting.checkDeadLetterBacklog', 'DLQ backlog threshold exceeded', { pending: dlqStats.pending });
+    logWarn_('Alerting.checkDeadLetterBacklog', 'DLQ backlog threshold exceeded', { pending: dlqStats.pending });
   }
 
   if (dlqStats.maxRetries > 10) {
@@ -151,14 +157,14 @@ function checkDeadLetterBacklog() {
       message: `Dead letter queue: ${dlqStats.maxRetries} items exceeded max retries`,
       maxRetriesExceeded: dlqStats.maxRetries
     });
-    logError('Alerting.checkDeadLetterBacklog', 'DLQ max retries exceeded threshold', { maxRetriesExceeded: dlqStats.maxRetries });
+    logError_('Alerting.checkDeadLetterBacklog', 'DLQ max retries exceeded threshold', { maxRetriesExceeded: dlqStats.maxRetries });
   }
   return alerts;
 }
 
-function checkStaleEvaluations() {
+function checkStaleEvaluations_() {
   const alerts = [];
-  const sheet = getMasterSheet();
+  const sheet = getMasterSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return alerts;
 
@@ -167,10 +173,10 @@ function checkStaleEvaluations() {
   headers.forEach((h, i) => { col[h] = i; });
 
   const pendingStatuses = [
-    C().STATUSES.PROF_EVAL_PENDING,
-    C().STATUSES.TA_RESPONSE_PENDING,
-    C().STATUSES.PROF_SIGN_PENDING,
-    C().STATUSES.PDF_GENERATING
+    C_().STATUSES.PROF_EVAL_PENDING,
+    C_().STATUSES.TA_RESPONSE_PENDING,
+    C_().STATUSES.PROF_SIGN_PENDING,
+    C_().STATUSES.PDF_GENERATING
   ];
 
   let staleCount = 0;
@@ -195,12 +201,12 @@ function checkStaleEvaluations() {
       message: `${staleCount} evaluations stale (>14 days no activity)`,
       count: staleCount
     });
-    logWarn('Alerting.checkStaleEvaluations', 'Stale evaluations threshold exceeded', { count: staleCount });
+    logWarn_('Alerting.checkStaleEvaluations', 'Stale evaluations threshold exceeded', { count: staleCount });
   }
   return alerts;
 }
 
-function sendAlertSummary(alerts) {
+function sendAlertSummary_(alerts) {
   const critical = alerts.filter(a => a.severity === 'CRITICAL');
   const high = alerts.filter(a => a.severity === 'HIGH');
   const warning = alerts.filter(a => a.severity === 'WARNING');
@@ -230,16 +236,16 @@ function sendAlertSummary(alerts) {
   `;
 
   GmailApp.sendEmail({
-    to: C().ADMIN_EMAIL,
+    to: C_().ADMIN_EMAIL,
     subject,
     htmlBody,
     name: 'TA Evaluation System Alerts'
   });
 
-  logInfo('Alerting.sendAlertSummary', `Sent alert summary email`, { critical: critical.length, high: high.length, warning: warning.length });
+  logInfo_('Alerting.sendAlertSummary', `Sent alert summary email`, { critical: critical.length, high: high.length, warning: warning.length });
 }
 
-function createAlertingTrigger() {
+function createAlertingTrigger_() {
   ScriptApp.getProjectTriggers().forEach(t => {
     if (t.getHandlerFunction() === 'checkAlertThresholds') {
       ScriptApp.deleteTrigger(t);
@@ -251,8 +257,8 @@ function createAlertingTrigger() {
     .create();
 }
 
-function runHealthCheck() {
-  const health = JSON.parse(handleHealthCheck().getContent());
-  logInfo('Alerting.runHealthCheck', 'Manual health check executed', health);
+function runHealthCheck_() {
+  const health = JSON.parse(handleHealthCheck_().getContent());
+  logInfo_('Alerting.runHealthCheck', 'Manual health check executed', health);
   return health;
 }

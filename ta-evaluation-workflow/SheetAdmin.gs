@@ -1,4 +1,4 @@
-function C() { return getConfig(); }
+function C_() { return getConfig_(); }
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('TA Evaluation System')
@@ -27,15 +27,16 @@ function onOpen() {
 }
 
 function initializeSheets() {
-  ensureSchema();
-  ensureAuditLogSheet();
-  ensureLogsSheet();
-  ensureDeadLetterSheet();
-  logInfo('SheetAdmin.initializeSheets', 'All sheets initialized successfully.');
+  assertOwner_();
+  ensureSchema_();
+  ensureAuditLogSheet_();
+  ensureLogsSheet_();
+  ensureDeadLetterSheet_();
+  logInfo_('SheetAdmin.initializeSheets', 'All sheets initialized successfully.');
 }
 
-function ensureSchema() {
-  const sheet = getMasterSheet();
+function ensureSchema_() {
+  const sheet = getMasterSheet_();
   const expectedHeaders = [
     'Evaluation_ID',
     'Course_Code',
@@ -70,7 +71,8 @@ function ensureSchema() {
 }
 
 function launchEvaluations() {
-  const sheet = ensureSchema();
+  assertOwner_();
+  const sheet = ensureSchema_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) {
     try { SpreadsheetApp.getUi().alert('No data rows found.'); } catch (e) {}
@@ -82,34 +84,40 @@ function launchEvaluations() {
   headers.forEach((h, i) => { col[h] = i; });
 
   const now = new Date();
-  const tokenExpiry = new Date(now.getTime() + C().TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+  const tokenExpiry = new Date(now.getTime() + C_().TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
   let launched = 0;
+  let nextIdNum = nextEvaluationNumber_(data, col);
 
   for (let r = 1; r < data.length; r++) {
     const row = data[r];
     const status = row[col.Status];
 
-    if (status === C().STATUSES.NOT_STARTED) {
-      const evaluationId = row[col.Evaluation_ID];
+    if (status === C_().STATUSES.NOT_STARTED) {
+      // Give the row an ID if the coordinator left Evaluation_ID blank.
+      let evaluationId = String(row[col.Evaluation_ID] || '').trim();
+      if (!evaluationId) {
+        evaluationId = 'EVAL-' + nextIdNum++;
+        sheet.getRange(r + 1, col.Evaluation_ID + 1).setValue(evaluationId);
+      }
       const token = Utilities.getUuid();
 
       sheet.getRange(r + 1, col.Secure_Token + 1).setValue(token);
       sheet.getRange(r + 1, col.Token_Expiry + 1).setValue(tokenExpiry.toISOString());
-      sheet.getRange(r + 1, col.Status + 1).setValue(C().STATUSES.PROF_EVAL_PENDING);
+      sheet.getRange(r + 1, col.Status + 1).setValue(C_().STATUSES.PROF_EVAL_PENDING);
       sheet.getRange(r + 1, col.Created_Date + 1).setValue(now.toISOString());
       sheet.getRange(r + 1, col.Last_Action_Date + 1).setValue(now.toISOString());
       sheet.getRange(r + 1, col.Reminder_Count + 1).setValue(0);
-      sheet.getRange(r + 1, col.Payload_Version + 1).setValue(C().PAYLOAD_VERSION);
+      sheet.getRange(r + 1, col.Payload_Version + 1).setValue(C_().PAYLOAD_VERSION);
 
-      logEvent({
-        action: C().ACTIONS.LAUNCH,
+      logEvent_({
+        action: C_().ACTIONS.LAUNCH,
         evaluationId,
-        oldStatus: C().STATUSES.NOT_STARTED,
-        newStatus: C().STATUSES.PROF_EVAL_PENDING,
+        oldStatus: C_().STATUSES.NOT_STARTED,
+        newStatus: C_().STATUSES.PROF_EVAL_PENDING,
         details: {}
       });
 
-      sendProfEvaluationInvite({
+      sendProfEvaluationInvite_({
         evaluationId,
         token,
         courseCode: row[col.Course_Code],
@@ -129,13 +137,27 @@ function launchEvaluations() {
   return launched;
 }
 
+/* The number after the highest existing EVAL-<number> ID, starting at 1001. */
+function nextEvaluationNumber_(data, col) {
+  let max = 1000;
+  for (let r = 1; r < data.length; r++) {
+    const m = String(data[r][col.Evaluation_ID] || '').trim().match(/^EVAL-(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return max + 1;
+}
+
 function generateSampleData() {
-  const sheet = ensureSchema();
-  const base = 'bmarwick+';
+  assertOwner_();
+  const sheet = ensureSchema_();
+  // Sample rows use the account running this menu item for both roles, so the whole flow can be
+  // tested by one person: the forms only open for the instructor and TA named in the row.
+  // Evaluation_ID is left blank; Launch fills in the next free number.
+  const me = activeEmail_();
   const sampleRows = [
-    ['EVAL-1001', 'CS 101', 'Autumn 2025', 'Dr. Smith', base + 'prof-1001@uw.edu', 'Alex Johnson', base + 'ta-1001@uw.edu', C().STATUSES.NOT_STARTED, '', '', '', 0, '', '', '{}', '', '', C().PAYLOAD_VERSION],
-    ['EVAL-1002', 'CS 102', 'Autumn 2025', 'Dr. Lee', base + 'prof-1002@uw.edu', 'Sam Chen', base + 'ta-1002@uw.edu', C().STATUSES.NOT_STARTED, '', '', '', 0, '', '', '{}', '', '', C().PAYLOAD_VERSION],
-    ['EVAL-1003', 'PHYS 121', 'Autumn 2025', 'Prof. Garcia', base + 'prof-1003@uw.edu', 'Jordan Kim', base + 'ta-1003@uw.edu', C().STATUSES.NOT_STARTED, '', '', '', 0, '', '', '{}', '', '', C().PAYLOAD_VERSION]
+    ['', 'CS 101', 'Autumn 2025', 'Dr. Smith', me, 'Alex Johnson', me, C_().STATUSES.NOT_STARTED, '', '', '', 0, '', '', '{}', '', '', C_().PAYLOAD_VERSION],
+    ['', 'CS 102', 'Autumn 2025', 'Dr. Lee', me, 'Sam Chen', me, C_().STATUSES.NOT_STARTED, '', '', '', 0, '', '', '{}', '', '', C_().PAYLOAD_VERSION],
+    ['', 'PHYS 121', 'Autumn 2025', 'Prof. Garcia', me, 'Jordan Kim', me, C_().STATUSES.NOT_STARTED, '', '', '', 0, '', '', '{}', '', '', C_().PAYLOAD_VERSION]
   ];
 
   sheet.getRange(sheet.getLastRow() + 1, 1, sampleRows.length, sampleRows[0].length).setValues(sampleRows);
@@ -144,7 +166,8 @@ function generateSampleData() {
 }
 
 function viewRecentAuditLog() {
-  const entries = getRecentAuditLog(50);
+  assertOwner_();
+  const entries = getRecentAuditLog_(50);
   if (entries.length === 0) {
     try { SpreadsheetApp.getUi().alert('Audit log is empty.'); } catch (e) {}
     return;
@@ -166,12 +189,14 @@ function viewRecentAuditLog() {
 }
 
 function runRemindersAndEscalations() {
-  checkRemindersAndEscalations();
+  assertOwner_();
+  checkRemindersAndEscalations_();
   try { SpreadsheetApp.getUi().alert('Reminders and escalations check completed.'); } catch (e) {}
 }
 
 function viewRecentErrorLogs() {
-  const entries = getRecentErrors(50);
+  assertOwner_();
+  const entries = getRecentErrors_(50);
   if (entries.length === 0) {
     try { SpreadsheetApp.getUi().alert('No error logs found.'); } catch (e) {}
     return;
@@ -194,8 +219,9 @@ function viewRecentErrorLogs() {
 }
 
 function viewDeadLetterQueue() {
-  const stats = getDeadLetterStats();
-  const sheet = getDeadLetterSheet();
+  assertOwner_();
+  const stats = getDeadLetterStats_();
+  const sheet = getDeadLetterSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) {
     try { SpreadsheetApp.getUi().alert('Dead letter queue is empty.'); } catch (e) {}
@@ -224,13 +250,15 @@ function viewDeadLetterQueue() {
 }
 
 function processDeadLetterQueueNow() {
-  const result = processDeadLetterQueue();
+  assertOwner_();
+  const result = processDeadLetterQueue_();
   try { SpreadsheetApp.getUi().alert(`DLQ Processing Complete\nProcessed: ${result.processed}\nSucceeded: ${result.succeeded}\nFailed: ${result.failed}`); } catch (e) {}
   return result;
 }
 
 function runHealthCheckNow() {
-  const health = runHealthCheck();
+  assertOwner_();
+  const health = runHealthCheck_();
   const output = HtmlService.createHtmlOutput(`
     <div style="padding:16px;font-family:sans-serif;font-size:13px;">
       <h3>Health Check Result</h3>
@@ -250,7 +278,8 @@ function runHealthCheckNow() {
 }
 
 function checkAlertThresholdsNow() {
-  const alerts = checkAlertThresholds();
+  assertOwner_();
+  const alerts = checkAlertThresholds_();
   if (alerts.length === 0) {
     try { SpreadsheetApp.getUi().alert('No alerts triggered. All systems nominal.'); } catch (e) {}
     return;
@@ -270,18 +299,21 @@ function checkAlertThresholdsNow() {
 }
 
 function createAllTriggers() {
-  createDailyTrigger();
-  createDeadLetterTrigger();
-  createAlertingTrigger();
-  logInfo('SheetAdmin.createAllTriggers', 'All triggers created/refreshed');
+  assertOwner_();
+  createDailyTrigger_();
+  createDeadLetterTrigger_();
+  createAlertingTrigger_();
+  logInfo_('SheetAdmin.createAllTriggers', 'All triggers created/refreshed');
 }
 
 function protectAdminSheetsNow() {
-  protectAdminSheets();
+  assertOwner_();
+  protectAdminSheets_();
   try { SpreadsheetApp.getUi().alert('Admin sheet protection applied.'); } catch (e) {}
 }
 
 function regenerateTokenPrompt() {
+  assertOwner_();
   try {
     const ui = SpreadsheetApp.getUi();
     const response = ui.prompt('Regenerate Token', 'Enter Evaluation ID:', ui.ButtonSet.OK_CANCEL);
@@ -293,7 +325,7 @@ function regenerateTokenPrompt() {
       return;
     }
 
-    const rotated = rotateToken(evaluationId);
+    const rotated = rotateToken_(evaluationId);
     if (rotated) {
       ui.alert(`Token regenerated for ${evaluationId}\nNew Token: ${rotated.token}\nExpires: ${rotated.expiry}`);
     } else {
@@ -302,19 +334,20 @@ function regenerateTokenPrompt() {
   } catch (e) {}
 }
 
-function testSendEmail() {
+function testSendEmail_() {
   try {
     GmailApp.sendEmail('bmarwick@uw.edu', 'TA Evaluation Test', 'This is a test email from the TA Evaluation System at ' + new Date().toISOString());
-    logInfo('testSendEmail', 'Test email sent successfully');
+    logInfo_('testSendEmail', 'Test email sent successfully');
     return 'OK: email sent';
   } catch (err) {
-    logError('testSendEmail', err.message, { error: err.message, stack: err.stack });
+    logError_('testSendEmail', err.message, { error: err.message, stack: err.stack });
     return 'FAIL: ' + err.message;
   }
 }
 
 function fixCorruptedTaskKeys() {
-  var sheet = getMasterSheet();
+  assertOwner_();
+  var sheet = getMasterSheet_();
   var data = sheet.getDataRange().getValues();
   if (data.length <= 1) return 'No data rows.';
 

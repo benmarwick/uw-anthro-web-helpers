@@ -1,6 +1,13 @@
-function C() { return getConfig(); }
-function checkRemindersAndEscalations() {
-  const sheet = getMasterSheet();
+function C_() { return getConfig_(); }
+/* Daily trigger. It runs only for a real trigger event or for the script owner. */
+function checkRemindersAndEscalations(e) {
+  assertTriggerOrOwner_(e);
+  checkRemindersAndEscalations_();
+  pruneOldLogs_(C_().LOG_RETENTION_DAYS);
+}
+
+function checkRemindersAndEscalations_() {
+  const sheet = getMasterSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return;
 
@@ -10,9 +17,9 @@ function checkRemindersAndEscalations() {
 
   const now = new Date();
   const pendingStatuses = [
-    C().STATUSES.PROF_EVAL_PENDING,
-    C().STATUSES.TA_RESPONSE_PENDING,
-    C().STATUSES.PROF_SIGN_PENDING
+    C_().STATUSES.PROF_EVAL_PENDING,
+    C_().STATUSES.TA_RESPONSE_PENDING,
+    C_().STATUSES.PROF_SIGN_PENDING
   ];
 
   for (let r = 1; r < data.length; r++) {
@@ -27,37 +34,37 @@ function checkRemindersAndEscalations() {
     const lastAction = new Date(lastActionStr);
     const daysElapsed = Math.floor((now - lastAction) / (1000 * 60 * 60 * 24));
 
-    if (daysElapsed < C().REMINDER_INTERVAL_DAYS) continue;
+    if (daysElapsed < C_().REMINDER_INTERVAL_DAYS) continue;
 
     const reminderCount = row[col.Reminder_Count] || 0;
 
-    if (reminderCount < C().MAX_REMINDERS) {
-      sendReminderForRow(row, col, reminderCount + 1);
+    if (reminderCount < C_().MAX_REMINDERS) {
+      sendReminderForRow_(row, col, reminderCount + 1);
       sheet.getRange(r + 1, col.Reminder_Count + 1).setValue(reminderCount + 1);
       sheet.getRange(r + 1, col.Last_Action_Date + 1).setValue(now.toISOString());
 
-      logEvent({
-        action: C().ACTIONS.REMINDER_SENT,
+      logEvent_({
+        action: C_().ACTIONS.REMINDER_SENT,
         evaluationId: row[col.Evaluation_ID],
         oldStatus: status,
         newStatus: status,
         details: {
           reminderCount: reminderCount + 1,
           stage: status,
-          recipient: status === C().STATUSES.PROF_EVAL_PENDING || status === C().STATUSES.PROF_SIGN_PENDING
+          recipient: status === C_().STATUSES.PROF_EVAL_PENDING || status === C_().STATUSES.PROF_SIGN_PENDING
             ? row[col.Prof_Email]
             : row[col.TA_Email]
         },
         actorEmail: 'SYSTEM'
       });
-    } else if (reminderCount >= C().MAX_REMINDERS) {
-      sheet.getRange(r + 1, col.Status + 1).setValue(C().STATUSES.ESCALATED);
+    } else if (reminderCount >= C_().MAX_REMINDERS) {
+      sheet.getRange(r + 1, col.Status + 1).setValue(C_().STATUSES.ESCALATED);
 
-      logEvent({
-        action: C().ACTIONS.ESCALATED,
+      logEvent_({
+        action: C_().ACTIONS.ESCALATED,
         evaluationId: row[col.Evaluation_ID],
         oldStatus: status,
-        newStatus: C().STATUSES.ESCALATED,
+        newStatus: C_().STATUSES.ESCALATED,
         details: {
           stage: status,
           adminNotified: true
@@ -65,8 +72,8 @@ function checkRemindersAndEscalations() {
         actorEmail: 'SYSTEM'
       });
 
-      sendEscalationEmail({
-        adminEmail: C().ADMIN_EMAIL,
+      sendEscalationEmail_({
+        adminEmail: C_().ADMIN_EMAIL,
         evaluationId: row[col.Evaluation_ID],
         courseCode: row[col.Course_Code],
         term: row[col.Term],
@@ -81,21 +88,21 @@ function checkRemindersAndEscalations() {
   SpreadsheetApp.flush();
 }
 
-function sendReminderForRow(row, col, reminderCount) {
-  const isProfTurn = row[col.Status] === C().STATUSES.PROF_EVAL_PENDING || row[col.Status] === C().STATUSES.PROF_SIGN_PENDING;
+function sendReminderForRow_(row, col, reminderCount) {
+  const isProfTurn = row[col.Status] === C_().STATUSES.PROF_EVAL_PENDING || row[col.Status] === C_().STATUSES.PROF_SIGN_PENDING;
   const email = isProfTurn ? row[col.Prof_Email] : row[col.TA_Email];
   const name = isProfTurn ? row[col.Prof_Name] : row[col.TA_Name];
 
   const actionMap = {
-    [C().STATUSES.PROF_EVAL_PENDING]: 'prof_eval',
-    [C().STATUSES.TA_RESPONSE_PENDING]: 'ta_respond',
-    [C().STATUSES.PROF_SIGN_PENDING]: 'prof_sign'
+    [C_().STATUSES.PROF_EVAL_PENDING]: 'prof_eval',
+    [C_().STATUSES.TA_RESPONSE_PENDING]: 'ta_respond',
+    [C_().STATUSES.PROF_SIGN_PENDING]: 'prof_sign'
   };
 
   const action = actionMap[row[col.Status]];
-  const link = C().APP_URL + '?action=' + action + '&token=' + row[col.Secure_Token];
+  const link = C_().APP_URL + '?action=' + action + '&token=' + row[col.Secure_Token];
 
-  sendReminderEmail({
+  sendReminderEmail_({
     email,
     name,
     action: row[col.Status],
@@ -103,11 +110,14 @@ function sendReminderForRow(row, col, reminderCount) {
     evaluationId: row[col.Evaluation_ID],
     courseCode: row[col.Course_Code],
     term: row[col.Term],
-    reminderCount
+    reminderCount,
+    taName: row[col.TA_Name],
+    profName: row[col.Prof_Name],
+    tokenExpiry: row[col.Token_Expiry]
   });
 }
 
-function createDailyTrigger() {
+function createDailyTrigger_() {
   ScriptApp.getProjectTriggers().forEach(t => {
     if (t.getHandlerFunction() === 'checkRemindersAndEscalations') {
       ScriptApp.deleteTrigger(t);
@@ -120,6 +130,6 @@ function createDailyTrigger() {
     .create();
 }
 
-function deleteAllTriggers() {
+function deleteAllTriggers_() {
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
 }

@@ -1,6 +1,8 @@
-function C() { return getConfig(); }
-function ensureAuditLogSheet() {
-  const sheet = getAuditLogSheet();
+function C_() { return getConfig_(); }
+function ensureAuditLogSheet_() {
+  const sheet = getAuditLogSheet_();
+  if (HEADERS_CHECKED_.audit) return sheet;
+  HEADERS_CHECKED_.audit = true;
   const headers = [
     'Timestamp',
     'Actor_Email',
@@ -24,7 +26,7 @@ function ensureAuditLogSheet() {
   return sheet;
 }
 
-function logEvent(params) {
+function logEvent_(params) {
   const {
     action,
     evaluationId,
@@ -35,10 +37,10 @@ function logEvent(params) {
     clientIp
   } = params;
 
-  const sheet = ensureAuditLogSheet();
+  const sheet = ensureAuditLogSheet_();
   const timestamp = new Date().toISOString();
-  const email = actorEmail || getCurrentUserEmail();
-  const ip = clientIp || getClientIpFromContext();
+  const email = actorEmail || getCurrentUserEmail_();
+  const ip = clientIp || getClientIpFromContext_();
 
   const row = [
     timestamp,
@@ -52,11 +54,9 @@ function logEvent(params) {
   ];
 
   sheet.appendRow(row);
-  SpreadsheetApp.flush();
-  return sheet.getLastRow();
 }
 
-function getCurrentUserEmail() {
+function getCurrentUserEmail_() {
   try {
     const user = Session.getActiveUser();
     const email = user.getEmail();
@@ -69,7 +69,7 @@ function getCurrentUserEmail() {
   return 'SYSTEM';
 }
 
-function getClientIpFromContext() {
+function getClientIpFromContext_() {
   try {
     const htmlService = HtmlService.getUserAgent();
     // Note: In Apps Script web apps, IP is not directly available
@@ -80,8 +80,8 @@ function getClientIpFromContext() {
   }
 }
 
-function queryAuditLog(filter = {}) {
-  const sheet = getAuditLogSheet();
+function queryAuditLog_(filter = {}) {
+  const sheet = getAuditLogSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return [];
 
@@ -106,12 +106,12 @@ function queryAuditLog(filter = {}) {
     .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
 }
 
-function getAuditLogForEvaluation(evaluationId) {
-  return queryAuditLog({ evaluationId });
+function getAuditLogForEvaluation_(evaluationId) {
+  return queryAuditLog_({ evaluationId });
 }
 
-function getRecentAuditLog(limit = 100) {
-  const sheet = getAuditLogSheet();
+function getRecentAuditLog_(limit = 100) {
+  const sheet = getAuditLogSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return [];
 

@@ -1,376 +1,216 @@
-function C() { return getConfig(); }
+function C_() { return getConfig_(); }
+
+const GENERIC_ERROR_ = 'Something went wrong. Please try again; if it keeps happening, contact the coordinator.';
+
 function doGet(e) {
   try {
-    return handleRequest(e);
+    return handleRequest_(e);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({status:'error', message: String(err)}))
-      .setMimeType(ContentService.MimeType.JSON);
+    logError_('WebApp.doGet', err.message, { stack: err.stack });
+    return renderError_(GENERIC_ERROR_);
   }
 }
 
-function handleRequest(e) {
-  const action = e.parameter.action;
-  const token = e.parameter.token;
+function adminJson_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
 
-  if (action === 'health') {
-    return handleHealthCheck();
-  }
+function handleRequest_(e) {
+  const params = (e && e.parameter) || {};
+  const action = params.action;
+  const token = params.token;
+
   if (action === 'ping') {
     return ContentService.createTextOutput('pong').setMimeType(ContentService.MimeType.TEXT);
   }
-  if (action === 'regen') {
-    return handleRegenToken(e);
-  }
-  if (action === 'regen_pdf') {
-    return handleRegenPdf(e);
+  if (action === 'health' || action === 'regen' || action === 'regen_pdf') {
+    // Health data, working links and PDF rebuilds are for the administrator only.
+    if (!isAdminUser_()) {
+      logWarn_('WebApp.handleRequest', 'Admin endpoint refused', { action: action, user: activeEmail_() || 'ANONYMOUS' });
+      return adminJson_({ success: false, error: 'Not authorized.' });
+    }
+    if (action === 'health') return handleHealthCheck_();
+    return action === 'regen' ? handleRegenToken_(e) : handleRegenPdf_(e);
   }
 
-  if (!action || !token) {
-    return renderError('Missing action or token parameter.');
+  if (!token) {
+    return renderError_('This link is incomplete. Open the link from your email again.');
   }
 
-  const row = findRowByToken(token);
+  const row = findRowByToken_(token);
   if (!row) {
-    return renderError('Invalid or expired evaluation link.');
+    return renderError_('Invalid or expired evaluation link.');
+  }
+  if (row.status === C_().STATUSES.COMPLETED) {
+    return renderCompleted_('This evaluation is finalized. Check your email for the PDF copy.');
+  }
+  if (row.status === C_().STATUSES.PDF_GENERATING) {
+    return renderCompleted_('This evaluation is signed. The PDF will be emailed to the instructor and the TA within a few minutes.');
+  }
+  if (isTokenExpired_(row.tokenExpiry)) {
+    return renderError_('This link has expired. Contact the coordinator for a new link.');
   }
 
-  if (row.status === C().STATUSES.COMPLETED) {
-    return renderCompleted('This evaluation is finalized. Check your email for the PDF copy.');
+  // The stage comes from the row's status, not from the link's action parameter.
+  const stage = stageActionForStatus_(row.status);
+  if (!stage) {
+    return renderError_('This evaluation is not open for input right now. Contact the coordinator.');
+  }
+  const access = checkStageAccess_(row, stage);
+  if (!access.ok) {
+    logWarn_('WebApp.handleRequest', 'Access refused', { evaluationId: row.evaluationId, action: stage, user: activeEmail_() || 'ANONYMOUS' });
+    return renderError_(access.error);
   }
 
-  const nonce = C().SECURITY.CSP_NONCE_ENABLED ? validateCspNonce() : null;
-
+  const nonce = C_().SECURITY.CSP_NONCE_ENABLED ? validateCspNonce_() : null;
   const html = HtmlService.createTemplateFromFile('Index');
-  html.action = action;
+  html.action = stage;
   html.token = token;
   html.row = row;
-  html.config = CONFIG;
   html.nonce = nonce;
   return html.evaluate()
-    .setTitle('TA Evaluation - ' + action.replace('_', ' ').toUpperCase())
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .setTitle('TA Evaluation - ' + stage.replace('_', ' ').toUpperCase())
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-function doPost(e) {
+/* Called from the page with google.script.run. Every check runs on the server:
+   token, expiry, stage, and that the signed-in user is the person this stage belongs to. */
+function submitForm(token, action, payload) {
   try {
-    var clientId = getClientIdentifier(e);
-    var rateLimit = checkRateLimit(clientId, 'doPost');
-    if (!rateLimit.allowed) {
-      logWarn('WebApp.doPost', 'Rate limit exceeded', { clientId: clientId, retryAfter: rateLimit.retryAfter });
-      return jsonResponse({ success: false, error: 'Too many requests. Please wait ' + rateLimit.retryAfter + ' seconds.' }, 429);
+    const rate = checkRateLimit_('token_' + String(token || ''), 'submitForm');
+    if (!rate.allowed) {
+      return { success: false, error: 'Too many attempts. Please wait ' + rate.retryAfter + ' seconds and try again.' };
     }
 
-    var lock = LockService.getScriptLock();
+    const nextStatus = {
+      prof_eval: C_().STATUSES.TA_RESPONSE_PENDING,
+      ta_respond: C_().STATUSES.PROF_SIGN_PENDING,
+      prof_sign: C_().STATUSES.PDF_GENERATING
+    }[action];
+    if (!nextStatus) return { success: false, error: 'Unknown action.' };
+
+    const fields = pickStageFields_(action, sanitizePayload_(payload || {}));
+    const signatureKey = { prof_eval: 'signatureName', ta_respond: 'taSignatureName', prof_sign: 'profSignatureName' }[action];
+    if (!fields[signatureKey]) {
+      return { success: false, error: 'Type your full name and tick the acknowledgment to sign.' };
+    }
+
+    // Lock only the check-and-update of the row, so two submissions cannot both pass the status check.
+    const lock = LockService.getScriptLock();
     try {
       lock.waitLock(30000);
     } catch (lockErr) {
-      return jsonResponse({ success: false, error: 'System busy, please retry.' });
+      return { success: false, error: 'The system is busy. Please try again in a minute.' };
     }
 
+    let row, email, oldStatus, updatedPayload;
     try {
-    const params = JSON.parse(e.postData.contents);
-    const { token, action, payload } = params;
+      const ctx = loadAuthorizedRow_(token, action);
+      if (ctx.error) return { success: false, error: ctx.error };
+      row = ctx.row;
+      email = ctx.email;
+      oldStatus = row.status;
 
-    if (!token || !action) {
-      return jsonResponse({ success: false, error: 'Missing token or action.' });
-    }
+      // The server records who signed and when; client-supplied values are ignored.
+      const now = new Date().toISOString();
+      if (action === 'prof_eval') { fields.signatureTimestamp = now; fields.signatureEmail = email; }
+      if (action === 'ta_respond') { fields.taSignatureTimestamp = now; fields.taSignatureEmail = email; }
+      if (action === 'prof_sign') { fields.profSignatureTimestamp = now; fields.profSignatureEmail = email; }
 
-    const sanitizedPayload = sanitizePayload(payload || {});
-
-    const row = findRowByToken(token);
-    if (!row) {
-      return jsonResponse({ success: false, error: 'Invalid or expired token.' });
-    }
-
-    if (isTokenExpired(row.tokenExpiry)) {
-      return jsonResponse({ success: false, error: 'Token has expired. Contact coordinator for a new link.' });
-    }
-
-    const currentUser = getCurrentUserEmailSafe();
-    if (!isAuthorized(currentUser, row, action)) {
-      logWarn('WebApp.doPost', 'Authorization failed', { user: currentUser, action, evaluationId: row.evaluationId });
-      return jsonResponse({ success: false, error: 'Not authorized for this action.' });
-    }
-
-    const oldStatus = row.status;
-    let newStatus;
-    let details = {};
-
-    switch (action) {
-      case 'save_draft':
-        if (oldStatus !== C().STATUSES.PROF_EVAL_PENDING) {
-          return jsonResponse({ success: false, error: 'Draft saving only available during professor evaluation.' });
-        }
-        const draftPayload = mergePayload(row.dataPayload, sanitizedPayload);
-        updateRow(row.rowNum, {
-          dataPayload: draftPayload,
-          lastActionDate: new Date().toISOString()
-        });
-        logInfo('WebApp.doPost', 'Draft saved for ' + row.evaluationId, { evaluationId: row.evaluationId });
-        return jsonResponse({ success: true, message: 'Draft saved' });
-
-      case 'load_draft':
-        if (oldStatus !== C().STATUSES.PROF_EVAL_PENDING) {
-          return jsonResponse({ success: false, error: 'Draft loading only available during professor evaluation.' });
-        }
-        return jsonResponse({ success: true, payload: row.dataPayload });
-
-      case 'prof_eval':
-        if (oldStatus !== C().STATUSES.PROF_EVAL_PENDING) {
-          return jsonResponse({ success: false, error: 'Invalid state for professor evaluation.' });
-        }
-        newStatus = C().STATUSES.TA_RESPONSE_PENDING;
-        details = { ratingsKeys: Object.keys(sanitizedPayload.ratings || {}), feedbackLength: (sanitizedPayload.feedback || '').length };
-        break;
-
-      case 'ta_respond':
-        if (oldStatus !== C().STATUSES.TA_RESPONSE_PENDING) {
-          return jsonResponse({ success: false, error: 'Invalid state for TA response.' });
-        }
-        newStatus = C().STATUSES.PROF_SIGN_PENDING;
-        details = { responseKeys: Object.keys(sanitizedPayload.responses || {}), signature: !!sanitizedPayload.signature };
-        break;
-
-      case 'prof_sign':
-        if (oldStatus !== C().STATUSES.PROF_SIGN_PENDING) {
-          return jsonResponse({ success: false, error: 'Invalid state for professor sign-off.' });
-        }
-        newStatus = C().STATUSES.PDF_GENERATING;
-        details = { signature: !!sanitizedPayload.signature };
-        break;
-
-      default:
-        return jsonResponse({ success: false, error: 'Unknown action.' });
-    }
-
-    const updatedPayload = mergePayload(row.dataPayload, sanitizedPayload);
-
-    if (C().SECURITY.TOKEN_ROTATION_ON_STAGE_CHANGE) {
-      const rotated = rotateToken(row.evaluationId);
-      if (rotated) {
-        row.secureToken = rotated.token;
-        row.tokenExpiry = rotated.expiry;
+      updatedPayload = mergePayload_(row.dataPayload, fields);
+      // A new link for the next stage, written in the same row update below.
+      if (C_().SECURITY.TOKEN_ROTATION_ON_STAGE_CHANGE) {
+        row.secureToken = Utilities.getUuid();
+        row.tokenExpiry = new Date(Date.now() + C_().TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
       }
+      updateRow_(row.rowNum, {
+        status: nextStatus,
+        dataPayload: updatedPayload,
+        lastActionDate: now,
+        // Each stage starts with its own reminders, so a slow earlier stage does not escalate the next one.
+        reminderCount: 0,
+        secureToken: row.secureToken,
+        tokenExpiry: row.tokenExpiry
+      });
+    } finally {
+      lock.releaseLock();
     }
 
-    updateRow(row.rowNum, {
-      status: newStatus,
-      dataPayload: updatedPayload,
-      lastActionDate: new Date().toISOString(),
-      secureToken: row.secureToken,
-      tokenExpiry: row.tokenExpiry
-    });
-
-    logEvent({
-      action: getAuditAction(action),
+    logEvent_({
+      action: getAuditAction_(action),
       evaluationId: row.evaluationId,
-      oldStatus,
-      newStatus,
-      details,
-      actorEmail: currentUser
+      oldStatus: oldStatus,
+      newStatus: nextStatus,
+      details: { fields: Object.keys(fields), tokenRotated: !!C_().SECURITY.TOKEN_ROTATION_ON_STAGE_CHANGE },
+      actorEmail: email
     });
 
+    const newStatus = nextStatus;
+    const invite = {
+      evaluationId: row.evaluationId, token: row.secureToken, courseCode: row.courseCode, term: row.term,
+      profName: row.profName, profEmail: row.profEmail, taName: row.taName, taEmail: row.taEmail
+    };
     if (action === 'prof_eval') {
-      sendTAResponseInvite({
-        evaluationId: row.evaluationId,
-        token: row.secureToken,
-        courseCode: row.courseCode,
-        term: row.term,
-        profName: row.profName,
-        profEmail: row.profEmail,
-        taName: row.taName,
-        taEmail: row.taEmail
-      });
+      sendTAResponseInvite_(invite);
     } else if (action === 'ta_respond') {
-      sendProfSignInvite({
-        evaluationId: row.evaluationId,
-        token: row.secureToken,
-        courseCode: row.courseCode,
-        term: row.term,
-        profName: row.profName,
-        profEmail: row.profEmail,
-        taName: row.taName,
-        taEmail: row.taEmail
-      });
+      sendProfSignInvite_(invite);
     } else if (action === 'prof_sign') {
-      const pdfResult = generateAndDistributePdf({
-        ...row,
-        status: newStatus,
-        dataPayload: updatedPayload
-      });
-      if (pdfResult && pdfResult.success === false) {
-        newStatus = pdfResult.status || C().STATUSES.PROF_SIGN_PENDING;
-      }
+      // The PDF is built and emailed by a trigger, so the instructor does not wait for it.
+      schedulePdfRun_();
     }
 
-    return jsonResponse({
+    return {
       success: true,
-      newStatus,
-      token: row.secureToken,
-      message: newStatus === C().STATUSES.PROF_SIGN_PENDING
-        ? 'PDF generation is being retried. You will be notified when it is finalized.'
+      newStatus: newStatus,
+      message: action === 'prof_sign'
+        ? 'Your sign-off is saved. The signed PDF will be emailed to you and the TA within a few minutes.'
         : 'Submitted successfully.'
-    });
+    };
   } catch (err) {
-    logError('WebApp.doPost', err.message, { stack: err.stack, action: e.parameter?.action });
-    return jsonResponse({ success: false, error: err.message });
-  } finally {
-    lock.releaseLock();
-  }
-  } catch (outerErr) {
-    return jsonResponse({ success: false, error: 'Server error: ' + outerErr.message });
+    logError_('WebApp.submitForm', err.message, { stack: err.stack, action: action });
+    return { success: false, error: GENERIC_ERROR_ };
   }
 }
 
-function submitForm(token, action, payload) {
-  var row = findRowByToken(token);
-  if (!row) return { success: false, error: 'Invalid or expired token.' };
-
-  if (isTokenExpired(row.tokenExpiry)) {
-    return { success: false, error: 'Token has expired. Contact coordinator for a new link.' };
-  }
-
-  var sanitizedPayload = sanitizePayload(payload || {});
-  var oldStatus = row.status;
-  var newStatus;
-  var details = {};
-
-  switch (action) {
-    case 'prof_eval':
-      if (oldStatus !== C().STATUSES.PROF_EVAL_PENDING) {
-        return { success: false, error: 'Invalid state for professor evaluation.' };
-      }
-      newStatus = C().STATUSES.TA_RESPONSE_PENDING;
-      details = { ratingsKeys: Object.keys(sanitizedPayload.ratings || {}), feedbackLength: (sanitizedPayload.feedback || '').length };
-      break;
-    case 'ta_respond':
-      if (oldStatus !== C().STATUSES.TA_RESPONSE_PENDING) {
-        return { success: false, error: 'Invalid state for TA response.' };
-      }
-      newStatus = C().STATUSES.PROF_SIGN_PENDING;
-      details = { responseKeys: Object.keys(sanitizedPayload.responses || {}) };
-      break;
-    case 'prof_sign':
-      if (oldStatus !== C().STATUSES.PROF_SIGN_PENDING) {
-        return { success: false, error: 'Invalid state for professor sign-off.' };
-      }
-      newStatus = C().STATUSES.PDF_GENERATING;
-      break;
-    default:
-      return { success: false, error: 'Unknown action.' };
-  }
-
-  var updatedPayload = mergePayload(row.dataPayload, sanitizedPayload);
-
-  if (C().SECURITY.TOKEN_ROTATION_ON_STAGE_CHANGE) {
-    var rotated = rotateToken(row.evaluationId);
-    if (rotated) {
-      row.secureToken = rotated.token;
-      row.tokenExpiry = rotated.expiry;
-    }
-  }
-
-  updateRow(row.rowNum, {
-    status: newStatus,
-    dataPayload: updatedPayload,
-    lastActionDate: new Date().toISOString(),
-    secureToken: row.secureToken,
-    tokenExpiry: row.tokenExpiry
-  });
-
-  logEvent({
-    action: getAuditAction(action),
-    evaluationId: row.evaluationId,
-    oldStatus: oldStatus,
-    newStatus: newStatus,
-    details: details
-  });
-
-  if (action === 'prof_eval') {
-    sendTAResponseInvite({
-      evaluationId: row.evaluationId,
-      token: row.secureToken,
-      courseCode: row.courseCode,
-      term: row.term,
-      profName: row.profName,
-      profEmail: row.profEmail,
-      taName: row.taName,
-      taEmail: row.taEmail
-    });
-  } else if (action === 'ta_respond') {
-    sendProfSignInvite({
-      evaluationId: row.evaluationId,
-      token: row.secureToken,
-      courseCode: row.courseCode,
-      term: row.term,
-      profName: row.profName,
-      profEmail: row.profEmail,
-      taName: row.taName,
-      taEmail: row.taEmail
-    });
-  } else if (action === 'prof_sign') {
-    var pdfResult = generateAndDistributePdf({
-      rowNum: row.rowNum,
-      evaluationId: row.evaluationId,
-      courseCode: row.courseCode,
-      term: row.term,
-      profName: row.profName,
-      profEmail: row.profEmail,
-      taName: row.taName,
-      taEmail: row.taEmail,
-      status: newStatus,
-      dataPayload: updatedPayload,
-      secureToken: row.secureToken,
-      tokenExpiry: row.tokenExpiry
-    });
-    if (pdfResult && pdfResult.success === false) {
-      newStatus = pdfResult.status || C().STATUSES.PROF_SIGN_PENDING;
-    }
-  }
-
-  return {
-    success: true,
-    newStatus: newStatus,
-    token: row.secureToken,
-    message: newStatus === C().STATUSES.PROF_SIGN_PENDING
-      ? 'PDF generation is being retried. You will be notified when it is finalized.'
-      : 'Submitted successfully.'
-  };
-}
-
+/* Draft autosave for the instructor's evaluation form. */
 function saveDraftData(token, payload) {
-  var row = findRowByToken(token);
-  if (!row) return { success: false, error: 'Invalid token.' };
-  if (row.status !== C().STATUSES.PROF_EVAL_PENDING) {
-    return { success: false, error: 'Draft saving only available during professor evaluation.' };
+  try {
+    const ctx = loadAuthorizedRow_(token, 'prof_eval');
+    if (ctx.error) return { success: false, error: ctx.error };
+    const fields = pickStageFields_('prof_eval', sanitizePayload_(payload || {}));
+    updateRow_(ctx.row.rowNum, {
+      dataPayload: mergePayload_(ctx.row.dataPayload, fields),
+      lastActionDate: new Date().toISOString()
+    });
+    return { success: true, message: 'Draft saved' };
+  } catch (err) {
+    logError_('WebApp.saveDraftData', err.message, { stack: err.stack });
+    return { success: false, error: GENERIC_ERROR_ };
   }
-  var sanitizedPayload = sanitizePayload(payload || {});
-  var draftPayload = mergePayload(row.dataPayload, sanitizedPayload);
-  updateRow(row.rowNum, {
-    dataPayload: draftPayload,
-    lastActionDate: new Date().toISOString()
-  });
-  return { success: true, message: 'Draft saved' };
 }
 
 function loadDraftData(token) {
-  var row = findRowByToken(token);
-  if (!row) return { success: false, payload: {} };
-  if (row.status !== C().STATUSES.PROF_EVAL_PENDING) {
+  try {
+    const ctx = loadAuthorizedRow_(token, 'prof_eval');
+    if (ctx.error) return { success: false, payload: {} };
+    return { success: true, payload: pickStageFields_('prof_eval', ctx.row.dataPayload) };
+  } catch (err) {
+    logError_('WebApp.loadDraftData', err.message, { stack: err.stack });
     return { success: false, payload: {} };
   }
-  return { success: true, payload: row.dataPayload };
 }
 
-function findRowByToken(token) {
-  const sheet = getMasterSheet();
+function findRowByToken_(token) {
+  // Tokens are UUIDs. Refuse anything shorter, so a blank token cannot match a row whose token was cleared.
+  if (typeof token !== 'string' || token.length < 32) return null;
+  const sheet = getMasterSheet_();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return null;
 
   const headers = data[0];
   const col = {};
   headers.forEach((h, i) => { col[h] = i; });
+  MASTER_COLS_ = col;
 
   for (let r = 1; r < data.length; r++) {
     const row = data[r];
@@ -391,7 +231,7 @@ function findRowByToken(token) {
         reminderCount: row[col.Reminder_Count],
         secureToken: row[col.Secure_Token],
         tokenExpiry: row[col.Token_Expiry],
-        dataPayload: parsePayload(row[col.Data_Payload]),
+        dataPayload: parsePayload_(row[col.Data_Payload]),
         finalPdfLink: row[col.Final_PDF_Link],
         finalPdfFileId: row[col.Final_PDF_File_ID],
         payloadVersion: row[col.Payload_Version]
@@ -401,7 +241,7 @@ function findRowByToken(token) {
   return null;
 }
 
-function parsePayload(str) {
+function parsePayload_(str) {
   try {
     return str ? JSON.parse(str) : {};
   } catch (e) {
@@ -409,7 +249,7 @@ function parsePayload(str) {
   }
 }
 
-function mergePayload(existing, incoming) {
+function mergePayload_(existing, incoming) {
   const merged = { ...existing };
   Object.keys(incoming).forEach(key => {
     if (typeof incoming[key] === 'object' && incoming[key] !== null && !Array.isArray(incoming[key])) {
@@ -421,87 +261,94 @@ function mergePayload(existing, incoming) {
   return merged;
 }
 
-function updateRow(rowNum, updates) {
-  const sheet = getMasterSheet();
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const col = {};
-  headers.forEach((h, i) => { col[h] = i; });
+const UPDATE_HEADERS_ = {
+  status: 'Status',
+  dataPayload: 'Data_Payload',
+  lastActionDate: 'Last_Action_Date',
+  completedDate: 'Completed_Date',
+  finalPdfLink: 'Final_PDF_Link',
+  finalPdfFileId: 'Final_PDF_File_ID',
+  secureToken: 'Secure_Token',
+  tokenExpiry: 'Token_Expiry',
+  reminderCount: 'Reminder_Count',
+  evaluationId: 'Evaluation_ID',
+  courseCode: 'Course_Code',
+  term: 'Term',
+  profName: 'Prof_Name',
+  profEmail: 'Prof_Email',
+  taName: 'TA_Name',
+  taEmail: 'TA_Email',
+  payloadVersion: 'Payload_Version'
+};
 
-  Object.entries(updates).forEach(([key, value]) => {
-    const headerMap = {
-      status: 'Status',
-      dataPayload: 'Data_Payload',
-      lastActionDate: 'Last_Action_Date',
-      completedDate: 'Completed_Date',
-      finalPdfLink: 'Final_PDF_Link',
-      finalPdfFileId: 'Final_PDF_File_ID',
-      secureToken: 'Secure_Token',
-      tokenExpiry: 'Token_Expiry',
-      reminderCount: 'Reminder_Count',
-      evaluationId: 'Evaluation_ID',
-      courseCode: 'Course_Code',
-      term: 'Term',
-      profName: 'Prof_Name',
-      profEmail: 'Prof_Email',
-      taName: 'TA_Name',
-      taEmail: 'TA_Email',
-      payloadVersion: 'Payload_Version'
-    };
-    const header = headerMap[key] || key;
-    if (col[header] !== undefined) {
-      sheet.getRange(rowNum, col[header] + 1).setValue(typeof value === 'object' ? JSON.stringify(value) : value);
-    }
+/* Writes several fields of one row with a single read and a single write
+   (the span from the first to the last changed column). */
+function updateRow_(rowNum, updates) {
+  const sheet = getMasterSheet_();
+  const col = masterColumns_();
+  const cells = [];
+  Object.keys(updates).forEach(function(key) {
+    const header = UPDATE_HEADERS_[key] || key;
+    if (col[header] !== undefined) cells.push([col[header], updates[key]]);
   });
+  if (!cells.length) return;
+  const first = Math.min.apply(null, cells.map(function(c) { return c[0]; }));
+  const last = Math.max.apply(null, cells.map(function(c) { return c[0]; }));
+  const range = sheet.getRange(rowNum, first + 1, 1, last - first + 1);
+  const values = range.getValues()[0];
+  cells.forEach(function(c) {
+    const v = c[1];
+    values[c[0] - first] = (typeof v === 'object' && v !== null) ? JSON.stringify(v) : v;
+  });
+  range.setValues([values]);
   SpreadsheetApp.flush();
 }
 
-function isAuthorized(userEmail, row, action) {
-  if (userEmail === 'SYSTEM' || userEmail === 'ANONYMOUS' || !userEmail) return true;
-  if (action === 'prof_eval' || action === 'prof_sign') {
-    return userEmail === row.profEmail;
-  }
-  if (action === 'ta_respond') {
-    return userEmail === row.taEmail;
-  }
-  return false;
+function normEmail_(x) {
+  return String(x || '').trim().toLowerCase();
 }
 
-function getAuditAction(action) {
+function isAdminUser_() {
+  const user = activeEmail_();
+  return !!user && user === normEmail_(C_().ADMIN_EMAIL);
+}
+
+function getAuditAction_(action) {
   const map = {
-    'prof_eval': C().ACTIONS.PROF_EVAL_SUBMIT,
-    'ta_respond': C().ACTIONS.TA_RESPONSE_SUBMIT,
-    'prof_sign': C().ACTIONS.PROF_SIGN_SUBMIT
+    'prof_eval': C_().ACTIONS.PROF_EVAL_SUBMIT,
+    'ta_respond': C_().ACTIONS.TA_RESPONSE_SUBMIT,
+    'prof_sign': C_().ACTIONS.PROF_SIGN_SUBMIT
   };
   return map[action] || action.toUpperCase();
 }
 
-function jsonResponse(obj, statusCode = 200) {
+function jsonResponse_(obj, statusCode = 200) {
   const output = ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
   // Note: Apps Script ContentService doesn't support setting HTTP status codes directly
   // Status codes are handled by the platform; we include status in the response body
   return output;
 }
 
-function renderError(message) {
+function renderError_(message) {
   const html = HtmlService.createTemplateFromFile('ErrorView');
   html.message = message;
   return html.evaluate().setTitle('Error').addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-function renderCompleted(message) {
+function renderCompleted_(message) {
   const html = HtmlService.createTemplateFromFile('CompletedView');
   html.message = message;
   return html.evaluate().setTitle('Completed').addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-function handleRegenToken(e) {
+function handleRegenToken_(e) {
   var evalId = e.parameter.evalId;
   if (!evalId) {
     return ContentService.createTextOutput(JSON.stringify({success: false, error: 'Missing evalId parameter'}))
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  var sheet = getMasterSheet();
+  var sheet = getMasterSheet_();
   var data = sheet.getDataRange().getValues();
   if (data.length <= 1) {
     return ContentService.createTextOutput(JSON.stringify({success: false, error: 'No data'}))
@@ -514,13 +361,13 @@ function handleRegenToken(e) {
 
   for (var r = 1; r < data.length; r++) {
     if (data[r][col.Evaluation_ID] === evalId) {
-      var rotated = rotateToken(evalId);
+      var rotated = rotateToken_(evalId);
       if (rotated) {
         var status = data[r][col.Status];
         var action = 'prof_eval';
         if (status === 'TA_RESPONSE_PENDING') action = 'ta_respond';
         else if (status === 'PROF_SIGN_PENDING') action = 'prof_sign';
-        var link = C().APP_URL + '?action=' + action + '&token=' + rotated.token;
+        var link = C_().APP_URL + '?action=' + action + '&token=' + rotated.token;
         return ContentService.createTextOutput(JSON.stringify({success: true, token: rotated.token, link: link, status: status}))
           .setMimeType(ContentService.MimeType.JSON);
       }
@@ -533,14 +380,14 @@ function handleRegenToken(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function handleRegenPdf(e) {
+function handleRegenPdf_(e) {
   var evalId = e.parameter.evalId;
   if (!evalId) {
     return ContentService.createTextOutput(JSON.stringify({success: false, error: 'Missing evalId parameter'}))
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  var sheet = getMasterSheet();
+  var sheet = getMasterSheet_();
   var data = sheet.getDataRange().getValues();
   if (data.length <= 1) {
     return ContentService.createTextOutput(JSON.stringify({success: false, error: 'No data'}))
@@ -563,14 +410,14 @@ function handleRegenPdf(e) {
         taName: data[r][col.TA_Name],
         taEmail: data[r][col.TA_Email],
         status: data[r][col.Status],
-        dataPayload: parsePayload(data[r][col.Data_Payload]),
+        dataPayload: parsePayload_(data[r][col.Data_Payload]),
         finalPdfLink: data[r][col.Final_PDF_Link],
         finalPdfFileId: data[r][col.Final_PDF_File_ID],
         secureToken: data[r][col.Secure_Token],
         tokenExpiry: data[r][col.Token_Expiry]
       };
 
-      var result = generateAndDistributePdf(row, { enqueue: false });
+      var result = generateAndDistributePdf_(row, { enqueue: false });
       if (result && result.success) {
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
@@ -590,9 +437,9 @@ function handleRegenPdf(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function handleHealthCheck() {
+function handleHealthCheck_() {
   const start = Date.now();
-  const sheet = getMasterSheet();
+  const sheet = getMasterSheet_();
   const data = sheet.getDataRange().getValues();
   const totalEvals = data.length > 1 ? data.length - 1 : 0;
 
@@ -608,14 +455,14 @@ function handleHealthCheck() {
     }
   }
 
-  const dlqStats = getDeadLetterStats();
-  const triggerStatus = getTriggerStatus();
-  const quotaStatus = getQuotaStatus();
+  const dlqStats = getDeadLetterStats_();
+  const triggerStatus = getTriggerStatus_();
+  const quotaStatus = getQuotaStatus_();
 
   const health = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    version: C().PAYLOAD_VERSION,
+    version: C_().PAYLOAD_VERSION,
     uptimeMs: Date.now() - start,
     evaluations: {
       total: totalEvals,
@@ -626,11 +473,11 @@ function handleHealthCheck() {
     quota: quotaStatus,
     checks: {
       masterSheet: !!sheet,
-      auditLogSheet: !!getAuditLogSheet(),
-      logsSheet: !!getLogsSheet(),
-      deadLetterSheet: !!getDeadLetterSheet(),
-      templateDoc: checkTemplateDoc(),
-      archiveFolder: checkArchiveFolder()
+      auditLogSheet: !!getAuditLogSheet_(),
+      logsSheet: !!getLogsSheet_(),
+      deadLetterSheet: !!getDeadLetterSheet_(),
+      templateDoc: checkTemplateDoc_(),
+      archiveFolder: checkArchiveFolder_()
     }
   };
 
@@ -646,17 +493,17 @@ function handleHealthCheck() {
     health.warnings.push('Dead letter queue backlog: ' + dlqStats.pending + ' items');
   }
 
-  if (quotaStatus.usagePct > C().ALERT_THRESHOLDS.QUOTA_USAGE_PCT) {
+  if (quotaStatus.maxUsagePct > C_().ALERT_THRESHOLDS.QUOTA_USAGE_PCT) {
     health.status = 'degraded';
     health.warnings = health.warnings || [];
-    health.warnings.push('Quota usage high: ' + quotaStatus.usagePct + '%');
+    health.warnings.push('Quota usage high: ' + quotaStatus.maxUsagePct + '%');
   }
 
   return ContentService.createTextOutput(JSON.stringify(health, null, 2))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function getTriggerStatus() {
+function getTriggerStatus_() {
   const triggers = ScriptApp.getProjectTriggers();
   const expected = ['checkRemindersAndEscalations', 'processDeadLetterQueue'];
   const found = triggers.map(t => t.getHandlerFunction());
@@ -669,7 +516,7 @@ function getTriggerStatus() {
   };
 }
 
-function getQuotaStatus() {
+function getQuotaStatus_() {
   const quota = {
     email: { used: 0, limit: 0, remaining: 0, usagePct: 0 },
     urlFetch: { used: 0, limit: 0, remaining: 0, usagePct: 0 },
@@ -714,20 +561,20 @@ function getQuotaStatus() {
   return quota;
 }
 
-function checkTemplateDoc() {
+function checkTemplateDoc_() {
   try {
-    if (!C().TEMPLATE_DOC_ID || C().TEMPLATE_DOC_ID.includes('YOUR_')) return false;
-    DriveApp.getFileById(C().TEMPLATE_DOC_ID);
+    if (!C_().TEMPLATE_DOC_ID || C_().TEMPLATE_DOC_ID.includes('YOUR_')) return false;
+    DriveApp.getFileById(C_().TEMPLATE_DOC_ID);
     return true;
   } catch (e) {
     return false;
   }
 }
 
-function checkArchiveFolder() {
+function checkArchiveFolder_() {
   try {
-    if (!C().ARCHIVE_FOLDER_ID || C().ARCHIVE_FOLDER_ID.includes('YOUR_')) return false;
-    DriveApp.getFolderById(C().ARCHIVE_FOLDER_ID);
+    if (!C_().ARCHIVE_FOLDER_ID || C_().ARCHIVE_FOLDER_ID.includes('YOUR_')) return false;
+    DriveApp.getFolderById(C_().ARCHIVE_FOLDER_ID);
     return true;
   } catch (e) {
     return false;

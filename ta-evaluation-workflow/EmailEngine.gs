@@ -1,116 +1,224 @@
-function C() { return getConfig(); }
+function C_() { return getConfig_(); }
 
-function rawSendEmail(params) {
-  const { to, subject, htmlBody, body, name, attachments, cc, bcc } = params;
-  const options = {};
-  if (htmlBody) options.htmlBody = htmlBody;
-  if (name) options.name = name;
-  if (attachments) options.attachments = attachments;
-  if (cc) options.cc = cc;
-  if (bcc) options.bcc = bcc;
-  GmailApp.sendEmail(to, subject, body || '', options);
+const EMAIL_SENDER_NAME_ = 'UW Anthropology TA Evaluations';
+
+const POLICY_LINKS_ = {
+  eo28: 'https://policy.uw.edu/directory/po/executive-orders/eo-28-graduate-student-service-appointments/',
+  gs51: 'https://grad.uw.edu/policies/5-1-departmental-responsibilities-regarding-instruction-by-tas/',
+  contract: 'https://hr.uw.edu/labor/academic-and-student-unions/uaw-ase/ase-contract'
+};
+
+/* Gmail options shared by every email: sender name, reply-to and a plain-text body. */
+function mailOptions_(params) {
+  const options = { name: params.name || EMAIL_SENDER_NAME_ };
+  if (params.htmlBody) options.htmlBody = params.htmlBody;
+  if (params.attachments) options.attachments = params.attachments;
+  if (params.cc) options.cc = params.cc;
+  if (params.bcc) options.bcc = params.bcc;
+  options.replyTo = params.replyTo || C_().ADMIN_EMAIL;
+  return options;
 }
 
-function sendEmailSafely(dlqPayload, params) {
+function rawSendEmail_(params) {
+  GmailApp.sendEmail(params.to, params.subject, params.body || '', mailOptions_(params));
+}
+
+function sendEmailSafely_(dlqPayload, params) {
   try {
-    const { to, subject, htmlBody, body, name, attachments, cc, bcc } = params;
-    const options = {};
-    if (htmlBody) options.htmlBody = htmlBody;
-    if (name) options.name = name;
-    if (attachments) options.attachments = attachments;
-    if (cc) options.cc = cc;
-    if (bcc) options.bcc = bcc;
-    GmailApp.sendEmail(to, subject, body || '', options);
+    GmailApp.sendEmail(params.to, params.subject, params.body || '', mailOptions_(params));
     return { success: true };
   } catch (err) {
-    enqueueDeadLetter(DLQ_ACTIONS.SEND_EMAIL, dlqPayload, err);
+    enqueueDeadLetter_(DLQ_ACTIONS.SEND_EMAIL, dlqPayload, err);
     return { success: false };
   }
 }
 
-function sendProfEvaluationInvite(params) {
-  const { evaluationId, token, courseCode, term, profName, profEmail, taName, taEmail } = params;
-  const link = C().APP_URL + '?action=prof_eval&token=' + token;
+/* ---------- Building blocks for the emails people receive ---------- */
 
-  const subject = 'TA Evaluation Request: ' + taName + ' - ' + courseCode + ' (' + term + ')';
-  const htmlBody = `
-    <p>Dear ${profName},</p>
-    <p>You are invited to evaluate Teaching Assistant <strong>${taName}</strong> for <strong>${courseCode}</strong> (${term}).</p>
-    <p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#2c3e50;color:#fff;text-decoration:none;border-radius:4px;">Start Evaluation</a></p>
-    <p>This link expires in ${C().TOKEN_TTL_DAYS} days. Your UW Google account will be used for authentication.</p>
-    <hr>
-    <p style="font-size:12px;color:#666;">Evaluation ID: ${evaluationId}</p>
-  `;
-
-  const emailParams = { to: profEmail, subject, htmlBody, name: 'TA Evaluation System' };
-  return sendEmailSafely({ evaluationId, emailParams }, emailParams);
+function escapeHtml_(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function sendTAResponseInvite(params) {
-  const { evaluationId, token, courseCode, term, profName, profEmail, taName, taEmail } = params;
-  const link = C().APP_URL + '?action=ta_respond&token=' + token;
-
-  const subject = 'Your TA Evaluation Response Required: ' + courseCode + ' (' + term + ')';
-  const htmlBody = `
-    <p>Dear ${taName},</p>
-    <p>Professor <strong>${profName}</strong> has completed your evaluation for <strong>${courseCode}</strong> (${term}). Please review the feedback and provide your response.</p>
-    <p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#2c3e50;color:#fff;text-decoration:none;border-radius:4px;">View & Respond</a></p>
-    <p>This link expires in ${C().TOKEN_TTL_DAYS} days.</p>
-    <hr>
-    <p style="font-size:12px;color:#666;">Evaluation ID: ${evaluationId}</p>
-  `;
-
-  const emailParams = { to: taEmail, subject, htmlBody, name: 'TA Evaluation System' };
-  return sendEmailSafely({ evaluationId, emailParams }, emailParams);
+/* The due date for a step that starts now. */
+function dueDateFromNow_() {
+  return new Date(Date.now() + C_().DUE_DAYS * 24 * 60 * 60 * 1000);
 }
 
-function sendProfSignInvite(params) {
-  const { evaluationId, token, courseCode, term, profName, profEmail, taName, taEmail } = params;
-  const link = C().APP_URL + '?action=prof_sign&token=' + token;
-
-  const subject = 'Final Sign-off Required: TA Evaluation for ' + taName + ' - ' + courseCode;
-  const htmlBody = `
-    <p>Dear ${profName},</p>
-    <p>TA <strong>${taName}</strong> has responded to your evaluation for <strong>${courseCode}</strong> (${term}). Please review the complete evaluation and provide your final sign-off.</p>
-    <p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#2c3e50;color:#fff;text-decoration:none;border-radius:4px;">Review & Sign</a></p>
-    <p>This link expires in ${C().TOKEN_TTL_DAYS} days.</p>
-    <hr>
-    <p style="font-size:12px;color:#666;">Evaluation ID: ${evaluationId}</p>
-  `;
-
-  const emailParams = { to: profEmail, subject, htmlBody, name: 'TA Evaluation System' };
-  return sendEmailSafely({ evaluationId, emailParams }, emailParams);
+/* The due date of the step in progress. A link is issued when its step starts and expires
+   TOKEN_TTL_DAYS later, so the step started at (expiry - TTL). */
+function dueDateFromExpiry_(expiry) {
+  const exp = new Date(expiry);
+  if (isNaN(exp.getTime())) return dueDateFromNow_();
+  const start = exp.getTime() - C_().TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+  return new Date(start + C_().DUE_DAYS * 24 * 60 * 60 * 1000);
 }
 
-function sendCompletionEmail(profEmail, taEmail, pdfBlob, row) {
-  const subject = 'Completed TA Evaluation: ' + row.taName + ' - ' + row.courseCode + ' (' + row.term + ')';
-  const htmlBody = `
-    <p>The TA evaluation for <strong>${row.taName}</strong> in <strong>${row.courseCode}</strong> (${row.term}) has been finalized.</p>
-    <p>The signed PDF is attached. Both the Professor (${row.profName}) and TA have provided digital signatures.</p>
-    <hr>
-    <p style="font-size:12px;color:#666;">Evaluation ID: ${row.evaluationId}</p>
-  `;
+function formatDueLong_(d) {
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'EEEE, MMMM d');
+}
 
-  const emailParams = {
-    to: [profEmail, taEmail].join(','),
-    subject: subject,
-    htmlBody: htmlBody,
-    attachments: [pdfBlob],
-    name: 'TA Evaluation System'
-  };
+function formatDueShort_(d) {
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'EEE, MMM d');
+}
+
+/* A paragraph with an HTML version and a plain-text version. Use t_() for text and l_() for links. */
+function t_(s) { return { html: escapeHtml_(s), text: String(s) }; }
+function l_(label, url) { return { html: '<a href="' + url + '" style="color:#4B2E83;">' + escapeHtml_(label) + '</a>', text: label + ' <' + url + '>' }; }
+function b_(s) { return { html: '<strong>' + escapeHtml_(s) + '</strong>', text: String(s) }; }
+function para_() {
+  const pieces = Array.prototype.slice.call(arguments);
+  return { html: pieces.map(function(p) { return p.html; }).join(''), text: pieces.map(function(p) { return p.text; }).join('') };
+}
+
+/* Lays out an email: greeting, paragraphs, a button with a plain link under it,
+   paragraphs after the button, the sign-in note, a reply line and the Evaluation ID. */
+function renderEmail_(o) {
+  const html = [];
+  const text = [];
+  html.push('<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#1A1A2E;max-width:600px;">');
+  html.push('<p>Dear ' + escapeHtml_(o.greetName) + ',</p>');
+  text.push('Dear ' + o.greetName + ',', '');
+  (o.before || []).forEach(function(p) { html.push('<p>' + p.html + '</p>'); text.push(p.text, ''); });
+  if (o.button) {
+    html.push('<p style="margin:24px 0 8px;"><a href="' + o.button.link + '" style="display:inline-block;padding:12px 24px;background:#4B2E83;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;">' + escapeHtml_(o.button.label) + '</a></p>');
+    html.push('<p style="font-size:13px;color:#555;margin-top:0;">Or copy this link into your browser: <a href="' + o.button.link + '" style="color:#4B2E83;word-break:break-all;">' + escapeHtml_(o.button.link) + '</a></p>');
+    text.push(o.button.label + ': ' + o.button.link, '');
+  }
+  (o.after || []).forEach(function(p) { html.push('<p>' + p.html + '</p>'); text.push(p.text, ''); });
+  if (o.signInEmail) {
+    const note = 'Open the link while signed in to Google as ' + o.signInEmail + '. If you see a sign-in message or "this link is for…", try a private browser window.';
+    html.push('<p style="font-size:13px;color:#555;">' + escapeHtml_(note) + '</p>');
+    text.push(note, '');
+  }
+  html.push('<p>Questions? Reply to this email.</p>');
+  text.push('Questions? Reply to this email.', '');
+  html.push('<hr style="border:none;border-top:1px solid #ddd;"><p style="font-size:12px;color:#666;">UW Department of Anthropology · Evaluation ID: ' + escapeHtml_(o.evaluationId) + '</p></div>');
+  text.push('--', 'UW Department of Anthropology · Evaluation ID: ' + o.evaluationId);
+  return { htmlBody: html.join('\n'), body: text.join('\n') };
+}
+
+/* Why the evaluation matters, with the sources that support each part. */
+function whyInstructor_() {
+  return para_(
+    t_('Why this matters: your evaluation is important to the professional development of our students. UW '), l_('Executive Order 28', POLICY_LINKS_.eo28),
+    t_(' asks departments to evaluate graduate appointees and give them feedback regularly, with a chance to respond. Graduate School '),
+    l_('Policy 5.1', POLICY_LINKS_.gs51),
+    t_(' requires a faculty observation in each of a TA\'s first two quarters, and Anthropology asks for an evaluation every quarter. It is the TA\'s written feedback for this quarter and becomes part of their personnel file ('),
+    l_('UAW ASE contract, Article 22', POLICY_LINKS_.contract), t_(').')
+  );
+}
+
+function whyTa_() {
+  return para_(
+    t_('Why this matters: this is your chance to add your own account of the quarter before the evaluation is signed. UW '),
+    l_('Executive Order 28', POLICY_LINKS_.eo28),
+    t_(' says departmental evaluations should allow for student response. The evaluation and your response become part of your personnel file, which you can review, ask to have corrected, and respond to ('),
+    l_('UAW ASE contract, Article 22', POLICY_LINKS_.contract), t_(').')
+  );
+}
+
+/* ---------- The emails ---------- */
+
+function sendProfEvaluationInvite_(params) {
+  const { evaluationId, token, courseCode, term, profName, profEmail, taName } = params;
+  const link = C_().APP_URL + '?action=prof_eval&token=' + token;
+  const due = dueDateFromNow_();
+
+  const subject = 'Action needed by ' + formatDueShort_(due) + ': evaluate your TA ' + taName + ' (' + courseCode + ', ' + term + ')';
+  const mail = renderEmail_({
+    greetName: profName,
+    evaluationId: evaluationId,
+    signInEmail: profEmail,
+    before: [
+      para_(t_('Please evaluate '), b_(taName), t_(', your TA for '), b_(courseCode), t_(' (' + term + '). It takes about ' + C_().EVAL_MINUTES + ' minutes, and your draft saves as you go, so you can stop and come back.')),
+      whyInstructor_()
+    ],
+    button: { label: 'Start the evaluation', link: link },
+    after: [
+      para_(t_('Please finish by '), b_(formatDueLong_(due)), t_('. ' + taName + ' will then review your evaluation and respond, and you will be asked to sign off. You will both receive the signed PDF.')),
+      t_('Please also discuss the evaluation with ' + taName + ', as the department\'s instructions ask.')
+    ]
+  });
+
+  const emailParams = { to: profEmail, subject: subject, htmlBody: mail.htmlBody, body: mail.body };
+  return sendEmailSafely_({ evaluationId, emailParams }, emailParams);
+}
+
+function sendTAResponseInvite_(params) {
+  const { evaluationId, token, courseCode, term, profName, taName, taEmail } = params;
+  const link = C_().APP_URL + '?action=ta_respond&token=' + token;
+  const due = dueDateFromNow_();
+
+  const subject = 'Action needed by ' + formatDueShort_(due) + ': review and respond to your evaluation (' + courseCode + ', ' + term + ')';
+  const mail = renderEmail_({
+    greetName: taName,
+    evaluationId: evaluationId,
+    signInEmail: taEmail,
+    before: [
+      para_(b_(profName), t_(' has completed your TA evaluation for '), b_(courseCode), t_(' (' + term + '). You will see their ratings and comments, and then write three short responses: Context, Self-evaluation and Looking ahead. It takes about ' + C_().EVAL_MINUTES + ' minutes.')),
+      whyTa_()
+    ],
+    button: { label: 'Review and respond', link: link },
+    after: [
+      para_(t_('Please respond by '), b_(formatDueLong_(due)), t_('. ' + profName + ' will then sign off, and you will both receive the signed PDF.'))
+    ]
+  });
+
+  const emailParams = { to: taEmail, subject: subject, htmlBody: mail.htmlBody, body: mail.body };
+  return sendEmailSafely_({ evaluationId, emailParams }, emailParams);
+}
+
+function sendProfSignInvite_(params) {
+  const { evaluationId, token, courseCode, term, profName, profEmail, taName } = params;
+  const link = C_().APP_URL + '?action=prof_sign&token=' + token;
+  const due = dueDateFromNow_();
+
+  const subject = 'Action needed by ' + formatDueShort_(due) + ': sign off ' + taName + '\'s evaluation (' + courseCode + ', ' + term + ')';
+  const mail = renderEmail_({
+    greetName: profName,
+    evaluationId: evaluationId,
+    signInEmail: profEmail,
+    before: [
+      para_(b_(taName), t_(' has responded to your evaluation for '), b_(courseCode), t_(' (' + term + '). This is the last step: read their response and sign. Nothing in your evaluation needs to change.'))
+    ],
+    button: { label: 'Review and sign', link: link },
+    after: [
+      para_(t_('Please sign by '), b_(formatDueLong_(due)), t_('. Within a few minutes of your signature, you and ' + taName + ' will receive the signed PDF.'))
+    ]
+  });
+
+  const emailParams = { to: profEmail, subject: subject, htmlBody: mail.htmlBody, body: mail.body };
+  return sendEmailSafely_({ evaluationId, emailParams }, emailParams);
+}
+
+function sendCompletionEmail_(profEmail, taEmail, pdfBlob, row) {
+  const subject = 'Signed: TA evaluation for ' + row.taName + ' (' + row.courseCode + ', ' + row.term + ')';
+  const mail = renderEmail_({
+    greetName: row.profName + ' and ' + row.taName,
+    evaluationId: row.evaluationId,
+    before: [
+      para_(t_('The TA evaluation for '), b_(row.taName), t_(' in '), b_(row.courseCode), t_(' (' + row.term + ') is complete. The signed PDF is attached, and the department has kept a copy. Nothing more is needed from either of you.')),
+      para_(t_('The evaluation is part of the TA\'s personnel file. The TA can review the file, ask for corrections, and attach a short statement in response ('),
+        l_('UAW ASE contract, Article 22', POLICY_LINKS_.contract), t_(').'))
+    ]
+  });
+  const htmlBody = mail.htmlBody;
+  const options = mailOptions_({ htmlBody: htmlBody, attachments: [pdfBlob] });
 
   try {
-    const options = { htmlBody, attachments: [pdfBlob], name: 'TA Evaluation System' };
-    GmailApp.sendEmail([profEmail, taEmail].join(','), subject, '', options);
+    GmailApp.sendEmail([profEmail, taEmail].join(','), subject, mail.body, options);
     return { success: true };
   } catch (err) {
     // Blob cannot be JSON-serialized into the DLQ; store the Drive file ID and re-fetch on retry.
-    enqueueDeadLetter(DLQ_ACTIONS.SEND_COMPLETION, {
+    enqueueDeadLetter_(DLQ_ACTIONS.SEND_COMPLETION, {
       evaluationId: row.evaluationId,
       profEmail,
       taEmail,
       subject,
       htmlBody,
+      body: mail.body,
       row,
       fileId: row.finalPdfFileId
     }, err);
@@ -118,30 +226,50 @@ function sendCompletionEmail(profEmail, taEmail, pdfBlob, row) {
   }
 }
 
-function sendReminderEmail(params) {
-  const { email, name, action, link, evaluationId, courseCode, term, reminderCount } = params;
-  const stageLabels = {
-    PROF_EVAL_PENDING: 'Professor Evaluation',
-    TA_RESPONSE_PENDING: 'TA Response',
-    PROF_SIGN_PENDING: 'Professor Final Sign-off'
+function sendReminderEmail_(params) {
+  const { email, name, action, link, evaluationId, courseCode, term, reminderCount, taName, profName, tokenExpiry } = params;
+  const due = dueDateFromExpiry_(tokenExpiry);
+  const startedMs = due.getTime() - C_().DUE_DAYS * 24 * 60 * 60 * 1000;
+  const daysWaiting = Math.max(1, Math.floor((Date.now() - startedMs) / (24 * 60 * 60 * 1000)));
+  const last = reminderCount >= C_().MAX_REMINDERS;
+
+  const steps = {
+    PROF_EVAL_PENDING: {
+      subject: 'Reminder: evaluate ' + taName + ' by ' + formatDueShort_(due) + ' (' + courseCode + ')',
+      what: para_(t_('Your evaluation of '), b_(taName), t_(' for ' + courseCode + ' (' + term + ') has been waiting ' + daysWaiting + ' days. It is important to the professional development of our students, and ' + taName + ' cannot respond until you submit it. It takes about ' + C_().EVAL_MINUTES + ' minutes, and any draft you started is saved.')),
+      label: 'Finish the evaluation'
+    },
+    TA_RESPONSE_PENDING: {
+      subject: 'Reminder: respond to your evaluation by ' + formatDueShort_(due) + ' (' + courseCode + ')',
+      what: para_(t_('Your response to ' + profName + '\'s evaluation for ' + courseCode + ' (' + term + ') has been waiting ' + daysWaiting + ' days. The evaluation cannot be finalized until you respond. It takes about ' + C_().EVAL_MINUTES + ' minutes.')),
+      label: 'Review and respond'
+    },
+    PROF_SIGN_PENDING: {
+      subject: 'Reminder: sign off ' + taName + '\'s evaluation by ' + formatDueShort_(due) + ' (' + courseCode + ')',
+      what: para_(t_(taName + ' responded ' + daysWaiting + ' days ago, and the evaluation for ' + courseCode + ' (' + term + ') is waiting for your signature. It only needs your review and signature.')),
+      label: 'Review and sign'
+    }
   };
-  const stage = stageLabels[action] || action;
+  const step = steps[action] || steps.PROF_EVAL_PENDING;
 
-  const subject = 'Reminder #' + reminderCount + ': ' + stage + ' Due - ' + courseCode + ' (' + term + ')';
-  const htmlBody = `
-    <p>Dear ${name},</p>
-    <p>This is reminder #${reminderCount} for the <strong>${stage}</strong> for <strong>${courseCode}</strong> (${term}).</p>
-    <p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#2c3e50;color:#fff;text-decoration:none;border-radius:4px;">Complete Now</a></p>
-    <p>If you have already completed this step, please disregard this reminder.</p>
-    <hr>
-    <p style="font-size:12px;color:#666;">Evaluation ID: ${evaluationId}</p>
-  `;
+  const mail = renderEmail_({
+    greetName: name,
+    evaluationId: evaluationId,
+    signInEmail: email,
+    before: [step.what],
+    button: { label: step.label, link: link },
+    after: [
+      para_(t_('Please finish by '), b_(formatDueLong_(due)), t_('. ' + (last
+        ? 'This is the last automatic reminder; after this the coordinator will follow up with you.'
+        : 'If you have already done this, you can ignore this email.')))
+    ]
+  });
 
-  const emailParams = { to: email, subject, htmlBody, name: 'TA Evaluation System' };
-  return sendEmailSafely({ evaluationId, emailParams }, emailParams);
+  const emailParams = { to: email, subject: step.subject, htmlBody: mail.htmlBody, body: mail.body };
+  return sendEmailSafely_({ evaluationId, emailParams }, emailParams);
 }
 
-function sendEscalationEmail(params) {
+function sendEscalationEmail_(params) {
   const { adminEmail, evaluationId, courseCode, term, profName, taName, pendingStage, daysOverdue } = params;
 
   const subject = 'ESCALATION: TA Evaluation Overdue - ' + evaluationId;
@@ -159,16 +287,16 @@ function sendEscalationEmail(params) {
   `;
 
   const emailParams = { to: adminEmail, subject, htmlBody, name: 'TA Evaluation System' };
-  return sendEmailSafely({ evaluationId, emailParams }, emailParams);
+  return sendEmailSafely_({ evaluationId, emailParams }, emailParams);
 }
 
-function sendAdminAlert(params) {
+function sendAdminAlert_(params) {
   const { subject, body } = params;
   const emailParams = {
-    to: C().ADMIN_EMAIL,
+    to: C_().ADMIN_EMAIL,
     subject: '[ALERT] ' + subject,
     htmlBody: '<pre style="font-family:monospace;white-space:pre-wrap;">' + body + '</pre>',
     name: 'TA Evaluation System'
   };
-  return sendEmailSafely({ emailParams }, emailParams);
+  return sendEmailSafely_({ emailParams }, emailParams);
 }

@@ -301,14 +301,11 @@
         google.script.run
           .withSuccessHandler(function(result) {
             if (result.success) {
-              if (action === 'prof_eval') {
-                localStorage.removeItem('eval_draft_' + token);
-              }
               var nextAction = getNextAction(action, result);
               var messages = {
                 prof_eval: 'Your evaluation has been submitted. The TA will receive an email with instructions to respond.',
                 ta_respond: 'Your response has been submitted. The professor will receive an email to review and sign off.',
-                prof_sign: 'The evaluation is finalized. A PDF has been generated and emailed to all parties.'
+                prof_sign: 'The evaluation is signed. The signed PDF will be emailed to you and the TA within a few minutes.'
               };
               var headerText = 'Evaluation complete';
               if (nextAction === 'completed') {
@@ -332,7 +329,7 @@
             }
           })
           .withFailureHandler(function(err) {
-            showAlert('Server error: ' + (err.message || err || 'Unknown error'), 'error');
+            showAlert('Could not reach the server. Check your connection and try again.', 'error');
             submitBtn.disabled = false;
             submitBtn.textContent = getButtonText(action);
           })
@@ -429,21 +426,15 @@
         }
 
       if (action === 'prof_eval') {
-        var STORAGE_KEY = 'eval_draft_' + token;
-        var saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          try { populateForm(JSON.parse(saved)); updateDraftIndicator('restored'); } catch(e) {}
-        }
+        // Drafts are kept on the server only. Remove any copy an older version left in this browser.
+        try { localStorage.removeItem('eval_draft_' + token); } catch (e) {}
         loadDraftFromServer();
 
         var saveTimer;
         form.addEventListener('input', function() {
           clearTimeout(saveTimer);
           saveTimer = setTimeout(function() {
-            var data = collectFormData(form);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            updateDraftIndicator('saved');
-            saveDraftToServer(data);
+            saveDraftToServer(collectFormData(form));
           }, 1000);
         });
       }
@@ -453,11 +444,8 @@
           google.script.run
             .withSuccessHandler(function(result) {
               if (result.success && result.payload && Object.keys(result.payload).length > 0) {
-                var local = localStorage.getItem(STORAGE_KEY);
-                if (!local || JSON.stringify(result.payload) !== local) {
-                  populateForm(result.payload);
-                  updateDraftIndicator('synced');
-                }
+                populateForm(result.payload);
+                updateDraftIndicator('synced');
               }
             })
             .withFailureHandler(function() {})
@@ -468,7 +456,7 @@
       function updateDraftIndicator(status) {
         if (!draftIndicator) return;
         draftIndicator.className = 'draft-indicator visible ' + (status === 'saved' || status === 'synced' ? 'saved' : '');
-        if (status === 'saved') draftIndicator.textContent = 'Draft saved locally';
+        if (status === 'saved') draftIndicator.textContent = 'Draft saved';
         else if (status === 'synced') draftIndicator.textContent = 'Draft synced from server';
         else draftIndicator.textContent = 'Draft restored';
       }
@@ -476,7 +464,7 @@
       function saveDraftToServer(data) {
         try {
           google.script.run
-            .withSuccessHandler(function() {})
+            .withSuccessHandler(function(result) { if (result && result.success) updateDraftIndicator('saved'); })
             .withFailureHandler(function() {})
             .saveDraftData(token, data);
         } catch (e) {}
