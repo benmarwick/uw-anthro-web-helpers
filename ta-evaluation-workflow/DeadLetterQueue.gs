@@ -66,7 +66,7 @@ function enqueueDeadLetter_(action, payload, error, maxRetries = C_().DEAD_LETTE
 
 /* 10-minute trigger. It runs only for a real trigger event or for the script owner. */
 function processDeadLetterQueue(e) {
-  assertTriggerOrOwner_(e);
+  assertTriggerOrOwner_(e, 'processDeadLetterQueue');
   const result = processDeadLetterQueue_();
   // Safety net for the background PDF: build any PDF still waiting after its one-off trigger.
   try { generatePendingPdfs_(); } catch (err) { logError_('DeadLetterQueue.processDeadLetterQueue', 'Pending PDF run failed', { error: err.message }); }
@@ -95,6 +95,7 @@ function processDeadLetterQueue_() {
     if (status !== 'PENDING') continue;
     if (retryCount >= maxRetries) {
       updateDeadLetterStatus_(r + 1, col, 'MAX_RETRIES_EXCEEDED', now, 'Max retries exceeded');
+      sheet.getRange(r + 1, col.Payload_JSON + 1).setValue('');
       failed++;
       continue;
     }
@@ -142,6 +143,7 @@ function processDeadLetterQueue_() {
       sheet.getRange(r + 1, col.Last_Attempt_Timestamp + 1).setValue(now.toISOString());
       sheet.getRange(r + 1, col.Last_Attempt_Error + 1).setValue(err.message);
       sheet.getRange(r + 1, col.Status + 1).setValue(newStatus);
+      if (newStatus === 'MAX_RETRIES_EXCEEDED') sheet.getRange(r + 1, col.Payload_JSON + 1).setValue('');
 
       failed++;
       logError_('DeadLetterQueue.processDeadLetterQueue', `Retry failed for ${action}`, { id: row[col.ID], action, error: err.message, retryCount: newRetryCount, nextRetry: nextRetry.toISOString() }, { evaluationId: payload.evaluationId });
@@ -185,7 +187,7 @@ function executeEscalationRetry_(payload) {
 }
 
 function executeCompletionRetry_(payload) {
-  const { profEmail, taEmail, subject, htmlBody, body, row, fileId } = payload;
+  const { profEmail, taEmail, subject, htmlBody, body, fileId, evaluationId } = payload;
   let pdfBlob = null;
   if (fileId) {
     try {
@@ -197,7 +199,7 @@ function executeCompletionRetry_(payload) {
   if (pdfBlob) {
     GmailApp.sendEmail([profEmail, taEmail].join(','), subject, body || '', mailOptions_({ htmlBody: htmlBody, attachments: [pdfBlob] }));
   } else {
-    generateAndDistributePdf_(row, { enqueue: false });
+    generateAndDistributePdf_({ evaluationId: evaluationId }, { enqueue: false });
   }
 }
 
@@ -255,4 +257,25 @@ function createDeadLetterTrigger_() {
     .timeBased()
     .everyMinutes(10)
     .create();
+}
+/* Deletes finished queue entries (succeeded or out of retries) older than the given number of days. */
+function pruneDeadLetters_(daysToKeep) {
+  const sheet = ensureDeadLetterSheet_();
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return 0;
+  const col = {};
+  data[0].forEach(function(h, i) { col[h] = i; });
+  const cutoff = Date.now() - daysToKeep * 24 * 60 * 60 * 1000;
+  const keep = data.slice(1).filter(function(row) {
+    if (row[col.Status] === 'PENDING') return true;
+    const t = new Date(row[col.Created_Timestamp]).getTime();
+    return isNaN(t) || t >= cutoff;
+  });
+  const deleted = data.length - 1 - keep.length;
+  if (deleted > 0) {
+    sheet.getRange(2, 1, data.length - 1, data[0].length).clearContent();
+    if (keep.length) sheet.getRange(2, 1, keep.length, data[0].length).setValues(keep);
+    SpreadsheetApp.flush();
+  }
+  return deleted;
 }

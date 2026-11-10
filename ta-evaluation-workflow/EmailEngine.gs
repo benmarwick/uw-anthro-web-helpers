@@ -41,20 +41,6 @@ function escapeHtml_(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-/* The due date for a step that starts now. */
-function dueDateFromNow_() {
-  return new Date(Date.now() + C_().DUE_DAYS * 24 * 60 * 60 * 1000);
-}
-
-/* The due date of the step in progress. A link is issued when its step starts and expires
-   TOKEN_TTL_DAYS later, so the step started at (expiry - TTL). */
-function dueDateFromExpiry_(expiry) {
-  const exp = new Date(expiry);
-  if (isNaN(exp.getTime())) return dueDateFromNow_();
-  const start = exp.getTime() - C_().TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
-  return new Date(start + C_().DUE_DAYS * 24 * 60 * 60 * 1000);
-}
-
 function formatDueLong_(d) {
   return Utilities.formatDate(d, Session.getScriptTimeZone(), 'EEEE, MMMM d');
 }
@@ -124,7 +110,7 @@ function whyTa_() {
 function sendProfEvaluationInvite_(params) {
   const { evaluationId, token, courseCode, term, profName, profEmail, taName } = params;
   const link = C_().APP_URL + '?action=prof_eval&token=' + token;
-  const due = dueDateFromNow_();
+  const due = dueDateForStep_(term, 'prof_eval');
 
   const subject = 'Action needed by ' + formatDueShort_(due) + ': evaluate your TA ' + taName + ' (' + courseCode + ', ' + term + ')';
   const mail = renderEmail_({
@@ -149,7 +135,7 @@ function sendProfEvaluationInvite_(params) {
 function sendTAResponseInvite_(params) {
   const { evaluationId, token, courseCode, term, profName, taName, taEmail } = params;
   const link = C_().APP_URL + '?action=ta_respond&token=' + token;
-  const due = dueDateFromNow_();
+  const due = dueDateForStep_(term, 'ta_respond');
 
   const subject = 'Action needed by ' + formatDueShort_(due) + ': review and respond to your evaluation (' + courseCode + ', ' + term + ')';
   const mail = renderEmail_({
@@ -173,7 +159,7 @@ function sendTAResponseInvite_(params) {
 function sendProfSignInvite_(params) {
   const { evaluationId, token, courseCode, term, profName, profEmail, taName } = params;
   const link = C_().APP_URL + '?action=prof_sign&token=' + token;
-  const due = dueDateFromNow_();
+  const due = dueDateForStep_(term, 'prof_sign');
 
   const subject = 'Action needed by ' + formatDueShort_(due) + ': sign off ' + taName + '\'s evaluation (' + courseCode + ', ' + term + ')';
   const mail = renderEmail_({
@@ -219,7 +205,6 @@ function sendCompletionEmail_(profEmail, taEmail, pdfBlob, row) {
       subject,
       htmlBody,
       body: mail.body,
-      row,
       fileId: row.finalPdfFileId
     }, err);
     return { success: false };
@@ -228,9 +213,9 @@ function sendCompletionEmail_(profEmail, taEmail, pdfBlob, row) {
 
 function sendReminderEmail_(params) {
   const { email, name, action, link, evaluationId, courseCode, term, reminderCount, taName, profName, tokenExpiry } = params;
-  const due = dueDateFromExpiry_(tokenExpiry);
-  const startedMs = due.getTime() - C_().DUE_DAYS * 24 * 60 * 60 * 1000;
-  const daysWaiting = Math.max(1, Math.floor((Date.now() - startedMs) / (24 * 60 * 60 * 1000)));
+  const started = stepStartFromExpiry_(tokenExpiry);
+  const due = dueDateForStep_(term, stageActionForStatus_(action), started);
+  const daysWaiting = Math.max(1, Math.floor((Date.now() - started.getTime()) / DAY_MS_));
   const last = reminderCount >= C_().MAX_REMINDERS;
 
   const steps = {

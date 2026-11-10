@@ -97,12 +97,22 @@ If this is your first time, do a trial run first. Add one row with your own emai
 ### Step 5. Launch
 
 1. Choose **TA Evaluation System > Launch Selected Evaluation(s)**.
-2. A message says **Launched N evaluation(s)**. Check that N equals the number of rows you marked in Step 4.
+2. A message says **Launched N evaluation(s)**. Check that N equals the number of rows you marked in Step 4. If any rows were not launched, the message lists them with the reason: an instructor or TA address that is not a `@uw.edu` address, or the same address for both. Fix those rows and launch again. (A test row with `ADMIN_EMAIL` as both instructor and TA is allowed.)
 3. In each launched row, `Status` changes to `PROF_EVAL_PENDING` and the system fills in dates, a reminder count and a secure token in columns I to R.
 
 Each instructor receives an email with the subject "Action needed by *due date*: evaluate your TA *TA name* (*course*, *term*)" and a **Start the evaluation** button. The emails are sent from the Google account of the person who chose **Launch**, under the name "UW Anthropology TA Evaluations", and replies go to `ADMIN_EMAIL`.
 
-Every email asks for the step to be done within 14 days (`DUE_DAYS`) and shows the date. It says how long the form takes (about 10 minutes, `EVAL_MINUTES`) and why the evaluation matters, with links to UW Executive Order 28, Graduate School Policy 5.1 and Article 22 of the UAW ASE contract. It also says which UW account to sign in with, and includes a plain link under the button and a plain-text version of the message. The wording is in `EmailEngine.gs`.
+Every email shows the date the step is due. Due dates are tied to the end of the quarter in the row's `Term`, so the whole evaluation finishes by the last day of finals:
+
+| Step | Due |
+|---|---|
+| Instructor's evaluation | 14 days before the last day of finals |
+| TA's response | 7 days before the last day of finals |
+| Instructor's sign-off | the last day of finals |
+
+For Autumn 2026 (finals end Friday, December 18) that is December 4, December 11 and December 18. A step that starts late still gets at least 3 days. If the quarter has already ended when a step starts, or the `Term` is not in the quarter table, the step is due 14 days after it starts (`DUE_DAYS`). Write the term as `Autumn 2026`; `AUT 2026`, `AU26`, `Fall 2026` and similar also work. The quarter end dates are in `QUARTER_END_DATES_` in `Config.gs`, taken from the registrar's [academic calendar summaries](https://www.washington.edu/students/reg/begendcal.html), through Summer 2033 (for summer, the last day of instruction). Launch lists any row whose `Term` is not in the table.
+
+Each email also says how long the form takes (about 10 minutes, `EVAL_MINUTES`) and why the evaluation matters, with links to UW Executive Order 28, Graduate School Policy 5.1 and Article 22 of the UAW ASE contract. It also says which UW account to sign in with, and includes a plain link under the button and a plain-text version of the message. The wording is in `EmailEngine.gs`.
 
 ### Step 6. Follow Progress
 
@@ -117,7 +127,7 @@ The `Status` column shows where each evaluation is. You do not need to forward a
 | `COMPLETED` | Nobody. Both people have received the signed PDF by email. A copy is in the archive Drive folder, linked in the `Final_PDF_Link` column |
 | `ESCALATED` | You. The person did not act after two reminders (see Problems below) |
 
-The system sends a reminder after 5 days without action, and a second reminder 5 days later (day 10). Each reminder shows the due date and how long the step has been waiting; the second says it is the last automatic one. If 5 more days pass (day 15, after the 14-day due date), it marks the row `ESCALATED` and emails the administrator (`ADMIN_EMAIL` in `Config.gs`). Reminders only run if the triggers are installed. Choose **TA Evaluation System > Run Health Check** and confirm that it says **Triggers Healthy: Yes**. If it says **No**, choose **Create/Refresh All Triggers** once.
+The system sends a reminder after 5 days without action, and a second reminder 5 days later (day 10). Each reminder shows the due date and how long the step has been waiting; the second says it is the last automatic one. After two reminders, once the step is past its due date, it marks the row `ESCALATED` and emails the administrator (`ADMIN_EMAIL` in `Config.gs`). Reminders only run if the triggers are installed. Choose **TA Evaluation System > Run Health Check** and confirm that it says **Triggers Healthy: Yes**. If it says **No**, choose **Create/Refresh All Triggers** once.
 
 After launch, do not edit columns H to R by hand except as described below.
 
@@ -179,7 +189,7 @@ Every transition is written to the `Audit_Log` sheet and the `Data_Payload` JSON
 ```
 ├── Config.gs             # Global constants (sheet names, IDs, thresholds, toggles)
 ├── SheetAdmin.gs         # Sheets custom menu, schema init, launch, sample data, admin dialogs
-├── Security.gs           # Access checks, rate limiting, input sanitization, token rotation, sheet protection
+├── Security.gs           # Access checks, rate limiting, input checks, required content, sheet protection
 ├── AuditLog.gs           # Audit trail: logEvent(), query helpers
 ├── Logs.gs               # Structured logging: logInfo/Warn/Error/Fatal, query + prune
 ├── DeadLetterQueue.gs    # Failed task queue with exponential-backoff retries
@@ -279,22 +289,33 @@ The page talks to the server through `google.script.run`, which can call any top
 
 - `submitForm(token, action, payload)` — submits the current stage: `prof_eval` → `TA_RESPONSE_PENDING` + TA invite; `ta_respond` → `PROF_SIGN_PENDING` + sign-off invite; `prof_sign` → `PDF_GENERATING`; the reply comes straight back and the PDF is built in the background (§6).
 - `saveDraftData(token, payload)` / `loadDraftData(token)` — the instructor's draft, during `PROF_EVAL_PENDING` only.
-- `doGet` (the web app), `onOpen` and the 14 menu items, which refuse anyone except the script owner (`assertOwner_`).
-- The trigger handlers (`checkRemindersAndEscalations`, `processDeadLetterQueue`, `checkAlertThresholds`, and the one-off `generatePendingPdfs`), which run only for the owner or for a trigger event with no signed-in user (`assertTriggerOrOwner_`).
+- `doGet` (the web app), `onOpen` and the 14 menu items, which refuse anyone except `ADMIN_EMAIL` (`assertOwner_`). The check names the account, so it does not depend on how the web app is deployed.
+- The trigger handlers (`checkRemindersAndEscalations`, `processDeadLetterQueue`, `checkAlertThresholds`, and the one-off `generatePendingPdfs`), which run only for `ADMIN_EMAIL` or for a trigger event whose `triggerUid` matches one of this project's own triggers for that handler (`assertTriggerOrOwner_`). A forged event object is refused.
 
 Every other function ends in `_` and cannot be called from a browser.
 
 ### Access checks
-Opening a link and every call above go through `loadAuthorizedRow_` / `checkStageAccess_` in `Security.gs`:
+Every call from the page first passes cheap checks that touch neither the sheet nor the lock (`precheckCaller_` in `WebApp.gs`):
 
-1. **Token** — must be a full-length token that matches a row. A cleared token matches nothing.
-2. **Expiry** — the token must not be past `Token_Expiry`.
-3. **Stage** — the row's `Status` must be open for input, and a submission must be for that stage.
-4. **Identity** — the signed-in UW account (`Session.getActiveUser()`) must match `Prof_Email` for the instructor's steps or `TA_Email` for the TA's step, ignoring case and spaces. Users the app cannot identify are refused.
-5. **Fields** — each stage may only write its own fields (`STAGE_FIELDS_`), so the TA cannot change the instructor's evaluation and the reverse. Input is sanitized: HTML-escaped, length-capped, duty ratings limited to `satisfactory`/`unsatisfactory`/`na`, and duty keys limited to `task_` names.
-6. **Signature** — each submission needs the typed name. The server records the signer's UW account and the time (`signatureEmail`/`taSignatureEmail`/`profSignatureEmail` and the matching timestamps), and the audit log records the account.
-7. **Rate limit and lock** — `submitForm` allows 30 attempts an hour per token (`CacheService`) and holds a script lock (`LockService`) while it checks and updates the row.
-8. **Token rotation** — a new token is issued at every stage transition, so a finished step's link stops working. The token is cleared when the evaluation is `COMPLETED`.
+1. **Link format** — the token must be a UUID (`isTokenShape_`). Anything else, including oversized strings, is refused without logging.
+2. **Signed in** — the caller must be a signed-in UW account (`Session.getActiveUser()`).
+3. **Rate limit** — per account: 30 submissions an hour, 300 draft loads and saves an hour (`CacheService`, hashed keys). Sending a different token each time does not reset it.
+
+Then opening a link and every call go through `loadAuthorizedRow_` / `checkStageAccess_` in `Security.gs`:
+
+4. **Token** — must match a row. A cleared token matches nothing.
+5. **Expiry** — the token must not be past `Token_Expiry`.
+6. **Stage** — the row's `Status` must be open for input, and a submission must be for that stage.
+7. **Addresses** — both addresses must be `@uw.edu` and different (`addressProblem_`), except a test row where `ADMIN_EMAIL` is both.
+8. **Identity** — the signed-in account must match `Prof_Email` for the instructor's steps or `TA_Email` for the TA's step, ignoring case and spaces. Users the app cannot identify are refused.
+
+A submission then has to pass:
+
+9. **Fields** — each stage may only write its own fields (`STAGE_FIELDS_`), so the TA cannot change the instructor's evaluation and the reverse. Text is stored as typed, length-capped, with control characters removed; it is escaped where it is shown (the pages use `<?= ?>`, the PDF is plain text). Duty ratings are limited to `satisfactory`/`unsatisfactory`/`na`, and duty keys to `task_` names.
+10. **Required content** (`validateStageFields_`) — the instructor's evaluation needs a basis of evaluation, a rating for every duty in `DUTY_LIST_` (`Config.gs`; the same list feeds the form and the PDF), strengths, concerns and at least 10 characters of feedback. The TA's response needs all three answers. Each step needs the typed signature. A whole evaluation must fit in 45,000 characters.
+11. **Signature** — the server records the signer's UW account and the time (`signatureEmail`/`taSignatureEmail`/`profSignatureEmail` and the matching timestamps), and the audit log records the account.
+12. **Lock** — `submitForm` and draft saves hold the script lock (`LockService`) while they re-check steps 4–8 and update the row, so a late autosave cannot undo a submission. Row updates write only the changed cells and never read them first.
+13. **Token rotation** — a new token is issued at every stage transition, so a finished step's link stops working. The token is cleared when the evaluation is `COMPLETED`.
 
 ### UI (`Index.html`)
 Single dynamic page (not a separate template per stage) that renders the active step. Styled to the UW brand (purple `#4B2E83`, gold `#B7A57A`, Inter font) and built for WCAG 2.1 AA: skip link, semantic landmarks, ARIA progress bar, visible keyboard focus, `role="alert"` live regions, print stylesheet, mobile-responsive layout, character counters, and accessible custom radio buttons. The web forms meet current accessibility best practices: every input is labeled, required fields are announced and validated with clear error messages, radio groups use `<fieldset>`/`<legend>`, and all controls have touch targets of at least 44 px. The professor's form auto-saves to the server (1 s debounce). Nothing is kept in the browser; a draft left there by an older version is deleted when the form opens.
@@ -337,14 +358,14 @@ The `TEMPLATE_DOC_ID` in `Config.gs` is only checked for existence by the health
 ## 7. Automation, Alerts & Retries
 
 ### Reminders & escalations (`Automation.gs`)
-Daily trigger at 09:00 runs `checkRemindersAndEscalations()`. It also deletes `Logs` entries older than `LOG_RETENTION_DAYS` (90). For any evaluation in `PROF_EVAL_PENDING` / `TA_RESPONSE_PENDING` / `PROF_SIGN_PENDING`:
+Daily trigger at 09:00 runs `checkRemindersAndEscalations()`. It also deletes `Logs` entries, and finished dead-letter entries, older than `LOG_RETENTION_DAYS` (90). It finds due rows without the lock, then for each one takes the lock, re-reads the row by `Evaluation_ID` and acts only if nothing changed, so a submission arriving during the run is never overwritten. For any evaluation in `PROF_EVAL_PENDING` / `TA_RESPONSE_PENDING` / `PROF_SIGN_PENDING`:
 - ≥ 5 days (`REMINDER_INTERVAL_DAYS`) since last activity and `Reminder_Count < 2` → send reminder to the responsible party, increment `Reminder_Count`, reset `Last_Action_Date`.
-- `Reminder_Count >= 2` → mark `ESCALATED`, send escalation email to `ADMIN_EMAIL`.
+- `Reminder_Count >= 2` and the step is past its due date → mark `ESCALATED`, send escalation email to `ADMIN_EMAIL`.
 
 `Reminder_Count` goes back to `0` whenever a step is submitted, so each step gets its own two reminders before it escalates.
 
 ### Dead letter queue (`DeadLetterQueue.gs`)
-Failed emails and PDF generation are enqueued with a 60 s base delay that doubles per retry (max 3 retries). A 10-minute trigger processes due items and also builds any PDF still waiting in `PDF_GENERATING`; items that exhaust retries are marked `MAX_RETRIES_EXCEEDED` and alert the admin. When a retry succeeds, the item's `Payload_JSON` is cleared, because email payloads contain working links. Items that exhausted retries keep their payload so they can be requeued.
+Failed emails and PDF generation are enqueued with a 60 s base delay that doubles per retry (max 3 retries). A 10-minute trigger processes due items and also builds any PDF still waiting in `PDF_GENERATING`; items that exhaust retries are marked `MAX_RETRIES_EXCEEDED` and alert the admin. A PDF retry stores only the `Evaluation_ID`; every PDF build re-reads the current row by ID (so sorting the sheet cannot misdirect it, and an existing PDF is never built twice) and refuses to build without a final sign-off. An item's `Payload_JSON` is cleared when it succeeds or runs out of retries, because email payloads contain working links.
 
 ### Alerting (`Alerting.gs`)
 Hourly trigger runs `checkAlertThresholds()`, which checks:
@@ -386,15 +407,16 @@ Triggers with alerts found → consolidated email to `ADMIN_EMAIL` grouped by se
 ## 9. Security and Privacy
 
 - **Access:** the web app is limited to UW accounts and runs as the owner. Every form, draft and submission checks that the signed-in account is the stage's instructor or TA (§5). Admin URLs (`health`, `regen`, `regen_pdf`) are limited to `ADMIN_EMAIL`.
-- **Server functions:** only the entry points in §5 are public. Menu items run only for the script owner; trigger handlers run only for the owner or a real trigger event.
+- **Server functions:** only the entry points in §5 are public. Menu items run only for `ADMIN_EMAIL`; trigger handlers run only for `ADMIN_EMAIL` or an event from one of the project's own triggers.
+- **Abuse limits:** malformed links and callers who are not signed in are refused before the sheet, the cache or the lock is touched; the rate limits are per account (§5).
 - **Tokenized links:** UUID v4 tokens per evaluation and stage, rotated on every transition, expiring after 30 days (`TOKEN_TTL_DAYS`), cleared on completion. A link alone does not open a form; the right account must be signed in.
 - **Signatures:** the typed name, plus the UW account and time recorded by the server, appear in the audit log and on the PDF.
-- **Input handling:** sanitization and per-stage field lists (§5). The pages escape all stored text.
+- **Input handling:** per-stage field lists and required content (§5). Text is stored as typed and escaped on output: the pages use `<?= ?>`, the PDF is plain text, and the emails to instructors and TAs escape names.
 - **Browser storage:** none. Drafts are kept on the server.
 - **Framing:** the page uses Google's default frame protection (no `ALLOWALL`).
 - **Errors:** users see plain messages; details go to the `Logs` sheet.
 - **Sheet protection:** admin sheets can be protected so only `ADMIN_EMAIL` can edit. Keep the master spreadsheet and the archive folder shared with the owner only: the sheet holds live tokens and every evaluation's text.
-- **Retention:** `Logs` entries are deleted after `LOG_RETENTION_DAYS`; dead-letter payloads are cleared after a successful retry. `Data_Payload` and the archived PDFs are kept until someone deletes them. Evaluations are personnel records, so how long to keep them is a question for UW Records Management, not a setting in this code.
+- **Retention:** `Logs` entries and finished dead-letter entries are deleted after `LOG_RETENTION_DAYS`; dead-letter payloads are cleared when an item finishes, and PDF retries store only the ID. The temporary Doc used to build a PDF is deleted even when the build fails. `Audit_Log` is kept: it records who signed each step and holds no evaluation text or tokens. `Data_Payload` and the archived PDFs are kept until someone deletes them. Evaluations are personnel records, so how long to keep them is a question for UW Records Management, not a setting in this code.
 - **Email account:** invitations, reminders and PDFs are sent from the Google account that owns the script, so copies collect in that account's Sent folder. Deploying from a department account avoids this.
 - **CSP:** an optional nonce attribute on the inline script; disabled by default (`SECURITY.CSP_NONCE_ENABLED`).
 
@@ -430,8 +452,9 @@ Key settings (all in the `CONFIG` object):
 | `ARCHIVE_FOLDER_ID` | Drive folder where final PDFs are saved |
 | `ADMIN_EMAIL` | Coordinator receiving escalations/alerts |
 | `APP_URL` | Web App deployment URL (used to build email links) |
-| `REMINDER_INTERVAL_DAYS` / `MAX_REMINDERS` | `5` / `2` (reminders on days 5 and 10, escalation on day 15) |
-| `DUE_DAYS` | `14` (due date shown in the emails, counted from the start of each step) |
+| `REMINDER_INTERVAL_DAYS` / `MAX_REMINDERS` | `5` / `2` (reminders 5 days apart; escalation only after the step's due date) |
+| `DUE_DAYS` | `14` (fallback due date, counted from the start of a step, when its `Term` is unknown or already over) |
+| `QUARTER_END_DATES_`, `STEP_DAYS_BEFORE_END_`, `MIN_STEP_DAYS_` | Last day of finals for each quarter through Summer 2033; steps due 14 / 7 / 0 days before it; at least 3 days per step (constants below `CONFIG`) |
 | `EVAL_MINUTES` | `10` (time estimate shown in the emails) |
 | `TOKEN_TTL_DAYS` | `30` |
 | `LOG_RETENTION_DAYS` | `90` (the daily trigger deletes older `Logs` entries) |

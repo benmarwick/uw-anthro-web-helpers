@@ -9,7 +9,7 @@ var UW_LIGHT_BG = '#F7F5FA';
 
 /* One-off trigger set by the final sign-off. It runs only for a real trigger event or the owner. */
 function generatePendingPdfs(e) {
-  assertTriggerOrOwner_(e);
+  assertTriggerOrOwner_(e, 'generatePendingPdfs');
   // Remove this one-off trigger (and any duplicates) so they do not pile up.
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === 'generatePendingPdfs') ScriptApp.deleteTrigger(t);
@@ -84,6 +84,12 @@ function generatePendingPdfs_() {
 function generateAndDistributePdf_(row, opts) {
   opts = opts || {};
   var evaluationId = row.evaluationId;
+  var current = findRowByEvaluationId_(evaluationId);
+  if (!current) throw new Error('Evaluation not found: ' + evaluationId);
+  row = current;
+  if (!(row.dataPayload && row.dataPayload.profSignatureName)) {
+    throw new Error('Evaluation ' + evaluationId + ' has no final sign-off; no PDF built.');
+  }
 
   if (row.finalPdfLink && row.finalPdfFileId) {
     logEvent_({
@@ -149,7 +155,7 @@ function handlePdfFailure_(row, err, attempts, isRetryable, opts) {
   });
 
   if (isRetryable && opts.enqueue !== false) {
-    enqueueDeadLetter_(DLQ_ACTIONS.GENERATE_PDF, row, err);
+    enqueueDeadLetter_(DLQ_ACTIONS.GENERATE_PDF, { evaluationId: evaluationId }, err);
   }
 
   return { newStatus: newStatus };
@@ -161,6 +167,18 @@ function attemptPdfGeneration_(row, attemptNumber) {
 
   var tempDoc = DocumentApp.create('TEMP_EVAL_' + evaluationId);
   var tempFile = DriveApp.getFileById(tempDoc.getId());
+  // The temporary Doc holds the whole evaluation, so it is deleted even when a step below fails.
+  try {
+    return finishPdf_(row, attemptNumber, archiveFolder, tempDoc, tempFile);
+  } finally {
+    try { tempFile.setTrashed(true); } catch (trashErr) {
+      logWarn_('PdfEngine.attemptPdfGeneration', 'Could not delete the temporary Doc', { evaluationId: evaluationId, error: trashErr.message });
+    }
+  }
+}
+
+function finishPdf_(row, attemptNumber, archiveFolder, tempDoc, tempFile) {
+  var evaluationId = row.evaluationId;
   tempFile.moveTo(archiveFolder);
 
   var body = tempDoc.getBody();
@@ -179,7 +197,6 @@ function attemptPdfGeneration_(row, attemptNumber) {
 
   var fileSizeMB = pdfBlob.getBytes().length / (1024 * 1024);
   if (fileSizeMB > C_().PDF.MAX_FILE_SIZE_MB) {
-    tempFile.setTrashed(true);
     throw new Error('PDF file size ' + fileSizeMB.toFixed(2) + 'MB exceeds limit of ' + C_().PDF.MAX_FILE_SIZE_MB + 'MB');
   }
 
@@ -191,12 +208,11 @@ function attemptPdfGeneration_(row, attemptNumber) {
 
   updateRowPdfInfo_(row.evaluationId, fileUrl, fileId);
 
-  tempFile.setTrashed(true);
-
   sendCompletionEmail_(row.profEmail, row.taEmail, pdfBlob, row);
 
   updateRowStatusAndDate_(evaluationId, C_().STATUSES.COMPLETED, new Date().toISOString());
-  if (row.rowNum) updateRow_(row.rowNum, { secureToken: '', tokenExpiry: '' });
+  const current = findRowByEvaluationId_(evaluationId);
+  if (current) updateRow_(current.rowNum, { secureToken: '', tokenExpiry: '' });
 
   logEvent_({
     action: C_().ACTIONS.PDF_GENERATED, evaluationId: evaluationId,
@@ -380,22 +396,7 @@ function addBodyText_(body, text) {
 function addDutyMatrix_(body, payload) {
   if (!payload.taskStatus) return;
 
-  var allDuties = [
-    'Attend lectures', 'Conduct quiz section meetings', 'Facilitate discussions',
-    'Prepare lectures for quiz sections', 'Prepare review materials for quiz sections',
-    'Hold extra review sessions for exams', 'Obtain room for review sessions',
-    'Request or acquire necessary equipment', 'Hold regular office hours', 'Tutor students',
-    'Manage and respond to course-related e-mail', 'Prepare webpage for course materials',
-    'Maintain (update) webpage for course materials',
-    'Develop and maintain electronic bulletin boards, discussion sites, etc.',
-    'Prepare test questions', 'Proctor exams', 'Score exams', 'Maintain grading records',
-    'Maintain records on individual students\' assignment completion',
-    'Calculate quarter grades', 'Request student assessments for course',
-    'Coordinate with OEA for course evaluations', 'Prepare lecture materials',
-    'Present lectures', 'Prepare overheads', 'Prepare handout materials', 'Review literature',
-    'Place course materials on library reserve', 'Attend instructor/TA meetings',
-    'Act as liaison/mediator between student and professor'
-  ];
+  var allDuties = DUTY_LIST_;
 
   var cleanTaskStatus = {};
   var tsKeys = Object.keys(payload.taskStatus);

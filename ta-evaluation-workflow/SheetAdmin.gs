@@ -86,6 +86,8 @@ function launchEvaluations() {
   const now = new Date();
   const tokenExpiry = new Date(now.getTime() + C_().TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
   let launched = 0;
+  const skipped = [];
+  const unknownTerms = [];
   let nextIdNum = nextEvaluationNumber_(data, col);
 
   for (let r = 1; r < data.length; r++) {
@@ -93,6 +95,14 @@ function launchEvaluations() {
     const status = row[col.Status];
 
     if (status === C_().STATUSES.NOT_STARTED) {
+      const problem = addressProblem_(row[col.Prof_Email], row[col.TA_Email]);
+      if (problem) {
+        skipped.push('Row ' + (r + 1) + ': ' + problem);
+        continue;
+      }
+      if (!quarterEndDate_(row[col.Term])) {
+        unknownTerms.push('Row ' + (r + 1) + ': "' + row[col.Term] + '"');
+      }
       // Give the row an ID if the coordinator left Evaluation_ID blank.
       let evaluationId = String(row[col.Evaluation_ID] || '').trim();
       if (!evaluationId) {
@@ -133,7 +143,12 @@ function launchEvaluations() {
   }
 
   SpreadsheetApp.flush();
-  try { SpreadsheetApp.getUi().alert(`Launched ${launched} evaluation(s).`); } catch (e) {}
+  const report = 'Launched ' + launched + ' evaluation(s).' + (skipped.length
+    ? '\n\nNot launched (fix the row and launch again):\n' + skipped.join('\n')
+    : '') + (unknownTerms.length
+    ? '\n\nLaunched, but the Term is not in the quarter-end table, so due dates are 14 days from each step (write it like "Autumn 2026", or add the quarter to QUARTER_END_DATES_ in Config.gs):\n' + unknownTerms.join('\n')
+    : '');
+  try { SpreadsheetApp.getUi().alert(report); } catch (e) {}
   return launched;
 }
 

@@ -2,19 +2,19 @@ function C_() { return getConfig_(); }
 
 /* Hourly trigger. It runs only for a real trigger event or for the script owner. */
 function checkAlertThresholds(e) {
-  assertTriggerOrOwner_(e);
+  assertTriggerOrOwner_(e, 'checkAlertThresholds');
   return checkAlertThresholds_();
 }
 
 function checkAlertThresholds_() {
   const alerts = [];
 
-  alerts.push(...checkPdfFailureRate());
-  alerts.push(...checkEmailFailureRate());
-  alerts.push(...checkTriggerHealth());
-  alerts.push(...checkQuotaUsage());
-  alerts.push(...checkDeadLetterBacklog());
-  alerts.push(...checkStaleEvaluations());
+  alerts.push(...checkPdfFailureRate_());
+  alerts.push(...checkEmailFailureRate_());
+  alerts.push(...checkTriggerHealth_());
+  alerts.push(...checkQuotaUsage_());
+  alerts.push(...checkDeadLetterBacklog_());
+  alerts.push(...checkStaleEvaluations_());
 
   if (alerts.length > 0) {
     sendAlertSummary_(alerts);

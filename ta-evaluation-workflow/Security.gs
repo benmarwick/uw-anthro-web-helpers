@@ -2,71 +2,38 @@ function C_() { return getConfig_(); }
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 30;
 
-function checkRateLimit_(identifier, action) {
+/* Sliding-window rate limit in the script cache. The identifier is hashed, so the cache key
+   stays short whatever the caller sends. */
+function checkRateLimit_(identifier, action, maxRequests) {
+  const max = maxRequests || RATE_LIMIT_MAX_REQUESTS;
   const cache = CacheService.getScriptCache();
-  const key = `ratelimit_${action}_${identifier}`;
+  const digest = Utilities.base64EncodeWebSafe(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(action) + '|' + String(identifier)));
+  const key = 'rl_' + digest;
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW_MS;
+  let requests = [];
   const cached = cache.get(key);
-
   if (cached) {
-    const data = JSON.parse(cached);
-    const now = Date.now();
-    const windowStart = now - RATE_LIMIT_WINDOW_MS;
-
-    data.requests = data.requests.filter(t => t > windowStart);
-
-    if (data.requests.length >= RATE_LIMIT_MAX_REQUESTS) {
-      const oldest = Math.min(...data.requests);
-      const retryAfter = Math.ceil((oldest + RATE_LIMIT_WINDOW_MS - now) / 1000);
-      return { allowed: false, retryAfter, remaining: 0 };
-    }
-
-    data.requests.push(now);
-    cache.put(key, JSON.stringify(data), Math.ceil(RATE_LIMIT_WINDOW_MS / 1000));
-    return { allowed: true, retryAfter: 0, remaining: RATE_LIMIT_MAX_REQUESTS - data.requests.length };
-  } else {
-    cache.put(key, JSON.stringify({ requests: [Date.now()] }), Math.ceil(RATE_LIMIT_WINDOW_MS / 1000));
-    return { allowed: true, retryAfter: 0, remaining: RATE_LIMIT_MAX_REQUESTS - 1 };
+    try { requests = JSON.parse(cached).filter(function(t) { return t > windowStart; }); } catch (e) { requests = []; }
   }
+  if (requests.length >= max) {
+    const retryAfter = Math.ceil((Math.min.apply(null, requests) + RATE_LIMIT_WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfter: retryAfter, remaining: 0 };
+  }
+  requests.push(now);
+  cache.put(key, JSON.stringify(requests), Math.ceil(RATE_LIMIT_WINDOW_MS / 1000));
+  return { allowed: true, retryAfter: 0, remaining: max - requests.length };
 }
 
+/* Stores text as the person typed it: length-capped, with control characters removed.
+   Escaping happens on output (the pages use <?= ?>, the PDF is plain text, emails escape names). */
 function sanitizeInput_(input, options = {}) {
   if (input === null || input === undefined) return '';
-
-  const {
-    maxLength = 10000,
-    allowHtml = false,
-    allowNewlines = true,
-    stripScripts = true
-  } = options;
-
-  let output = String(input);
-
-  if (output.length > maxLength) {
-    output = output.substring(0, maxLength);
-  }
-
-  if (stripScripts) {
-    output = output.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-    output = output.replace(/on\w+\s*=/gi, '');
-    output = output.replace(/javascript:/gi, '');
-    output = output.replace(/data:/gi, '');
-    output = output.replace(/vbscript:/gi, '');
-  }
-
-  if (!allowHtml) {
-    output = output
-      .replace(/&/g, '&')
-      .replace(/</g, '<')
-      .replace(/>/g, '>')
-      .replace(/"/g, '"')
-      .replace(/'/g, '&apos;')
-      .replace(/\//g, '&#x2F;');
-  }
-
-  if (!allowNewlines) {
-    output = output.replace(/[\r\n]+/g, ' ');
-  }
-
+  const { maxLength = 10000, allowNewlines = true } = options;
+  let output = String(input).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+  if (!allowNewlines) output = output.replace(/[\n\t]+/g, ' ');
+  if (output.length > maxLength) output = output.substring(0, maxLength);
   return output;
 }
 
@@ -222,21 +189,28 @@ function ownerEmail_() {
   try { return normEmail_(Session.getEffectiveUser().getEmail()); } catch (e) { return ''; }
 }
 
-/* Menu items: only the script owner may run them. A web app visitor is a different
-   active user from the effective user (the owner), so calls through google.script.run fail here. */
+/* Menu items: only ADMIN_EMAIL may run them. This does not depend on how the web app is
+   deployed: a web app visitor is a different account, so calls through google.script.run fail. */
 function assertOwner_() {
   const active = activeEmail_();
-  if (!active || active !== ownerEmail_()) {
-    throw new Error('Only the owner of the TA Evaluation System can run this.');
+  if (!active || active !== normEmail_(C_().ADMIN_EMAIL)) {
+    throw new Error('Only the administrator of the TA Evaluation System can run this.');
   }
 }
 
-/* Trigger handlers: allow the owner, or a call with no visible user that carries a trigger
-   event (installable trigger events include triggerUid). A signed-in web app visitor is refused. */
-function assertTriggerOrOwner_(e) {
+/* Trigger handlers: allow ADMIN_EMAIL, or a trigger event whose triggerUid is one of this
+   project's own triggers for this handler. A forged event object does not carry a real ID. */
+function assertTriggerOrOwner_(e, handlerName) {
   const active = activeEmail_();
-  if (active && active === ownerEmail_()) return;
-  if (!active && e && e.triggerUid) return;
+  if (active && active === normEmail_(C_().ADMIN_EMAIL)) return;
+  const uid = e && e.triggerUid ? String(e.triggerUid) : '';
+  if (!active && uid) {
+    const match = ScriptApp.getProjectTriggers().some(function(t) {
+      return String(t.getUniqueId()) === uid && (!handlerName || t.getHandlerFunction() === handlerName);
+    });
+    if (match) return;
+    logWarn_('Security.assertTriggerOrOwner', 'Trigger ID not recognised', { handler: handlerName, triggerUid: uid });
+  }
   throw new Error('Not authorized.');
 }
 
@@ -277,6 +251,10 @@ function checkStageAccess_(row, action) {
   if (!email) {
     return { ok: false, error: 'Sign in with your UW Google account to open this evaluation.' };
   }
+  const problem = addressProblem_(row.profEmail, row.taEmail);
+  if (problem) {
+    return { ok: false, error: 'This evaluation cannot be opened because ' + problem + '. Contact the coordinator.' };
+  }
   const isTaStage = action === 'ta_respond';
   const expected = normEmail_(isTaStage ? row.taEmail : row.profEmail);
   if (!expected || email !== expected) {
@@ -304,4 +282,46 @@ function loadAuthorizedRow_(token, requiredAction) {
     return { error: access.error };
   }
   return { row: row, email: access.email };
+}
+
+/* What each stage must contain. Returns an error message, or '' when the submission is complete. */
+function validateStageFields_(action, f) {
+  const filled = function(v) { return typeof v === 'string' && v.trim().length > 0; };
+  if (action === 'prof_eval') {
+    const missing = [];
+    if (['class_visitation', 'other'].indexOf(f.evalBasis) === -1) missing.push('basis of evaluation');
+    const ts = f.taskStatus || {};
+    const unrated = DUTY_LIST_.filter(function(d) { return ['satisfactory', 'unsatisfactory', 'na'].indexOf(ts[dutyKey_(d)]) === -1; });
+    if (unrated.length) missing.push('a rating for every duty (' + unrated.length + ' missing)');
+    if (!filled(f.strengths)) missing.push('strengths');
+    if (!filled(f.concerns)) missing.push('concerns/challenges');
+    if (!filled(f.feedback) || f.feedback.trim().length < 10) missing.push('additional feedback (at least 10 characters)');
+    return missing.length ? 'Please complete: ' + missing.join('; ') + '.' : '';
+  }
+  if (action === 'ta_respond') {
+    const r = f.responses || {};
+    const missing = [['context', 'Context'], ['self_eval', 'Self-evaluation'], ['looking_ahead', 'Looking ahead']]
+      .filter(function(p) { return !filled(r[p[0]]); }).map(function(p) { return p[1]; });
+    return missing.length ? 'Please complete: ' + missing.join('; ') + '.' : '';
+  }
+  return '';
+}
+
+const TOKEN_RE_ = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/* Links carry a UUID. Anything else is refused before the cache, the lock or the sheet is touched. */
+function isTokenShape_(token) {
+  return typeof token === 'string' && TOKEN_RE_.test(token);
+}
+
+/* A row's addresses are usable when both are UW addresses and they belong to different people.
+   The one exception is a test row where ADMIN_EMAIL is both the instructor and the TA.
+   Returns an error message, or ''. */
+function addressProblem_(profEmail, taEmail) {
+  const p = normEmail_(profEmail), t = normEmail_(taEmail), admin = normEmail_(C_().ADMIN_EMAIL);
+  const uw = /^[^@\s]+@uw\.edu$/;
+  if (!uw.test(p)) return 'the instructor address is not a @uw.edu address';
+  if (!uw.test(t)) return 'the TA address is not a @uw.edu address';
+  if (p === t && p !== admin) return 'the instructor and TA addresses are the same';
+  return '';
 }

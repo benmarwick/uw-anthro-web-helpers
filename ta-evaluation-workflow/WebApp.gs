@@ -36,6 +36,9 @@ function handleRequest_(e) {
   if (!token) {
     return renderError_('This link is incomplete. Open the link from your email again.');
   }
+  if (!isTokenShape_(token)) {
+    return renderError_('Invalid or expired evaluation link.');
+  }
 
   const row = findRowByToken_(token);
   if (!row) {
@@ -68,40 +71,64 @@ function handleRequest_(e) {
   html.token = token;
   html.row = row;
   html.nonce = nonce;
+  html.duties = DUTY_LIST_;
   return html.evaluate()
     .setTitle('TA Evaluation - ' + stage.replace('_', ' ').toUpperCase())
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/* Called from the page with google.script.run. Every check runs on the server:
-   token, expiry, stage, and that the signed-in user is the person this stage belongs to. */
-function submitForm(token, action, payload) {
-  try {
-    const rate = checkRateLimit_('token_' + String(token || ''), 'submitForm');
-    if (!rate.allowed) {
-      return { success: false, error: 'Too many attempts. Please wait ' + rate.retryAfter + ' seconds and try again.' };
-    }
+const MAX_PAYLOAD_CHARS_ = 45000;      // a Sheets cell holds 50,000 characters
+const DRAFT_RATE_LIMIT_ = 300;         // draft saves/loads per account per hour
 
+/* Cheap checks that run before anything reads the sheet or takes the lock:
+   the link must be a UUID and the caller must be a signed-in UW account under its rate limit.
+   Returns { email } or { error }. */
+function precheckCaller_(token, bucket, maxPerHour) {
+  if (!isTokenShape_(token)) return { error: 'Invalid or expired evaluation link.' };
+  const email = activeEmail_();
+  if (!email) return { error: 'Sign in with your UW Google account to open this evaluation.' };
+  const rate = checkRateLimit_(email, bucket, maxPerHour);
+  if (!rate.allowed) return { error: 'Too many attempts. Please wait ' + rate.retryAfter + ' seconds and try again.' };
+  return { email: email };
+}
+
+function acquireLock_(ms) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(ms); } catch (e) { return null; }
+  return lock;
+}
+
+/* Called from the page with google.script.run. Every check runs on the server:
+   link shape, signed-in account and rate limit; then token, expiry, stage and identity
+   (once without the lock, and again inside it); then the stage's required fields. */
+function submitForm(token, action, payload) {
+  const pre = precheckCaller_(token, 'submitForm');
+  if (pre.error) return { success: false, error: pre.error };
+  try {
     const nextStatus = {
       prof_eval: C_().STATUSES.TA_RESPONSE_PENDING,
       ta_respond: C_().STATUSES.PROF_SIGN_PENDING,
       prof_sign: C_().STATUSES.PDF_GENERATING
     }[action];
-    if (!nextStatus) return { success: false, error: 'Unknown action.' };
+    if (!nextStatus || !Object.prototype.hasOwnProperty.call(STAGE_FIELDS_, action)) {
+      return { success: false, error: 'Unknown action.' };
+    }
+
+    // Identity and stage first, without the lock, so callers who may not act never wait on it.
+    const first = loadAuthorizedRow_(token, action);
+    if (first.error) return { success: false, error: first.error };
 
     const fields = pickStageFields_(action, sanitizePayload_(payload || {}));
     const signatureKey = { prof_eval: 'signatureName', ta_respond: 'taSignatureName', prof_sign: 'profSignatureName' }[action];
-    if (!fields[signatureKey]) {
+    if (!fields[signatureKey] || !String(fields[signatureKey]).trim()) {
       return { success: false, error: 'Type your full name and tick the acknowledgment to sign.' };
     }
+    const incomplete = validateStageFields_(action, fields);
+    if (incomplete) return { success: false, error: incomplete };
 
     // Lock only the check-and-update of the row, so two submissions cannot both pass the status check.
-    const lock = LockService.getScriptLock();
-    try {
-      lock.waitLock(30000);
-    } catch (lockErr) {
-      return { success: false, error: 'The system is busy. Please try again in a minute.' };
-    }
+    const lock = acquireLock_(30000);
+    if (!lock) return { success: false, error: 'The system is busy. Please try again in a minute.' };
 
     let row, email, oldStatus, updatedPayload;
     try {
@@ -118,6 +145,9 @@ function submitForm(token, action, payload) {
       if (action === 'prof_sign') { fields.profSignatureTimestamp = now; fields.profSignatureEmail = email; }
 
       updatedPayload = mergePayload_(row.dataPayload, fields);
+      if (JSON.stringify(updatedPayload).length > MAX_PAYLOAD_CHARS_) {
+        return { success: false, error: 'Your text is too long to save. Please shorten your answers and try again.' };
+      }
       // A new link for the next stage, written in the same row update below.
       if (C_().SECURITY.TOKEN_ROTATION_ON_STAGE_CHANGE) {
         row.secureToken = Utilities.getUuid();
@@ -145,7 +175,6 @@ function submitForm(token, action, payload) {
       actorEmail: email
     });
 
-    const newStatus = nextStatus;
     const invite = {
       evaluationId: row.evaluationId, token: row.secureToken, courseCode: row.courseCode, term: row.term,
       profName: row.profName, profEmail: row.profEmail, taName: row.taName, taEmail: row.taEmail
@@ -161,27 +190,37 @@ function submitForm(token, action, payload) {
 
     return {
       success: true,
-      newStatus: newStatus,
+      newStatus: nextStatus,
       message: action === 'prof_sign'
         ? 'Your sign-off is saved. The signed PDF will be emailed to you and the TA within a few minutes.'
         : 'Submitted successfully.'
     };
   } catch (err) {
-    logError_('WebApp.submitForm', err.message, { stack: err.stack, action: action });
+    logError_('WebApp.submitForm', err.message, { stack: err.stack, action: String(action).slice(0, 40) });
     return { success: false, error: GENERIC_ERROR_ };
   }
 }
 
-/* Draft autosave for the instructor's evaluation form. */
+/* Draft autosave for the instructor's evaluation form. It takes the same lock as submitForm and
+   re-checks the stage inside it, so a save can never land after (and undo) a submission. */
 function saveDraftData(token, payload) {
+  const pre = precheckCaller_(token, 'draft', DRAFT_RATE_LIMIT_);
+  if (pre.error) return { success: false, error: pre.error };
   try {
-    const ctx = loadAuthorizedRow_(token, 'prof_eval');
-    if (ctx.error) return { success: false, error: ctx.error };
+    const first = loadAuthorizedRow_(token, 'prof_eval');
+    if (first.error) return { success: false, error: first.error };
     const fields = pickStageFields_('prof_eval', sanitizePayload_(payload || {}));
-    updateRow_(ctx.row.rowNum, {
-      dataPayload: mergePayload_(ctx.row.dataPayload, fields),
-      lastActionDate: new Date().toISOString()
-    });
+    const lock = acquireLock_(10000);
+    if (!lock) return { success: false, error: 'busy' };
+    try {
+      const ctx = loadAuthorizedRow_(token, 'prof_eval');
+      if (ctx.error) return { success: false, error: ctx.error };
+      const merged = mergePayload_(ctx.row.dataPayload, fields);
+      if (JSON.stringify(merged).length > MAX_PAYLOAD_CHARS_) return { success: false, error: 'too long' };
+      updateRow_(ctx.row.rowNum, { dataPayload: merged, lastActionDate: new Date().toISOString() });
+    } finally {
+      lock.releaseLock();
+    }
     return { success: true, message: 'Draft saved' };
   } catch (err) {
     logError_('WebApp.saveDraftData', err.message, { stack: err.stack });
@@ -190,6 +229,8 @@ function saveDraftData(token, payload) {
 }
 
 function loadDraftData(token) {
+  const pre = precheckCaller_(token, 'draft', DRAFT_RATE_LIMIT_);
+  if (pre.error) return { success: false, payload: {} };
   try {
     const ctx = loadAuthorizedRow_(token, 'prof_eval');
     if (ctx.error) return { success: false, payload: {} };
@@ -200,43 +241,56 @@ function loadDraftData(token) {
   }
 }
 
-function findRowByToken_(token) {
-  // Tokens are UUIDs. Refuse anything shorter, so a blank token cannot match a row whose token was cleared.
-  if (typeof token !== 'string' || token.length < 32) return null;
-  const sheet = getMasterSheet_();
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return null;
-
-  const headers = data[0];
+/* The master sheet's rows and column map, read once. */
+function readMasterRows_() {
+  const data = getMasterSheet_().getDataRange().getValues();
   const col = {};
-  headers.forEach((h, i) => { col[h] = i; });
+  (data[0] || []).forEach(function(h, i) { col[h] = i; });
   MASTER_COLS_ = col;
+  return { data: data, col: col };
+}
 
-  for (let r = 1; r < data.length; r++) {
-    const row = data[r];
-    if (row[col.Secure_Token] === token) {
-      return {
-        rowNum: r + 1,
-        evaluationId: row[col.Evaluation_ID],
-        courseCode: row[col.Course_Code],
-        term: row[col.Term],
-        profName: row[col.Prof_Name],
-        profEmail: row[col.Prof_Email],
-        taName: row[col.TA_Name],
-        taEmail: row[col.TA_Email],
-        status: row[col.Status],
-        createdDate: row[col.Created_Date],
-        completedDate: row[col.Completed_Date],
-        lastActionDate: row[col.Last_Action_Date],
-        reminderCount: row[col.Reminder_Count],
-        secureToken: row[col.Secure_Token],
-        tokenExpiry: row[col.Token_Expiry],
-        dataPayload: parsePayload_(row[col.Data_Payload]),
-        finalPdfLink: row[col.Final_PDF_Link],
-        finalPdfFileId: row[col.Final_PDF_File_ID],
-        payloadVersion: row[col.Payload_Version]
-      };
-    }
+function rowObject_(data, col, r) {
+  const row = data[r];
+  return {
+    rowNum: r + 1,
+    evaluationId: row[col.Evaluation_ID],
+    courseCode: row[col.Course_Code],
+    term: row[col.Term],
+    profName: row[col.Prof_Name],
+    profEmail: row[col.Prof_Email],
+    taName: row[col.TA_Name],
+    taEmail: row[col.TA_Email],
+    status: row[col.Status],
+    createdDate: row[col.Created_Date],
+    completedDate: row[col.Completed_Date],
+    lastActionDate: row[col.Last_Action_Date],
+    reminderCount: row[col.Reminder_Count],
+    secureToken: row[col.Secure_Token],
+    tokenExpiry: row[col.Token_Expiry],
+    dataPayload: parsePayload_(row[col.Data_Payload]),
+    finalPdfLink: row[col.Final_PDF_Link],
+    finalPdfFileId: row[col.Final_PDF_File_ID],
+    payloadVersion: row[col.Payload_Version]
+  };
+}
+
+function findRowByToken_(token) {
+  // Only a full UUID can match, so a blank or cleared token matches nothing.
+  if (!isTokenShape_(token)) return null;
+  const m = readMasterRows_();
+  for (let r = 1; r < m.data.length; r++) {
+    if (m.data[r][m.col.Secure_Token] === token) return rowObject_(m.data, m.col, r);
+  }
+  return null;
+}
+
+/* The current row for an Evaluation ID (its row number can change if the sheet is sorted). */
+function findRowByEvaluationId_(evaluationId) {
+  if (!evaluationId) return null;
+  const m = readMasterRows_();
+  for (let r = 1; r < m.data.length; r++) {
+    if (m.data[r][m.col.Evaluation_ID] === evaluationId) return rowObject_(m.data, m.col, r);
   }
   return null;
 }
@@ -281,26 +335,28 @@ const UPDATE_HEADERS_ = {
   payloadVersion: 'Payload_Version'
 };
 
-/* Writes several fields of one row with a single read and a single write
-   (the span from the first to the last changed column). */
+/* Writes the given fields of one row. Only those cells are written (adjacent ones together),
+   and nothing is read first, so an update can never write back a value it read earlier. */
 function updateRow_(rowNum, updates) {
   const sheet = getMasterSheet_();
   const col = masterColumns_();
   const cells = [];
   Object.keys(updates).forEach(function(key) {
     const header = UPDATE_HEADERS_[key] || key;
-    if (col[header] !== undefined) cells.push([col[header], updates[key]]);
+    if (col[header] === undefined) return;
+    const v = updates[key];
+    cells.push([col[header], (typeof v === 'object' && v !== null) ? JSON.stringify(v) : v]);
   });
   if (!cells.length) return;
-  const first = Math.min.apply(null, cells.map(function(c) { return c[0]; }));
-  const last = Math.max.apply(null, cells.map(function(c) { return c[0]; }));
-  const range = sheet.getRange(rowNum, first + 1, 1, last - first + 1);
-  const values = range.getValues()[0];
-  cells.forEach(function(c) {
-    const v = c[1];
-    values[c[0] - first] = (typeof v === 'object' && v !== null) ? JSON.stringify(v) : v;
-  });
-  range.setValues([values]);
+  cells.sort(function(a, b) { return a[0] - b[0]; });
+  let start = 0;
+  for (let i = 1; i <= cells.length; i++) {
+    if (i === cells.length || cells[i][0] !== cells[i - 1][0] + 1) {
+      const run = cells.slice(start, i);
+      sheet.getRange(rowNum, run[0][0] + 1, 1, run.length).setValues([run.map(function(c) { return c[1]; })]);
+      start = i;
+    }
+  }
   SpreadsheetApp.flush();
 }
 
