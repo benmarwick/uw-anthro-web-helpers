@@ -94,6 +94,10 @@ Planning flags view (the first courses of the table):
 
 ![Time-Schedule-Viz-Planning-Flags](Time-Schedule-Viz-Planning-Flags.png)
 
+Rotation calendar in the Planning Flags view (the courses with a usual cycle): 
+
+![Time-Schedule-Viz-Rotation-Calendar](Time-Schedule-Viz-Rotation-Calendar.png)
+
 ## Time Schedule Instructor Workload Dashboard Bookmarklet
 
 #### Overview
