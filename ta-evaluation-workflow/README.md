@@ -9,6 +9,7 @@ The app digitizes the department's paper "[Academic Student Employee (ASE) Evalu
 - **Apps Script project:** https://script.google.com/home/projects/1_PrgQr69MHSwukvT4HNUIdcA03iaYlBtogtrDWvjA8F2lojDMZHX2NTu
 - **Google Sheet (master spreadsheet):** https://docs.google.com/spreadsheets/d/1hCvDujkSyjmbtH9ZOyntV6Va1c8ye7Hxt0RbSOFIxDc/edit
 - **Web app (deployment):** https://script.google.com/a/macros/uw.edu/s/AKfycbxjtb3CKSgW2YnCkNa_Zk6EZVxs8Ddk38JWuTUu6puNs6BTcA6dnmD42dzKQYR4LXD2/exec
+- **Privacy policy:** [Privacy Policy](#privacy-policy), at the end of this page
 
 ---
 
@@ -444,8 +445,8 @@ Triggers with alerts found → consolidated email to `ADMIN_EMAIL` grouped by se
 - **Browser storage:** none. Drafts are kept on the server.
 - **Framing:** the page uses Google's default frame protection (no `ALLOWALL`).
 - **Errors:** users see plain messages; details go to the `Logs` sheet.
-- **Sheet protection:** admin sheets can be protected so only `ADMIN_EMAIL` can edit. Keep the master spreadsheet and the archive folder shared with the owner only: the sheet holds live tokens and every evaluation's text.
-- **Retention:** `Logs` entries and finished dead-letter entries are deleted after `LOG_RETENTION_DAYS`; dead-letter payloads are cleared when an item finishes, and PDF retries store only the ID. The temporary Doc used to build a PDF is deleted even when the build fails. `Audit_Log` is kept: it records who signed each step and holds no evaluation text or tokens. `Data_Payload` and the archived PDFs are kept until someone deletes them. Evaluations are personnel records, so how long to keep them is a question for UW Records Management, not a setting in this code.
+- **Sheet protection:** admin sheets can be protected so only `ADMIN_EMAIL` can edit. Share the master spreadsheet and the archive folder only with the owner and the Graduate Program Coordinator, as the [Privacy Policy](#privacy-policy) states: the sheet contains live tokens and every evaluation's text.
+- **Retention:** `Logs` entries and finished dead-letter entries are deleted after `LOG_RETENTION_DAYS`; dead-letter payloads are cleared when an item finishes, and PDF retries store only the ID. The temporary Doc used to build a PDF is deleted even when the build fails. `Audit_Log` is kept: it records who signed each step and holds no evaluation text or tokens. `Data_Payload` and the archived PDFs are kept until someone deletes them. The [Privacy Policy](#privacy-policy) sets how long: at least 6 years after the ASE's employment with the department ends (UW records series "Personnel Records for Academic Student Employees (ASE)"). The code does not delete them; the Graduate Program Coordinator does.
 - **Email account:** invitations, reminders and PDFs are sent from the Google account that owns the script, so copies collect in that account's Sent folder. Deploying from a department account avoids this.
 - **CSP:** an optional nonce attribute on the inline script; disabled by default (`SECURITY.CSP_NONCE_ENABLED`).
 
@@ -512,3 +513,125 @@ Key settings (all in the `CONFIG` object):
 - `AuditLog.gs` records every lifecycle event (`logEvent_`) — launch, each submit, PDF success/failure, reminders, escalations, and token rotations — with actor, old/new status, and JSON details.
 - `Logs.gs` writes leveled, structured logs (`logInfo_`/`logWarn_`/`logError_`/`logFatal_`) with function name, context JSON, actor, evaluation ID, and duration. Helpers `withLogging_`/`withLoggingAsync_` wrap function entry/exit. `pruneOldLogs_()` removes entries older than `LOG_RETENTION_DAYS`; the daily trigger runs it.
 - `Alerting.gs` surfaces failures to the admin by email and in the health check.
+
+---
+
+## Privacy Policy
+
+*Last updated: November 15, 2026*
+
+This policy explains how the University of Washington (UW) Department of Anthropology collects, uses, shares, keeps and protects personal information in the TA Evaluation System. It applies to the instructors and the Academic Student Employees (ASEs, including TAs) who use the evaluation forms and receive the system's emails.
+
+It supplements the [UW Online Privacy Statement](https://www.washington.edu/online/privacy/). That statement says that collecting or using personal information for purposes it does not describe "requires supplemental and more specific notification", and this policy is that notification. It covers the elements that the UW Privacy Office lists for a privacy notice ([Provide Privacy Notice](https://it.uw.edu/guides/privacy/take-action/be-transparent/provide-privacy-notice/)).
+
+### Who Is Responsible
+
+The Department of Anthropology's **Graduate Program Coordinator** is responsible for the information in this system and is the contact for every question and request in this policy:
+
+> Graduate Program Coordinator, Department of Anthropology, University of Washington: [agp-advisor@uw.edu](mailto:agp-advisor@uw.edu)
+
+The Graduate Program Coordinator decides who may see the records, answers requests to see or correct them, deletes them at the end of the retention period, and reports suspected misuse. [Article 22 of the UAW ASE contract](https://hr.uw.edu/labor/academic-and-student-unions/uaw-ase/ase-contract) makes departments responsible for the official personnel file of ASEs and requires that ASEs be told who its custodian is. For evaluations made with this system, the custodian is the Graduate Program Coordinator.
+
+The system runs under one UW Google account, called the *system account* below. That account owns the master spreadsheet and the archive folder, sends the emails, and is set as `ADMIN_EMAIL` in `Config.gs`.
+
+### What Information the System Collects
+
+| Information | Where it comes from | Required? |
+|---|---|---|
+| Course, quarter, instructor's name and UW email address, TA's name and UW email address | The Graduate Program Coordinator, from the department's TA assignments | Yes. Without them the system cannot send the forms. |
+| The instructor's evaluation: basis of evaluation, a rating for each of 30 duties, strengths, concerns and feedback | The instructor, on the evaluation form | Yes. The form cannot be submitted without them. |
+| Date and description of a class visit, and other duties | The instructor, on the evaluation form | No |
+| The TA's response: context, self-evaluation and looking ahead | The TA, on the response form | Yes. The form cannot be submitted without them. |
+| A typed name as signature, with an acknowledgment, at each step | The person completing that step | Yes |
+| The UW account that signed each step, and the time | Recorded by the system when each step is submitted | Automatic |
+| A record of each step: the UW account that acted, the change of status and the time (the `Audit_Log` sheet) | Recorded by the system | Automatic |
+| Dates, reminder counts and the link codes used in emails | Recorded by the system | Automatic |
+| Error and activity logs, which can include a UW account and an evaluation ID (the `Logs` sheet) | Recorded by the system | Automatic |
+
+The system does not collect IP addresses: the `Audit_Log` sheet has a `Client_IP` column, but the code leaves it blank. It does not ask for student numbers, birth dates, Social Security numbers or any other identification numbers. It uses no analytics or tracking cookies, and the forms store nothing in your browser. To slow down misuse, it counts each account's submissions for one hour; it stores a one-way hash of the account in place of the address, and the count expires after the hour. The form pages load the Inter typeface from Google Fonts, so your browser contacts Google's font servers when a page opens.
+
+If an instructor does not complete the required parts, the evaluation cannot move to the TA. If a TA does not want to respond, or cannot, the TA should tell the Graduate Program Coordinator, who decides how to finish the evaluation. The system makes no automated decisions about anyone. It sends reminders on a fixed schedule and tells the system account when a step is overdue.
+
+### Why the Department Collects It
+
+UW [Executive Order 28](https://policy.uw.edu/directory/po/executive-orders/eo-28-graduate-student-service-appointments/) says that "each department will be responsible for implementing a program of evaluation, which allows for student response, to be conducted at least annually". For TAs it requires "at least one observation by faculty with feedback to the student" in each of their first two quarters of teaching at UW. The department uses the information to:
+
+- run that evaluation program, and give each TA written feedback and a chance to respond;
+- place the finished evaluation in the ASE's personnel file (UAW ASE contract, Article 22);
+- consider reappointment and promotion of ASEs, together with other information, as Executive Order 28 provides ("evaluations of the student appointee's performance should be part of the basis for the reappointment consideration");
+- send the forms, reminders and the signed PDF, record who signed each step, and find and fix problems with the system.
+
+The department does not use the information for any other purpose, does not sell it, and does not use it for marketing.
+
+### Legal Protections for These Records
+
+- **FERPA.** Under the federal regulations that apply FERPA, records about a person "who is employed as a result of his or her status as a student are education records" ([34 CFR 99.3](https://www.ecfr.gov/current/title-34/subtitle-A/part-99/subpart-A/section-99.3), definition of *education records*, paragraph (b)(3)(ii)). Executive Order 28 (section 2.A) awards graduate appointments "to enrolled (not On Leave) graduate students only", so an evaluation of a TA is an education record of that TA. UW classifies information protected by law, including FERPA student records, as *Confidential* ([UW Data Classifications](https://it.uw.edu/guides/privacy/reference-materials/personal-data-data-classifications-and-structures/data-classifications/)).
+- **Personnel file.** Article 22, Section 5, of the UAW ASE contract says that all materials in an ASE's personnel file, "including supervisory job performance evaluations, shall be confidential except as required to be publicly available under State and/or Federal law."
+- **Public records.** UW is a state agency, so its records are subject to the Washington Public Records Act (chapter 42.56 RCW). That act exempts "personal information in files maintained for employees, appointees, or elected officials of any public agency to the extent that disclosure would violate their right to privacy" ([RCW 42.56.230(3)](https://app.leg.wa.gov/RCW/default.aspx?cite=42.56.230)). It also lets other laws, such as FERPA, exempt or prohibit disclosure ([RCW 42.56.070(1)](https://app.leg.wa.gov/RCW/default.aspx?cite=42.56.070)).
+
+### Who Can See the Information
+
+| Who | What they can see |
+|---|---|
+| The instructor | Their own evaluation; the TA's response at the sign-off step; the signed PDF |
+| The TA | The instructor's evaluation, read-only; their own response; the signed PDF |
+| The Graduate Program Coordinator and the system account | Everything in the master spreadsheet and the archive folder, and the reminder, escalation and alert emails |
+| Other UW faculty and staff | Only when they have a legitimate UW-related business need, such as a reappointment decision |
+| The union (UAW 4121) | Only with the ASE's written consent (UAW ASE contract, Article 22, Section 6) |
+| Google | Google stores and processes the information as UW's service provider. The records are kept in UW Google: Google Sheets, Google Drive and Gmail, which [UW-IT lists as core services](https://uwconnect.uw.edu/it?id=kb_article_view&sysparm_article=KB0034358) covered by UW's agreement with Google. |
+| Anyone else | Only with the consent of the person the record is about, or where the law requires or allows it, for example under FERPA's exceptions ([34 CFR 99.31](https://www.ecfr.gov/current/title-34/subtitle-A/part-99/subpart-D/section-99.31)), a court order or the Public Records Act |
+
+A link from an email does not open a form by itself. Each form opens only for the person whose step it is, signed in with the UW Google account the email was sent to.
+
+### How the Information Is Stored and Protected
+
+The information is kept in one Google Sheet (the master spreadsheet) and one Google Drive folder (the signed PDFs), both owned by the system account in UW Google. The department shares them only with the Graduate Program Coordinator and the system account. Copies of the emails stay in the system account's Sent mail, and in the instructor's and TA's mailboxes, along with the attached PDF.
+
+Following the UW principles of collecting only what is needed and giving access only to those who need it ([APS 2.2](https://policy.uw.edu/directory/aps/section-00/aps-2-2-university-privacy-policy/), [UW Privacy Principles](https://it.uw.edu/guides/privacy/principles/)), the system:
+
+- requires a UW sign-in, and checks at every step that the account matches the instructor or TA named for that evaluation;
+- uses a different link code for each step, which expires after 30 days, stops working when the step is done, and is erased when the evaluation is complete;
+- lets each person change only their own part of the evaluation;
+- saves the instructor's draft on the server instead of in the browser;
+- records who completed each step, and when, in the audit log.
+
+Section [9. Security and Privacy](#9-security-and-privacy) describes these controls in technical detail.
+
+### How Long the Information Is Kept
+
+| Information | How long |
+|---|---|
+| The finished evaluation (its row in the master spreadsheet and the signed PDF) and its audit log entries | At least the period set by the [UW General Records Retention Schedule](https://finance.uw.edu/recmgt/) series [Personnel Records for Academic Student Employees (ASE)](https://finance.uw.edu/recmgt/recordseries/personnel-records-ase): 6 years after the ASE's employment with the department ends. The Graduate Program Coordinator then deletes them. The system does not delete them automatically. |
+| Evaluations that were started but never finished | The same as finished evaluations |
+| Error and activity logs (`Logs` sheet), and finished entries in the `Dead_Letter_Queue` sheet | 90 days, deleted automatically every day |
+| Rate-limit counts | One hour, deleted automatically |
+| Emails and PDFs in the instructor's and TA's own mailboxes | Up to each person |
+
+Questions about which retention series applies go to [UW Records Management Services](https://finance.uw.edu/recmgt/).
+
+### Your Rights and How to Use Them
+
+If you are the TA, you have these rights over your evaluation:
+
+- **See it.** You receive the signed PDF. You can also ask for a copy of anything the system keeps about you. Article 22, Section 2, of the UAW ASE contract gives you the right to examine your personnel file within 3 working days of asking. FERPA gives you the right to inspect your education records within 45 days ([WAC 478-140-022](https://app.leg.wa.gov/WAC/default.aspx?cite=478-140)).
+- **Correct it.** You can ask for inaccurate or inappropriate material to be corrected or removed (Article 22, Section 3; [WAC 478-140-025](https://app.leg.wa.gov/WAC/default.aspx?cite=478-140)), and you can attach a concise statement in response to anything in your file (Article 22, Section 3). Your response in the form is part of the evaluation.
+- **Control disclosure.** Except where FERPA allows disclosure without consent, the department needs your written consent before it discloses your evaluation outside the uses listed above ([WAC 478-140-024](https://app.leg.wa.gov/WAC/default.aspx?cite=478-140)).
+- **Complain.** You can file a complaint with the U.S. Department of Education about an alleged failure to comply with FERPA ([WAC 478-140-035](https://app.leg.wa.gov/WAC/default.aspx?cite=478-140); see UW's [FERPA page](https://registrar.washington.edu/students/ferpa/)).
+
+If you are the instructor, you can ask for a copy of the information the system keeps about you, and for corrections to your name or email address. What you wrote in a finished evaluation becomes part of the TA's record.
+
+If the European Union's General Data Protection Regulation (EU GDPR) applies to your data, you also have the rights described in the [UW Online Privacy Statement](https://www.washington.edu/online/privacy/).
+
+To make a request, email the Graduate Program Coordinator at [agp-advisor@uw.edu](mailto:agp-advisor@uw.edu) from your UW email address. Include the course and quarter, or the evaluation ID printed at the bottom of the PDF and the emails.
+
+### Questions, Concerns and Incidents
+
+Send questions and concerns to the Graduate Program Coordinator at [agp-advisor@uw.edu](mailto:agp-advisor@uw.edu).
+
+If you think information has gone to the wrong person, for example if an email or a link went to someone else, tell the Graduate Program Coordinator straight away. UW policy requires workforce members to report a potential or confirmed breach of personal data "promptly" ([APS 2.5](https://policy.uw.edu/directory/aps/section-00/aps-2-5-information-security-and-privacy-incident-reporting-and-management/)). The Graduate Program Coordinator reports it to the UW Privacy Office through [Report an Incident or Data Breach](https://it.uw.edu/guides/privacy/take-action/report-an-incident-or-data-breach/), where anyone can also report it directly.
+
+If the Graduate Program Coordinator does not resolve your question or concern, you can contact the University Privacy Officer at [uwprivacy@uw.edu](mailto:uwprivacy@uw.edu).
+
+### Changes to This Policy
+
+The Graduate Program Coordinator reviews this policy when the system or the policies it relies on change. The date at the top shows the last update, and the history of this file in the repository records every change.
