@@ -16,6 +16,8 @@
     p { color: var(--uw-gray-500); margin-bottom: 24px; line-height: 1.6; }
     .btn { display: inline-block; padding: 12px 28px; background: var(--uw-purple); color: var(--uw-white); text-decoration: none; border-radius: 6px; font-weight: 600; transition: background 0.2s; }
     .btn:hover { background: #3d266b; }
+    .privacy { margin: 24px 0 0; font-size: 0.85rem; }
+    .privacy a { color: var(--uw-purple); }
   </style>
 </head>
 <body>
@@ -26,6 +28,7 @@
     <h1>Evaluation Complete</h1>
     <p><?= message ?></p>
     <a href="https://anthropology.washington.edu" class="btn">Return to Department Homepage</a>
+    <p class="privacy"><a href="<?= privacyUrl ?>" target="_blank" rel="noopener">Privacy Policy</a></p>
   </div>
 </body>
 </html>

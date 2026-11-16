@@ -5,7 +5,8 @@ const EMAIL_SENDER_NAME_ = 'UW Anthropology TA Evaluations';
 const POLICY_LINKS_ = {
   eo28: 'https://policy.uw.edu/directory/po/executive-orders/eo-28-graduate-student-service-appointments/',
   gs51: 'https://grad.uw.edu/policies/5-1-departmental-responsibilities-regarding-instruction-by-tas/',
-  contract: 'https://hr.uw.edu/labor/academic-and-student-unions/uaw-ase/ase-contract'
+  contract: 'https://hr.uw.edu/labor/academic-and-student-unions/uaw-ase/ase-contract',
+  privacy: 'https://github.com/benmarwick/uw-anthro-web-helpers/blob/main/ta-evaluation-workflow/README.md#privacy-policy'
 };
 
 /* Gmail options shared by every email: sender name, reply-to and a plain-text body. */
@@ -80,8 +81,9 @@ function renderEmail_(o) {
   }
   html.push('<p>Questions? Reply to this email.</p>');
   text.push('Questions? Reply to this email.', '');
-  html.push('<hr style="border:none;border-top:1px solid #ddd;"><p style="font-size:12px;color:#666;">UW Department of Anthropology · Evaluation ID: ' + escapeHtml_(o.evaluationId) + '</p></div>');
-  text.push('--', 'UW Department of Anthropology · Evaluation ID: ' + o.evaluationId);
+  const privacyLink = l_('Privacy Policy', POLICY_LINKS_.privacy);
+  html.push('<hr style="border:none;border-top:1px solid #ddd;"><p style="font-size:12px;color:#666;">UW Department of Anthropology · ' + privacyLink.html + ' · Evaluation ID: ' + escapeHtml_(o.evaluationId) + '</p></div>');
+  text.push('--', 'UW Department of Anthropology · Evaluation ID: ' + o.evaluationId, privacyLink.text);
   return { htmlBody: html.join('\n'), body: text.join('\n') };
 }
 

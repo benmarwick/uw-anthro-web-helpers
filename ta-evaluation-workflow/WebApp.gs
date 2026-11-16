@@ -72,6 +72,7 @@ function handleRequest_(e) {
   html.row = row;
   html.nonce = nonce;
   html.duties = DUTY_LIST_;
+  html.privacyUrl = POLICY_LINKS_.privacy;
   return html.evaluate()
     .setTitle('TA Evaluation - ' + stage.replace('_', ' ').toUpperCase())
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -388,12 +389,14 @@ function jsonResponse_(obj, statusCode = 200) {
 function renderError_(message) {
   const html = HtmlService.createTemplateFromFile('ErrorView');
   html.message = message;
+  html.privacyUrl = POLICY_LINKS_.privacy;
   return html.evaluate().setTitle('Error').addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 function renderCompleted_(message) {
   const html = HtmlService.createTemplateFromFile('CompletedView');
   html.message = message;
+  html.privacyUrl = POLICY_LINKS_.privacy;
   return html.evaluate().setTitle('Completed').addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
