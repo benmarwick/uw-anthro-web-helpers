@@ -320,20 +320,47 @@ A submission then has to pass:
 ### UI (`Index.html`)
 Single dynamic page (not a separate template per stage) that renders the active step. Styled to the UW brand (purple `#4B2E83`, gold `#B7A57A`, Inter font) and built for WCAG 2.1 AA: skip link, semantic landmarks, ARIA progress bar, visible keyboard focus, `role="alert"` live regions, print stylesheet, mobile-responsive layout, character counters, and accessible custom radio buttons. The web forms meet current accessibility best practices: every input is labeled, required fields are announced and validated with clear error messages, radio groups use `<fieldset>`/`<legend>`, and all controls have touch targets of at least 44 px. The professor's form auto-saves to the server (1 s debounce). Nothing is kept in the browser; a draft left there by an older version is deleted when the form opens.
 
+The screenshots below come from one test evaluation run through all three steps of the deployed web app on November 15, 2026. The names, addresses and comments are made up: the instructor is "Prof. Jane Doe" (`jdoe@uw.edu`) and the TA is "Alex Johnson" (`ajohnson@uw.edu`).
+
 ### Professor Evaluation Form (`prof_eval`)
 - **Basis of Evaluation** — class visitation vs. other, with visitation date and observation description.
 - **Job Description Duties** — a 30-row duty matrix (Attend lectures, Hold regular office hours, Proctor exams, …) rated **Satisfactory / Unsatisfactory / Not Applicable**; every row requires a rating. Optional "Other specific duties" free text.
 - **Comments** — required strengths, required concerns/challenges, and additional feedback (min 10 chars).
 - **Digital Signature** — full name + acknowledgment checkbox ("this electronic signature has the same legal effect as a handwritten signature").
 
+<details>
+<summary>Screenshot: the instructor's evaluation form, filled in</summary>
+
+![The instructor's evaluation form for a test TA, with the basis of evaluation, the 30-duty rating table, comments and signature filled in](screenshots/1-instructor-evaluation.png)
+
+</details>
+
 ### TA Response Form (`ta_respond`)
 - Professor's evaluation displayed read-only (duty matrix + strengths + concerns + feedback).
 - **Self-evaluation** — three required free-text fields: *Context*, *Self-evaluation*, *Looking ahead*.
 - Digital signature + acknowledgment.
 
+<details>
+<summary>Screenshot: the TA's response form, filled in</summary>
+
+![The TA's response form, showing the instructor's evaluation read-only above the three self-evaluation answers and the signature](screenshots/2-ta-response.png)
+
+</details>
+
 ### Professor Sign-off Form (`prof_sign`)
 - Professor's original evaluation and the TA's self-evaluation displayed read-only.
 - Final signature + acknowledgment.
+
+<details>
+<summary>Screenshot: the instructor's sign-off form, filled in</summary>
+
+![The instructor's sign-off form, showing the evaluation and the TA's self-evaluation read-only above the final signature](screenshots/3-instructor-signoff.png)
+
+</details>
+
+After the instructor signs, the page confirms that the PDF is on its way:
+
+![Confirmation page after the final sign-off: the evaluation is signed and the PDF will be emailed to the instructor and the TA within a few minutes](screenshots/4-signed.png)
 
 ---
 
@@ -341,7 +368,9 @@ Single dynamic page (not a separate template per stage) that renders the active 
 
 The PDF is **built programmatically** — no template doc. A temporary Google Doc is created, populated by `buildStyledDocument_()`, then exported as `application/pdf`.
 
-- **Contents:** "ASE Evaluation" header (course/term, professor • TA), evaluation metadata, basis of evaluation, the duty-matrix table (with ✓ / ✗ / — marks), other duties, strengths, concerns, additional feedback, TA self-evaluation, and signature blocks. Each signature block shows the typed name, the time the server recorded, and the UW account that signed. The `Evaluation_ID` also appears in small grey text (7 pt) at the bottom right of every page.
+- **Contents:** "UW Anthropology Department ASE Evaluation" header (course/term, professor • TA), evaluation metadata, basis of evaluation, the duty-matrix table (with ✓ / ✗ / — marks), other duties, strengths, concerns, additional feedback, TA self-evaluation, and signature blocks. Each signature block shows the typed name, the time the server recorded, and the UW account that signed. The `Evaluation_ID` also appears in small grey text (7 pt) at the bottom right of every page.
+
+  ![The three pages of the signed PDF for the test evaluation: details and duty table, comments, and the TA's self-evaluation with both signature blocks](screenshots/5-signed-pdf.png)
 - **Deterministic filename:** `Evaluation_<EvalID>_<Course>_<TAName>.pdf`.
 - **Idempotent:** if `Final_PDF_Link`/`Final_PDF_File_ID` are already set, generation is skipped and `PDF_GENERATED` is logged with `idempotent: true`.
 - **Retry:** up to `MAX_RETRIES` retries (default 3) with exponential backoff (base 5 s) for transient errors (rate limits, quota, timeouts, network). Non-retryable errors (e.g. file size > 10 MB) fail fast.
