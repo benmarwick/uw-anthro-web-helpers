@@ -321,7 +321,7 @@ A submission then has to pass:
 ### UI (`Index.html`)
 Single dynamic page (not a separate template per stage) that renders the active step. Styled to the UW brand (purple `#4B2E83`, gold `#B7A57A`, Inter font) and built for WCAG 2.1 AA: skip link, semantic landmarks, ARIA progress bar, visible keyboard focus, `role="alert"` live regions, print stylesheet, mobile-responsive layout, character counters, and accessible custom radio buttons. The web forms meet current accessibility best practices: every input is labeled, required fields are announced and validated with clear error messages, radio groups use `<fieldset>`/`<legend>`, and all controls have touch targets of at least 44 px. The professor's form auto-saves to the server (1 s debounce). Nothing is kept in the browser; a draft left there by an older version is deleted when the form opens.
 
-The screenshots below come from one test evaluation run through all three steps of the deployed web app on November 15, 2026. The names, addresses and comments are made up: the instructor is "Prof. Jane Doe" (`jdoe@uw.edu`) and the TA is "Alex Johnson" (`ajohnson@uw.edu`).
+The screenshots below come from one test evaluation run through all three steps of the deployed web app on November 16, 2026. The names and comments are made up: the instructor is "Dr. Smith" and the TA is "Alex Johnson". Both roles use the coordinator's own UW account (`bmarwick@uw.edu`), because each form opens only for the account named in the row, so one person can run the whole test.
 
 ### Professor Evaluation Form (`prof_eval`)
 - **Basis of Evaluation** — class visitation vs. other, with visitation date and observation description.
