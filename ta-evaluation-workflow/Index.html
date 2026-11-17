@@ -170,21 +170,20 @@
 
     <? function decodeEntities(s) { return s.replace(/&apos;/g,"'").replace(/&#x2F;/g,'/').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"'); } ?>
     <? function dutyKey(d) { return d.replace(/ /g,'_').toLowerCase(); } ?>
-    <? function dutyDisplayName(key) { return decodeEntities(key).replace(/^task_/,'').replace(/_/g,' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); }); } ?>
+    <? /* Read-only duty table: the job-description duties in their own order and wording,
+          the same rows as the instructor's form and the PDF. Saved keys may hold HTML entities. */ ?>
     <? function renderDutyTable(taskStatus, label) { ?>
-      <? var rawKeys = Object.keys(taskStatus).filter(function(k) { return k.indexOf('task_') === 0; }).sort(); ?>
-      <? if (rawKeys.length === 0) { return; } ?>
-      <? var seen = {}; var keys = []; for (var ki = 0; ki < rawKeys.length; ki++) { var dk = decodeEntities(rawKeys[ki]); if (!seen[dk]) { seen[dk] = rawKeys[ki]; keys.push(rawKeys[ki]); } } ?>
+      <? var ratings = {}; Object.keys(taskStatus).forEach(function(k) { ratings[decodeEntities(k)] = taskStatus[k]; }); ?>
       <div style="overflow-x:auto;">
         <table class="duty-table" aria-label="<?= label ?>">
           <thead>
             <tr><th scope="col" style="min-width:200px;">Duty</th><th scope="col" style="width:100px;text-align:center;">Satisfactory</th><th scope="col" style="width:110px;text-align:center;">Unsatisfactory</th><th scope="col" style="width:110px;text-align:center;">Not Applicable</th></tr>
           </thead>
           <tbody>
-            <? keys.forEach(function(k) { ?>
-            <? var val = taskStatus[k] || ''; ?>
+            <? duties.forEach(function(d) { ?>
+            <? var val = ratings['task_' + dutyKey(d)] || ''; ?>
             <tr>
-              <td><?= dutyDisplayName(k) ?></td>
+              <td><?= d ?></td>
               <td style="text-align:center;color:#2E7D32;font-weight:bold;"><?= val === 'satisfactory' ? '\u2713' : '' ?></td>
               <td style="text-align:center;color:#C62828;font-weight:bold;"><?= val === 'unsatisfactory' ? '\u2717' : '' ?></td>
               <td style="text-align:center;color:#757575;font-weight:bold;"><?= val === 'na' ? '\u2014' : '' ?></td>
@@ -193,6 +192,48 @@
           </tbody>
         </table>
       </div>
+    <? } ?>
+
+    <? /* The instructor's evaluation, read-only, for the TA's response and the final sign-off.
+          Same sections and order as the PDF. */ ?>
+    <? function renderProfEvalReadOnly(row) { ?>
+      <? var ev = row.dataPayload; ?>
+      <? if (ev.evalBasis || ev.visitationDate || ev.visitationDescription) { ?>
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Basis of Evaluation</h3>
+      <? if (ev.evalBasis) { ?>
+      <p style="margin-bottom:8px;"><strong>Based on:</strong> <?= ev.evalBasis === 'class_visitation' ? 'Class visitation' : 'Other' ?></p>
+      <? } ?>
+      <? if (ev.visitationDate) { ?>
+      <p style="margin-bottom:8px;"><strong>Date of class visitation:</strong> <?= ev.visitationDate ?></p>
+      <? } ?>
+      <? if (ev.visitationDescription) { ?>
+      <p style="margin-bottom:8px;"><strong>How the ASE was observed:</strong></p>
+      <div class="feedback-display readonly-text" tabindex="0"><?= ev.visitationDescription ?></div>
+      <? } ?>
+      <? } ?>
+
+      <? if (ev.taskStatus) { ?>
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Job Description Duties</h3>
+      <?= renderDutyTable(ev.taskStatus, "Professor's job duties evaluation") ?>
+      <? } ?>
+
+      <? if (ev.otherDuties) { ?>
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Other Specific Duties</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= ev.otherDuties ?></div>
+      <? } ?>
+
+      <? if (ev.strengths) { ?>
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Strengths</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= ev.strengths ?></div>
+      <? } ?>
+
+      <? if (ev.concerns) { ?>
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Concerns/Challenges</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= ev.concerns ?></div>
+      <? } ?>
+
+      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Additional Feedback</h3>
+      <div class="feedback-display readonly-text" tabindex="0"><?= ev.feedback || '(No feedback provided)' ?></div>
     <? } ?>
 
     <main class="card" role="main" id="main-content">
@@ -659,22 +700,7 @@
       <h2 class="section-title">Professor's Evaluation (Read-Only)</h2>
       <div class="readonly-notice" role="status">The following evaluation was provided by the Professor. You cannot edit this section.</div>
 
-      <? if (row.dataPayload.taskStatus) { ?>
-      <?= renderDutyTable(row.dataPayload.taskStatus, "Professor's job duties evaluation") ?>
-      <? } ?>
-
-      <? if (row.dataPayload.strengths) { ?>
-      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Strengths</h3>
-      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.strengths ?></div>
-      <? } ?>
-
-      <? if (row.dataPayload.concerns) { ?>
-      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Concerns/Challenges</h3>
-      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.concerns ?></div>
-      <? } ?>
-
-      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Additional Feedback</h3>
-      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.feedback || '(No feedback provided)' ?></div>
+      <?= renderProfEvalReadOnly(row) ?>
     </div>
 
     <div class="section">
@@ -739,22 +765,7 @@
       <h2 class="section-title">Professor's Original Evaluation (Read-Only)</h2>
       <div class="readonly-notice" role="status">Your original evaluation is shown below for reference.</div>
 
-      <? if (row.dataPayload.taskStatus) { ?>
-      <?= renderDutyTable(row.dataPayload.taskStatus, "Professor's job duties evaluation") ?>
-      <? } ?>
-
-      <? if (row.dataPayload.strengths) { ?>
-      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Strengths</h3>
-      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.strengths ?></div>
-      <? } ?>
-
-      <? if (row.dataPayload.concerns) { ?>
-      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Concerns/Challenges</h3>
-      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.concerns ?></div>
-      <? } ?>
-
-      <h3 style="margin:24px 0 8px;color:var(--uw-purple);">Additional Feedback</h3>
-      <div class="feedback-display readonly-text" tabindex="0"><?= row.dataPayload.feedback || '(No feedback provided)' ?></div>
+      <?= renderProfEvalReadOnly(row) ?>
     </div>
 
     <div class="section">

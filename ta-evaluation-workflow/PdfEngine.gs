@@ -91,16 +91,14 @@ function generateAndDistributePdf_(row, opts) {
     throw new Error('Evaluation ' + evaluationId + ' has no final sign-off; no PDF built.');
   }
 
+  // A PDF was already saved for this row (an earlier run stopped after saving it).
+  // Finish that run with the saved file. If the file is gone, build a new PDF below.
   if (row.finalPdfLink && row.finalPdfFileId) {
-    logEvent_({
-      action: C_().ACTIONS.PDF_GENERATED,
-      evaluationId: evaluationId,
-      oldStatus: C_().STATUSES.PDF_GENERATING,
-      newStatus: C_().STATUSES.COMPLETED,
-      details: { idempotent: true, fileId: row.finalPdfFileId },
-      actorEmail: 'SYSTEM'
+    var savedBlob = savedPdfBlob_(row.finalPdfFileId);
+    if (savedBlob) return finishSavedPdf_(row, savedBlob);
+    logWarn_('PdfEngine.generateAndDistributePdf', 'Saved PDF not found; building a new one', {
+      evaluationId: evaluationId, fileId: row.finalPdfFileId
     });
-    return { success: true, idempotent: true, fileId: row.finalPdfFileId, fileUrl: row.finalPdfLink };
   }
 
   var maxRetries = C_().PDF.MAX_RETRIES;
@@ -128,6 +126,38 @@ function generateAndDistributePdf_(row, opts) {
       Utilities.sleep(delay);
     }
   }
+}
+
+/* The saved PDF as a blob, or null when the file is missing, trashed or cannot be opened. */
+function savedPdfBlob_(fileId) {
+  try {
+    var file = DriveApp.getFileById(fileId);
+    if (file.isTrashed()) return null;
+    return file.getBlob();
+  } catch (err) {
+    return null;
+  }
+}
+
+/* Sends the completion email with the saved PDF and marks the row COMPLETED,
+   the same last steps as finishPdf_. The earlier run may already have sent the email,
+   so in rare cases the instructor and TA get it twice; that is better than never. */
+function finishSavedPdf_(row, pdfBlob) {
+  var evaluationId = row.evaluationId;
+  sendCompletionEmail_(row.profEmail, row.taEmail, pdfBlob, row);
+
+  updateRowStatusAndDate_(evaluationId, C_().STATUSES.COMPLETED, new Date().toISOString());
+  const current = findRowByEvaluationId_(evaluationId);
+  if (current) updateRow_(current.rowNum, { secureToken: '', tokenExpiry: '' });
+
+  logEvent_({
+    action: C_().ACTIONS.PDF_GENERATED, evaluationId: evaluationId,
+    oldStatus: C_().STATUSES.PDF_GENERATING, newStatus: C_().STATUSES.COMPLETED,
+    details: { idempotent: true, fileId: row.finalPdfFileId, emailSent: true },
+    actorEmail: 'SYSTEM'
+  });
+
+  return { success: true, idempotent: true, fileId: row.finalPdfFileId, fileUrl: row.finalPdfLink };
 }
 
 function handlePdfFailure_(row, err, attempts, isRetryable, opts) {

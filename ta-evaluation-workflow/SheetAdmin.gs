@@ -92,7 +92,8 @@ function launchEvaluations() {
 
   for (let r = 1; r < data.length; r++) {
     const row = data[r];
-    const status = row[col.Status];
+    // Trim so a stray space typed or pasted into the Status cell does not hide the row.
+    const status = String(row[col.Status]).trim();
 
     if (status === C_().STATUSES.NOT_STARTED) {
       const problem = addressProblem_(row[col.Prof_Email], row[col.TA_Email]);
