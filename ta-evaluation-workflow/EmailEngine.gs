@@ -107,6 +107,14 @@ function whyTa_() {
   );
 }
 
+/* What the TA needs to have ready: their time sheet, or an explanation. */
+function timesheetNote_() {
+  return para_(
+    t_('Please also have your '), b_('time sheet'),
+    t_(' ready to upload. It only needs to show the hours you have worked up to the day you submit, not the total for the whole quarter. If you don\'t have a time sheet, upload a short document explaining why.')
+  );
+}
+
 /* ---------- The emails ---------- */
 
 function sendProfEvaluationInvite_(params) {
@@ -146,6 +154,7 @@ function sendTAResponseInvite_(params) {
     signInEmail: taEmail,
     before: [
       para_(b_(profName), t_(' has completed your TA evaluation for '), b_(courseCode), t_(' (' + term + '). You will see their ratings and comments, and then write three short responses: Context, Self-evaluation and Looking ahead. It takes about ' + C_().EVAL_MINUTES + ' minutes.')),
+      timesheetNote_(),
       whyTa_()
     ],
     button: { label: 'Review and respond', link: link },
@@ -169,7 +178,7 @@ function sendProfSignInvite_(params) {
     evaluationId: evaluationId,
     signInEmail: profEmail,
     before: [
-      para_(b_(taName), t_(' has responded to your evaluation for '), b_(courseCode), t_(' (' + term + '). This is the last step: read their response and sign. Nothing in your evaluation needs to change.'))
+      para_(b_(taName), t_(' has responded to your evaluation for '), b_(courseCode), t_(' (' + term + '). This is the last step: read their response, download their time sheet if you want to check it, and sign. Nothing in your evaluation needs to change.'))
     ],
     button: { label: 'Review and sign', link: link },
     after: [
@@ -239,11 +248,14 @@ function sendReminderEmail_(params) {
   };
   const step = steps[action] || steps.PROF_EVAL_PENDING;
 
+  const before = [step.what];
+  if (action === 'TA_RESPONSE_PENDING') before.push(timesheetNote_());
+
   const mail = renderEmail_({
     greetName: name,
     evaluationId: evaluationId,
     signInEmail: email,
-    before: [step.what],
+    before: before,
     button: { label: step.label, link: link },
     after: [
       para_(t_('Please finish by '), b_(formatDueLong_(due)), t_('. ' + (last

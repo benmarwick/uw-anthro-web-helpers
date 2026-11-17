@@ -341,6 +341,17 @@ function buildStyledDocument_(body, row) {
     addDivider_(body);
   }
 
+  // The time sheet stays a separate file in the archive's "Time sheets" folder; the PDF records that it was uploaded.
+  if (payload.timesheetFileId) {
+    addSectionHeader_(body, 'Time Sheet');
+    var uploadedOn = payload.timesheetUploadedAt
+      ? Utilities.formatDate(new Date(payload.timesheetUploadedAt), Session.getScriptTimeZone(), 'MMMM d, yyyy')
+      : '';
+    addMetaField_(body, 'Uploaded by the TA', (payload.timesheetOriginalName || payload.timesheetFileName) + (uploadedOn ? ' (' + uploadedOn + ')' : ''));
+    addMetaField_(body, 'Archive file', payload.timesheetFileName);
+    addDivider_(body);
+  }
+
   addSectionHeader_(body, 'Signatures');
   if (payload.taSignatureName) {
     addMetaField_(body, 'TA', payload.taSignatureName);

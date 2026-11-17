@@ -101,10 +101,14 @@ function acquireLock_(ms) {
 
 /* Called from the page with google.script.run. Every check runs on the server:
    link shape, signed-in account and rate limit; then token, expiry, stage and identity
-   (once without the lock, and again inside it); then the stage's required fields. */
-function submitForm(token, action, payload) {
+   (once without the lock, and again inside it); then the stage's required fields.
+   timesheet: the TA's time sheet file, { name, data (base64) }, for the ta_respond stage only. */
+function submitForm(token, action, payload, timesheet) {
   const pre = precheckCaller_(token, 'submitForm');
   if (pre.error) return { success: false, error: pre.error };
+  // The time sheet is saved before the row is updated. If the update does not happen, it is deleted again.
+  let uploadedFileId = '';
+  let committed = false;
   try {
     const nextStatus = {
       prof_eval: C_().STATUSES.TA_RESPONSE_PENDING,
@@ -126,6 +130,16 @@ function submitForm(token, action, payload) {
     }
     const incomplete = validateStageFields_(action, fields);
     if (incomplete) return { success: false, error: incomplete };
+
+    // The TA's time sheet: checked, then saved to Drive before the lock, so a slow upload never holds it.
+    // The server records the file; a file ID sent by the page would have been dropped above.
+    if (action === 'ta_respond') {
+      const checked = checkTimesheetFile_(timesheet);
+      if (checked.error) return { success: false, error: checked.error };
+      const saved = saveTimesheet_(first.row, checked);
+      uploadedFileId = saved.timesheetFileId;
+      Object.assign(fields, saved);
+    }
 
     // Lock only the check-and-update of the row, so two submissions cannot both pass the status check.
     const lock = acquireLock_(30000);
@@ -163,6 +177,7 @@ function submitForm(token, action, payload) {
         secureToken: row.secureToken,
         tokenExpiry: row.tokenExpiry
       });
+      committed = true;
     } finally {
       lock.releaseLock();
     }
@@ -172,7 +187,7 @@ function submitForm(token, action, payload) {
       evaluationId: row.evaluationId,
       oldStatus: oldStatus,
       newStatus: nextStatus,
-      details: { fields: Object.keys(fields), tokenRotated: !!C_().SECURITY.TOKEN_ROTATION_ON_STAGE_CHANGE },
+      details: { fields: Object.keys(fields), tokenRotated: !!C_().SECURITY.TOKEN_ROTATION_ON_STAGE_CHANGE, timesheetFileId: uploadedFileId || undefined },
       actorEmail: email
     });
 
@@ -199,6 +214,8 @@ function submitForm(token, action, payload) {
   } catch (err) {
     logError_('WebApp.submitForm', err.message, { stack: err.stack, action: String(action).slice(0, 40) });
     return { success: false, error: GENERIC_ERROR_ };
+  } finally {
+    if (uploadedFileId && !committed) trashTimesheet_(uploadedFileId);
   }
 }
 

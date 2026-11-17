@@ -165,8 +165,8 @@ Flow:
 
 1. **Launch** — the coordinator runs *Launch Selected Evaluation(s)* from the Sheets menu, which launches every `NOT_STARTED` row (the current selection is ignored). Each row gets a UUID access token (`Secure_Token`, 30-day expiry), status moves to `PROF_EVAL_PENDING`, and an invitation email goes to the professor.
 2. **Stage 1 — Professor Evaluation** (`prof_eval`): the professor completes the evaluation form via a tokenized web link, signs it, and submits. Status → `TA_RESPONSE_PENDING`; the TA gets an email invite.
-3. **Stage 2 — TA Review & Response** (`ta_respond`): the TA views the professor's evaluation read-only, writes a self-evaluation (context / self-evaluation / looking ahead), signs, and submits. Status → `PROF_SIGN_PENDING`; the professor gets an email invite.
-4. **Stage 3 — Professor Final Sign-off** (`prof_sign`): the professor reviews the full evaluation + TA response read-only and signs. Status → `PDF_GENERATING`, and the page replies straight away.
+3. **Stage 2 — TA Review & Response** (`ta_respond`): the TA views the professor's evaluation read-only, writes a self-evaluation (context / self-evaluation / looking ahead), uploads a time sheet showing the hours worked up to that day (or a short document explaining why they have none), signs, and submits. Status → `PROF_SIGN_PENDING`; the professor gets an email invite.
+4. **Stage 3 — Professor Final Sign-off** (`prof_sign`): the professor reviews the full evaluation + TA response read-only, can download the TA's time sheet, and signs. Status → `PDF_GENERATING`, and the page replies straight away.
 5. **PDF Generation** — in the background, a one-off trigger (`generatePendingPdfs`, about a minute after the sign-off) builds a styled, UW-branded PDF, saved to the archive Drive folder, and emailed to both the professor and TA. Status → `COMPLETED`. On failure, status reverts to `PROF_SIGN_PENDING` for retry and an alert is sent to the admin.
 6. **Automation** — a daily trigger checks pending evaluations. After 5 days of inactivity it sends up to 2 reminders, 5 days apart; when reminders are exhausted the evaluation is marked `ESCALATED` and the department administrator is emailed.
 
@@ -179,7 +179,7 @@ Every transition is written to the `Audit_Log` sheet and the `Data_Payload` JSON
 - **Platform:** Google Apps Script (V8 runtime), HTML Service web app (`HtmlService.createTemplateFromFile('Index')`).
 - **Database:** Google Sheets (master roster + audit/log/queue sheets in a single spreadsheet).
 - **Document generation:** PDFs are built programmatically in Google Docs (styled with UW colors) and exported as `application/pdf` — **not** from a tokenized template doc.
-- **Storage:** Google Drive (archive folder for final PDFs).
+- **Storage:** Google Drive (archive folder for final PDFs, and its `Time sheets` subfolder for the TAs' time sheets).
 - **Email:** Gmail via `GmailApp`.
 - **OAuth scopes (`appsscript.json`):** spreadsheets, documents, drive, gmail.send, script.external_request, script.scriptapp (needed to create and list triggers), script.container.ui (needed for the menu's pop-up windows, `showModalDialog`), userinfo.email (needed for `Session.getActiveUser().getEmail()`; without it the signed-in email comes back blank).
 
@@ -198,6 +198,7 @@ Every transition is written to the `Audit_Log` sheet and the `Data_Payload` JSON
 ├── WebApp.gs             # doGet, form functions called from the page, state transitions, health check
 ├── PdfEngine.gs          # Programmatic PDF builder + distribution + retry logic
 ├── EmailEngine.gs        # HTML email templates (invites, reminders, escalation, completion)
+├── Timesheet.gs          # TA time sheet upload checks, Drive storage, instructor download
 ├── Automation.gs         # Daily reminder/escalation trigger
 ├── Index.html            # Single dynamic web app UI (UW palette, WCAG 2.1 AA)
 ├── ErrorView.html        # Error page template
@@ -251,7 +252,9 @@ The JSON payload accumulates fields across stages via deep merge:
   "signatureName": "…",
   "signatureTimestamp": "ISO",
   "taSignatureName": "…", "taSignatureTimestamp": "…",
-  "profSignatureName": "…", "profSignatureTimestamp": "…"
+  "profSignatureName": "…", "profSignatureTimestamp": "…",
+  "timesheetFileId": "Drive file ID", "timesheetFileName": "Timesheet_<EvalID>_<Course>_<TA>.<ext>",
+  "timesheetOriginalName": "the name of the file the TA chose", "timesheetUploadedAt": "ISO"
 }
 ```
 
@@ -288,8 +291,9 @@ Single-page app served at `?action=<action>&token=<token>`. Each stage link is u
 ### Functions the page calls
 The page talks to the server through `google.script.run`, which can call any top-level server function whose name does not end in `_` ([Google's documentation](https://developers.google.com/apps-script/guides/html/communication)). Only these entry points are public:
 
-- `submitForm(token, action, payload)` — submits the current stage: `prof_eval` → `TA_RESPONSE_PENDING` + TA invite; `ta_respond` → `PROF_SIGN_PENDING` + sign-off invite; `prof_sign` → `PDF_GENERATING`; the reply comes straight back and the PDF is built in the background (§6).
+- `submitForm(token, action, payload, timesheet)` — submits the current stage: `prof_eval` → `TA_RESPONSE_PENDING` + TA invite; `ta_respond` (with the time sheet file as `timesheet`) → `PROF_SIGN_PENDING` + sign-off invite; `prof_sign` → `PDF_GENERATING`; the reply comes straight back and the PDF is built in the background (§6).
 - `saveDraftData(token, payload)` / `loadDraftData(token)` — the instructor's draft, during `PROF_EVAL_PENDING` only.
+- `getTimesheetForSignoff(token)` — the TA's time sheet as base64, for the instructor's download button, during `PROF_SIGN_PENDING` only (30 downloads per account per hour).
 - `doGet` (the web app), `onOpen` and the 14 menu items, which refuse anyone except `ADMIN_EMAIL` (`assertOwner_`). The check names the account, so it does not depend on how the web app is deployed.
 - The trigger handlers (`checkRemindersAndEscalations`, `processDeadLetterQueue`, `checkAlertThresholds`, and the one-off `generatePendingPdfs`), which run only for `ADMIN_EMAIL` or for a trigger event whose `triggerUid` matches one of this project's own triggers for that handler (`assertTriggerOrOwner_`). A forged event object is refused.
 
@@ -313,15 +317,18 @@ Then opening a link and every call go through `loadAuthorizedRow_` / `checkStage
 A submission then has to pass:
 
 9. **Fields** — each stage may only write its own fields (`STAGE_FIELDS_`), so the TA cannot change the instructor's evaluation and the reverse. Text is stored as typed, length-capped, with control characters removed; it is escaped where it is shown (the pages use `<?= ?>`, the PDF is plain text). Duty ratings are limited to `satisfactory`/`unsatisfactory`/`na`, and duty keys to `task_` names.
-10. **Required content** (`validateStageFields_`) — the instructor's evaluation needs a basis of evaluation, a rating for every duty in `DUTY_LIST_` (`Config.gs`; the same list feeds the form and the PDF), strengths, concerns and at least 10 characters of feedback. The TA's response needs all three answers. Each step needs the typed signature. A whole evaluation must fit in 45,000 characters.
+10. **Required content** (`validateStageFields_`) — the instructor's evaluation needs a basis of evaluation, a rating for every duty in `DUTY_LIST_` (`Config.gs`; the same list feeds the form and the PDF), strengths, concerns and at least 10 characters of feedback. The TA's response needs all three answers and a time sheet file. Each step needs the typed signature. A whole evaluation must fit in 45,000 characters.
 11. **Signature** — the server records the signer's UW account and the time (`signatureEmail`/`taSignatureEmail`/`profSignatureEmail` and the matching timestamps), and the audit log records the account.
-12. **Lock** — `submitForm` and draft saves hold the script lock (`LockService`) while they re-check steps 4–8 and update the row, so a late autosave cannot undo a submission. Row updates write only the changed cells and never read them first.
-13. **Token rotation** — a new token is issued at every stage transition, so a finished step's link stops working. The token is cleared when the evaluation is `COMPLETED`.
+12. **Time sheet** (`Timesheet.gs`) — PDF, PNG, JPG, Word (.docx) or Excel (.xlsx), up to 5 MB. The server checks the file's first bytes, not the browser's file type, names the file itself (`Timesheet_<EvalID>_<Course>_<TA>.<ext>`) and saves it to the `Time sheets` subfolder of the archive folder before taking the lock. If the submission then fails, the file is moved to the trash. The file ID is recorded by the server; the page cannot supply one. The file is never shared in Drive: the instructor downloads it through `getTimesheetForSignoff`, which runs checks 1–8.
+13. **Lock** — `submitForm` and draft saves hold the script lock (`LockService`) while they re-check steps 4–8 and update the row, so a late autosave cannot undo a submission. Row updates write only the changed cells and never read them first.
+14. **Token rotation** — a new token is issued at every stage transition, so a finished step's link stops working. The token is cleared when the evaluation is `COMPLETED`.
 
 ### UI (`Index.html`)
 Single dynamic page (not a separate template per stage) that renders the active step. Styled to the UW brand (purple `#4B2E83`, gold `#B7A57A`, Inter font) and built for WCAG 2.1 AA: skip link, semantic landmarks, ARIA progress bar, visible keyboard focus, `role="alert"` live regions, print stylesheet, mobile-responsive layout, character counters, and accessible custom radio buttons. The web forms meet current accessibility best practices: every input is labeled, required fields are announced and validated with clear error messages, radio groups use `<fieldset>`/`<legend>`, and all controls have touch targets of at least 44 px. The professor's form auto-saves to the server (1 s debounce). Nothing is kept in the browser; a draft left there by an older version is deleted when the form opens.
 
 The screenshots below come from one test evaluation run through all three steps of the deployed web app on November 16, 2026. The names and comments are made up: the instructor is "Dr. Smith" and the TA is "Alex Johnson". Both roles use the coordinator's own UW account (`bmarwick@uw.edu`), because each form opens only for the account named in the row, so one person can run the whole test.
+
+The TA response and sign-off screenshots were retaken on November 17, 2026, when the time sheet upload was added. They show the same test evaluation, rendered from the deployed version of `Index.html` with a sample time sheet file chosen. The PDF screenshot predates the time sheet and does not show the PDF's "Time Sheet" section.
 
 ### Professor Evaluation Form (`prof_eval`)
 - **Basis of Evaluation** — class visitation vs. other, with visitation date and observation description.
@@ -339,23 +346,39 @@ The screenshots below come from one test evaluation run through all three steps 
 ### TA Response Form (`ta_respond`)
 - Professor's evaluation displayed read-only (duty matrix + strengths + concerns + feedback).
 - **Self-evaluation** — three required free-text fields: *Context*, *Self-evaluation*, *Looking ahead*.
+- **Time Sheet** — a required file upload. The note under it says the time sheet only needs to show the hours worked up to the day the TA submits, not the total for the whole quarter, and that a TA without a time sheet should upload a short document explaining why.
 - Digital signature + acknowledgment.
 
 <details>
 <summary>Screenshot: the TA's response form, filled in</summary>
 
-![The TA's response form, showing the instructor's evaluation read-only above the three self-evaluation answers and the signature](screenshots/2-ta-response.png)
+![The TA's response form, showing the instructor's evaluation read-only above the three self-evaluation answers, the time sheet upload with its note, and the signature](screenshots/2-ta-response.png)
 
 </details>
 
+### The TA's Time Sheet
+The TA must upload a time sheet with their response. The form says, under the upload field:
+
+> Your time sheet only needs to show the hours you have worked **up to today**. It does not need to show the total hours for the whole quarter.
+> If you don't have a time sheet, upload a short document explaining why instead.
+> Accepted files: PDF, PNG, JPG, Word (.docx) or Excel (.xlsx), up to 5 MB. Your instructor can download this file when they sign off.
+
+- **Accepted files:** `.pdf`, `.png`, `.jpg`/`.jpeg`, `.docx` and `.xlsx`, up to 5 MB (`TIMESHEET_TYPES_` and `TIMESHEET_MAX_BYTES_` in `Timesheet.gs`). The file picker offers only these types. The page checks the type and size before sending, and the server checks again, using the file's first bytes rather than its name, so a renamed file is refused.
+- **Emails:** the TA's invitation and reminders ask the TA to have the time sheet ready, with the same note. The instructor's sign-off invitation mentions the download.
+- **Storage:** the file is saved as `Timesheet_<EvalID>_<Course>_<TA>.<ext>` in a `Time sheets` subfolder of the archive folder, which the app creates the first time it needs it. `Data_Payload` records the file ID, the saved name, the name of the file the TA chose and the upload time.
+- **Instructor download:** the sign-off page shows the file name and upload date and a **Download time sheet** button. The file comes through the web app (`getTimesheetForSignoff`), so it is never shared in Drive and only the instructor named in the row, signed in, can download it while the sign-off is pending.
+- **PDF:** the signed PDF has a "Time Sheet" section with the file's name and date. The time sheet itself stays a separate file.
+- **Evaluations started before November 17, 2026:** if the TA had already responded, the sign-off page says "No time sheet was uploaded with this response" and the PDF has no Time Sheet section. TAs who had not yet responded see the upload on their form.
+
 ### Professor Sign-off Form (`prof_sign`)
 - Professor's original evaluation and the TA's self-evaluation displayed read-only.
+- **TA's Time Sheet** — the uploaded file's name and date, with a *Download time sheet* button. Evaluations whose TA step was finished before time sheets were collected say that no time sheet was uploaded.
 - Final signature + acknowledgment.
 
 <details>
 <summary>Screenshot: the instructor's sign-off form, filled in</summary>
 
-![The instructor's sign-off form, showing the evaluation and the TA's self-evaluation read-only above the final signature](screenshots/3-instructor-signoff.png)
+![The instructor's sign-off form, showing the evaluation and the TA's self-evaluation read-only, the TA's time sheet with a download button, and the final signature](screenshots/3-instructor-signoff.png)
 
 </details>
 
@@ -369,7 +392,7 @@ After the instructor signs, the page confirms that the PDF is on its way:
 
 The PDF is **built programmatically** — no template doc. A temporary Google Doc is created, populated by `buildStyledDocument_()`, then exported as `application/pdf`.
 
-- **Contents:** "UW Anthropology Department ASE Evaluation" header (course/term, professor • TA), evaluation metadata, basis of evaluation, the duty-matrix table (with ✓ / ✗ / — marks), other duties, strengths, concerns, additional feedback, TA self-evaluation, and signature blocks. Each signature block shows the typed name, the time the server recorded, and the UW account that signed. The `Evaluation_ID` also appears in small grey text (7 pt) at the bottom right of every page.
+- **Contents:** "UW Anthropology Department ASE Evaluation" header (course/term, professor • TA), evaluation metadata, basis of evaluation, the duty-matrix table (with ✓ / ✗ / — marks), other duties, strengths, concerns, additional feedback, TA self-evaluation, a note of the time sheet the TA uploaded (file name and date; the time sheet itself is not merged into the PDF), and signature blocks. Each signature block shows the typed name, the time the server recorded, and the UW account that signed. The `Evaluation_ID` also appears in small grey text (7 pt) at the bottom right of every page.
 
   ![The three pages of the signed PDF for the test evaluation: details and duty table, comments, and the TA's self-evaluation with both signature blocks](screenshots/5-signed-pdf.png)
 - **Deterministic filename:** `Evaluation_<EvalID>_<Course>_<TAName>.pdf`.
@@ -441,12 +464,13 @@ Triggers with alerts found → consolidated email to `ADMIN_EMAIL` grouped by se
 - **Abuse limits:** malformed links and callers who are not signed in are refused before the sheet, the cache or the lock is touched; the rate limits are per account (§5).
 - **Tokenized links:** UUID v4 tokens per evaluation and stage, rotated on every transition, expiring after 30 days (`TOKEN_TTL_DAYS`), cleared on completion. A link alone does not open a form; the right account must be signed in.
 - **Signatures:** the typed name, plus the UW account and time recorded by the server, appear in the audit log and on the PDF.
+- **Uploads:** the TA's time sheet is checked by type (first bytes) and size, named by the server, and kept in the archive's `Time sheets` subfolder. It is not shared in Drive; the instructor downloads it through the web app at sign-off (§5).
 - **Input handling:** per-stage field lists and required content (§5). Text is stored as typed and escaped on output: the pages use `<?= ?>`, the PDF is plain text, and the emails to instructors and TAs escape names.
 - **Browser storage:** none. Drafts are kept on the server.
 - **Framing:** the page uses Google's default frame protection (no `ALLOWALL`).
 - **Errors:** users see plain messages; details go to the `Logs` sheet.
 - **Sheet protection:** admin sheets can be protected so only `ADMIN_EMAIL` can edit. Share the master spreadsheet and the archive folder only with the owner and the Graduate Program Coordinator, as the [Privacy Policy](#privacy-policy) states: the sheet contains live tokens and every evaluation's text.
-- **Retention:** `Logs` entries and finished dead-letter entries are deleted after `LOG_RETENTION_DAYS`; dead-letter payloads are cleared when an item finishes, and PDF retries store only the ID. The temporary Doc used to build a PDF is deleted even when the build fails. `Audit_Log` is kept: it records who signed each step and holds no evaluation text or tokens. `Data_Payload` and the archived PDFs are kept until someone deletes them. The [Privacy Policy](#privacy-policy) sets how long: at least 6 years after the ASE's employment with the department ends (UW records series "Personnel Records for Academic Student Employees (ASE)"). The code does not delete them; the Graduate Program Coordinator does.
+- **Retention:** `Logs` entries and finished dead-letter entries are deleted after `LOG_RETENTION_DAYS`; dead-letter payloads are cleared when an item finishes, and PDF retries store only the ID. The temporary Doc used to build a PDF is deleted even when the build fails. `Audit_Log` is kept: it records who signed each step and holds no evaluation text or tokens. `Data_Payload`, the archived PDFs and the time sheets are kept until someone deletes them. The [Privacy Policy](#privacy-policy) sets how long: at least 6 years after the ASE's employment with the department ends (UW records series "Personnel Records for Academic Student Employees (ASE)"). The code does not delete them; the Graduate Program Coordinator does.
 - **Email account:** invitations, reminders and PDFs are sent from the Google account that owns the script, so copies collect in that account's Sent folder. Deploying from a department account avoids this.
 - **CSP:** an optional nonce attribute on the inline script; disabled by default (`SECURITY.CSP_NONCE_ENABLED`).
 
@@ -506,6 +530,16 @@ Key settings (all in the `CONFIG` object):
 6. Run **Create/Refresh All Triggers** to install the daily reminder, DLQ, and alerting triggers.
 7. (Optional) Run **Protect Admin Sheets** to restrict editing to the admin.
 
+### Releasing a change
+The `/exec` URL serves a fixed deployment version, while triggers (reminders, PDF builds) run the latest pushed code. Release both together, so emails never describe a form that is not live yet:
+
+```sh
+clasp push
+clasp deploy -i <deployment ID from the /exec URL> -d "what changed"
+```
+
+Updating the existing deployment keeps the same `/exec` URL, so links already sent keep working. Anyone with a form open during the release should reload it.
+
 ---
 
 ## 13. Logging & Audit
@@ -518,7 +552,7 @@ Key settings (all in the `CONFIG` object):
 
 ## Privacy Policy
 
-*Last updated: November 15, 2026*
+*Last updated: November 17, 2026*
 
 This policy explains how the University of Washington (UW) Department of Anthropology collects, uses, shares, keeps and protects personal information in the TA Evaluation System. It applies to the instructors and the Academic Student Employees (ASEs, including TAs) who use the evaluation forms and receive the system's emails.
 
@@ -542,6 +576,7 @@ The system runs under one UW Google account, called the *system account* below. 
 | The instructor's evaluation: basis of evaluation, a rating for each of 30 duties, strengths, concerns and feedback | The instructor, on the evaluation form | Yes. The form cannot be submitted without them. |
 | Date and description of a class visit, and other duties | The instructor, on the evaluation form | No |
 | The TA's response: context, self-evaluation and looking ahead | The TA, on the response form | Yes. The form cannot be submitted without them. |
+| The TA's time sheet, showing the hours worked up to the day the TA submits the form, or a short document explaining why the TA has no time sheet | The TA, uploaded on the response form | Yes. The form cannot be submitted without a file. |
 | A typed name as signature, with an acknowledgment, at each step | The person completing that step | Yes |
 | The UW account that signed each step, and the time | Recorded by the system when each step is submitted | Automatic |
 | A record of each step: the UW account that acted, the change of status and the time (the `Audit_Log` sheet) | Recorded by the system | Automatic |
@@ -557,6 +592,7 @@ If an instructor does not complete the required parts, the evaluation cannot mov
 UW [Executive Order 28](https://policy.uw.edu/directory/po/executive-orders/eo-28-graduate-student-service-appointments/) says that "each department will be responsible for implementing a program of evaluation, which allows for student response, to be conducted at least annually". For TAs it requires "at least one observation by faculty with feedback to the student" in each of their first two quarters of teaching at UW. The department uses the information to:
 
 - run that evaluation program, and give each TA written feedback and a chance to respond;
+- let the instructor see the hours the TA has worked so far when they sign off the evaluation;
 - place the finished evaluation in the ASE's personnel file (UAW ASE contract, Article 22);
 - consider reappointment and promotion of ASEs, together with other information, as Executive Order 28 provides ("evaluations of the student appointee's performance should be part of the basis for the reappointment consideration");
 - send the forms, reminders and the signed PDF, record who signed each step, and find and fix problems with the system.
@@ -573,8 +609,8 @@ The department does not use the information for any other purpose, does not sell
 
 | Who | What they can see |
 |---|---|
-| The instructor | Their own evaluation; the TA's response at the sign-off step; the signed PDF |
-| The TA | The instructor's evaluation, read-only; their own response; the signed PDF |
+| The instructor | Their own evaluation; the TA's response and time sheet at the sign-off step; the signed PDF |
+| The TA | The instructor's evaluation, read-only; their own response; the signed PDF, which names the time sheet they uploaded (they can ask the Graduate Program Coordinator for a copy) |
 | The Graduate Program Coordinator and the system account | Everything in the master spreadsheet and the archive folder, and the reminder, escalation and alert emails |
 | Other UW faculty and staff | Only when they have a legitimate UW-related business need, such as a reappointment decision |
 | The union (UAW 4121) | Only with the ASE's written consent (UAW ASE contract, Article 22, Section 6) |
@@ -585,7 +621,7 @@ A link from an email does not open a form by itself. Each form opens only for th
 
 ### How the Information Is Stored and Protected
 
-The information is kept in one Google Sheet (the master spreadsheet) and one Google Drive folder (the signed PDFs), both owned by the system account in UW Google. The department shares them only with the Graduate Program Coordinator and the system account. Copies of the emails stay in the system account's Sent mail, and in the instructor's and TA's mailboxes, along with the attached PDF.
+The information is kept in one Google Sheet (the master spreadsheet) and one Google Drive folder (the signed PDFs, and the time sheets in its `Time sheets` subfolder), both owned by the system account in UW Google. The department shares them only with the Graduate Program Coordinator and the system account. Copies of the emails stay in the system account's Sent mail, and in the instructor's and TA's mailboxes, along with the attached PDF.
 
 Following the UW principles of collecting only what is needed and giving access only to those who need it ([APS 2.2](https://policy.uw.edu/directory/aps/section-00/aps-2-2-university-privacy-policy/), [UW Privacy Principles](https://it.uw.edu/guides/privacy/principles/)), the system:
 
@@ -601,7 +637,7 @@ Section [9. Security and Privacy](#9-security-and-privacy) describes these contr
 
 | Information | How long |
 |---|---|
-| The finished evaluation (its row in the master spreadsheet and the signed PDF) and its audit log entries | At least the period set by the [UW General Records Retention Schedule](https://finance.uw.edu/recmgt/) series [Personnel Records for Academic Student Employees (ASE)](https://finance.uw.edu/recmgt/recordseries/personnel-records-ase): 6 years after the ASE's employment with the department ends. The Graduate Program Coordinator then deletes them. The system does not delete them automatically. |
+| The finished evaluation (its row in the master spreadsheet, the signed PDF and the TA's time sheet) and its audit log entries | At least the period set by the [UW General Records Retention Schedule](https://finance.uw.edu/recmgt/) series [Personnel Records for Academic Student Employees (ASE)](https://finance.uw.edu/recmgt/recordseries/personnel-records-ase): 6 years after the ASE's employment with the department ends. The Graduate Program Coordinator then deletes them. The system does not delete them automatically. |
 | Evaluations that were started but never finished | The same as finished evaluations |
 | Error and activity logs (`Logs` sheet), and finished entries in the `Dead_Letter_Queue` sheet | 90 days, deleted automatically every day |
 | Rate-limit counts | One hour, deleted automatically |
