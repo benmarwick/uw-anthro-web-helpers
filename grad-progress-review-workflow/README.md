@@ -208,6 +208,16 @@ Each page is the web app URL plus a parameter:
 
 Every page checks the signed-in UW account. Opening a link sent to someone else shows a message naming the account you are signed in as.
 
+### Opening the Roster page
+
+The Roster page has its own web address: the web app URL followed by `?view=roster`. For the build copy that is
+
+<https://script.google.com/a/macros/uw.edu/s/AKfycbz5Ux91ZrBe-V8gH3aCg6DZBIHYES4_CyhcJFtTvBGOXHAFA5tM0Iy_9kzPW-Twjwxn/exec?view=roster>
+
+Bookmark it. You can also reach it from the main spreadsheet: **Graduate review → Import Roster (opens the Roster page)** shows a link to it. The same pattern opens the GPC's pages: `?view=release` for Review and Release and `?view=program` for the Program stage, or **Graduate review → Review and Release (opens the page)** and **Graduate review → Program stage (opens the page)** in the menu.
+
+Open it signed in with the UW account named in `ADMIN_EMAIL` or `GPC_EMAIL`. Any other account sees "Only the Graduate Student Administrator or the GPC can do this." If Google shows a "Verify it's you" page first, continue as your UW account. After a new deployment the address stays the same, because `clasp update-deployment` keeps the deployment ID.
+
 ### Each quarter: course feedback
 
 The calendar is in course-feedback plan §5.4. For Winter 2027: the instructor page opens Mon 15 Mar, is due Fri 2 Apr, and comments are released Fri 9 Apr.

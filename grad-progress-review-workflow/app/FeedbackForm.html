@@ -20,7 +20,7 @@
     var dis = s.editable && !page.readOnlyLock ? '' : ' disabled';
     var id = 's' + i;
     var levels = function (key, label) {
-      return '<label for="' + id + key + '">' + esc(label) + ' <span class="help">Relative to the student\'s stage in their PhD program</span></label><select id="' + id + key + '" data-f="' + key + '"' + dis + '><option value="">Choose…</option>' +
+      return '<label for="' + id + key + '">' + esc(label) + ' <span class="help">Relative to the student\'s stage in their graduate program</span></label><select id="' + id + key + '" data-f="' + key + '"' + dis + '><option value="">Choose…</option>' +
         page.levels.map(function (l) { return '<option' + (l === s[key] ? ' selected' : '') + '>' + esc(l) + '</option>'; }).join('') + '</select>';
     };
     var radio = function (val, label) {
