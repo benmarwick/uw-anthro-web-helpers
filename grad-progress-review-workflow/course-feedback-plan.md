@@ -1,3 +1,7 @@
+------------------------------------------------------------------------
+
+editor_options: markdown: wrap: sentence ---
+
 # Plan: Instructor Feedback on Graduate Students in Courses (UW Anthropology)
 
 *Drafted 16 November 2026. This is a plan only; nothing has been built yet. It is a companion to [`grad-annual-review-plan.md`](grad-annual-review-plan.md) and uses its role names: the **GPC** is the Graduate Program Coordinator (faculty), the **Graduate Student Administrator** is the staff member who runs the cycle.*
@@ -6,26 +10,16 @@
 
 At the end of every quarter, each instructor who had one of the department's graduate students in a course gets **one link** to a short page listing all of those students. For each student the instructor marks whether they had enough contact to comment. If they did, the instructor gives three quick stage-relative ratings, names one strength, and gives one next step. The instructor can also paste comments they have already written on the student's final paper. The process should take about 2–4 minutes per student.
 
-Once a year the system compiles every student's feedback into a **Course Feedback Record**. The GPC reads it, adds a short synthesis if useful, and releases it to the student. The record then feeds that student's annual review.
+Once a year the system compiles every student's feedback into a **Course Feedback Record**. The GPC reads it, adds a short synthesis if useful, and releases it to the student. The record then feeds that student's annual review. The record is passed to the sub-discpline coordinators for review by faculty. 
 
-Three facts shape the design and need decisions before anything else:
+------------------------------------------------------------------------
 
-1. **The calendar.** Spring grades are due 15 June 2027, which is after the annual review letters go out (spring week 9). An "end of year" packet therefore has two options:
-   - It covers the previous **Spring, then Autumn and Winter**, and is released in spring week 2, so it feeds that review. **Recommended.**
-   - It covers **Autumn, Winter and Spring** and is released in late June. It then reaches the next review a year late.
-
-   See decision 1.
-2. **The roster is the weakest link.** No source I could verify tells us, in bulk, which instructor taught which of our students in a given quarter. The plan treats the roster as a **manual, swappable import**. It names a verification task and a fallback (§4) rather than assuming one source works.
-3. **Nothing is anonymous or hidden.** Comments sent to the department are FERPA education records. The student can inspect them, including the instructor's name and any concern flag (§9). The form says so at the top. This matches principle 3 of the annual review plan.
-
----
-
-## 2. What the research found
+## 2. Motivation for this activity
 
 ### 2.1 UW programs that already do this
 
 | Unit | Practice | Student sees it? | Source (read in full unless noted) |
-|---|---|---|---|
+|------------------|------------------|------------------|------------------|
 | **Philosophy** | "Every quarter, instructors of 400- and 500-level philosophy courses provide written feedback… about graduate students enrolled in their courses who have not yet passed the qualifying paper." The form rates participation, presentation, written work and the term paper (Excellent to Needs Improvement, or N/A), each with comments. An optional box asks whether the paper is "a good foundation for a qualifying paper." The form says: "feel free to copy feedback you've already provided" and "Do not include grades on these forms – grades cannot be sent via email." Each spring the reports are "compiled and made available to faculty members to help them prepare for the end-of-year faculty meeting." | Yes. The grad adviser "stores them in a folder… and shares the folder with the student." | [Handbook 2025–26](https://phil.washington.edu/sites/phil/files/documents/GSHandbook%202025-2026.pdf) pp. 27–29; [form](https://phil.washington.edu/sites/phil/files/documents/Department%20of%20Philosophy%20Graduate%20Student%20Course%20Performance%20Evaluation.docx) |
 | **History** | "At the end of Autumn, Winter and Spring Quarters, history faculty are given forms by which they evaluate the performance and progress of each History graduate student in their class(es) or for whom they supervised HSTRY 600 or HIST 800 credits." The form itself is not online | "not confidential and can be read by the student," by appointment | [PhD evaluation criteria](https://history.washington.edu/phd-degree-evaluation-criteria); [Handbook 5-2026](https://history.washington.edu/sites/history/files/documents/grad/History%20Graduate%20Handbook%205-2026.pdf) p. 41 |
 | **French & Italian Studies** | End-of-Quarter Graduate Student Evaluation: course, instructor, grade, and one free-text comment. **The form is dated 2004** and may be out of use | "This is a non-confidential evaluation" | [Form](https://frenchitalian.washington.edu/sites/frenchitalian/files/documents/grad/grad-end-qrt-eval.pdf) |
@@ -37,7 +31,7 @@ Checked and found **no** per-instructor course feedback: Sociology (its annual r
 ### 2.2 Peer institutions
 
 | Institution & unit | Practice | Student sees it? | Source |
-|---|---|---|---|
+|------------------|------------------|------------------|------------------|
 | **Michigan State, Anthropology**: the closest anthropology match | An "Instructor's Student Evaluation form" is completed "for all first and second-year graduate students in Anthropology courses (400-level and above)." It asks what the student completed; strengths and shortcomings ("How does this course reflect on the student's ability to successfully complete the graduate program?"); and professional conduct ("Was the student's work completed appropriately and in a timely fashion?"). Writing, theory and professional self-presentation are rated Below Expectations / Emerging / Developing / Proficient. The forms feed a full-faculty review, then a letter from the Chair | Yes, the student gets a copy | [Form](https://anthropology.msu.edu/wp-content/uploads/sites/4/sites/5/2025/09/NAME_Appendix14_ANP.pdf); [Manual 2025–26](https://anthropology.msu.edu/wp-content/uploads/sites/4/sites/5/2025/09/ANP-Graduate-Manual_AY2025-26.pdf) |
 | **CU Boulder, Anthropology** | "At the end of the semester, faculty members will complete a short evaluation form… for each graduate student enrolled in their classes and for each of their advisees." Faculty meet mid-year and in spring; each student gets "a letter from the department… summarizing his or her overall performance" | The summary letter; the handbook is silent on the raw forms | [Handbook 2023](https://www.colorado.edu/anthropology/sites/default/files/attached-files/grad_handbook_2023.pdf) |
 | **Ohio State, Philosophy** | "At the end of each semester, instructors are to complete an evaluation form for each student they have had in a course." It feeds the spring faculty meeting | "put in the student's file, where the student may see them" | [§1.5](https://philosophy.osu.edu/15-grades-and-evaluations) |
@@ -49,24 +43,14 @@ Checked and found **no** per-instructor course feedback: Sociology (its annual r
 | Pittsburgh, Florida and USC Anthropology | Instructor views are gathered at the annual faculty meeting, orally or informally, with no form. Pitt: "reports from the advisor and other faculty (including, for example, instructors…)" | A summary letter only | [Pitt](https://anthropology.pitt.edu/node/7596); [Florida, 2007](https://anthro.ufl.edu/wp-content/uploads/sites/55/Anthro-Graduate-Student-Evaluation.pdf); [USC, Nov 2025](https://dornsife.usc.edu/anth/wp-content/uploads/sites/137/2025/11/Nov2025-Anth-PhD-Handbook-FINAL.pdf) |
 | UC San Diego, Anthropology (lowest burden) | Instructors write nothing extra. First-year students "maintain a file of all their written coursework with any faculty comments" for the spring evaluation | Their own comments | [Handbook 2021](https://anthropology.ucsd.edu/graduate-studies/current-students/Copy-of-Student-Handbook_Updated-September-2021.pdf) |
 
-**Patterns across these programs:**
-- **Timing.** Most collect at the end of every term, tied to grade submission.
-- **Scope.** Several limit collection to early-stage students: MSU covers years 1–2, Philosophy runs until the qualifying paper, UCSD covers year 1.
-- **Prompts.** Nearly every form asks for strengths and weaknesses.
-- **Scales.** Short scales of 3 to 5 points.
-- **Stage-relative wording.** Several anchor judgements to the student's stage: "for his/her stage" (Miami), "readiness for independent doctoral research" (Penn), "foundation for a qualifying paper" (Philosophy).
-- **Lower burden.** Many forms let instructors paste comments they have already given: Philosophy, Pitt, Penn and UCSD.
-- **Transparency.** Where a form exists, the student usually sees it verbatim and attributed. Where input is oral, the student gets a summary letter.
-- **No concern flag.** No form had an explicit concern checkbox.
+**Patterns across these programs:** - **Timing.** Most collect at the end of every term, tied to grade submission. - **Scope.** Several limit collection to early-stage students: MSU covers years 1–2, Philosophy runs until the qualifying paper, UCSD covers year 1. - **Prompts.** Nearly every form asks for strengths and weaknesses. - **Scales.** Short scales of 3 to 5 points. - **Stage-relative wording.** Several anchor judgements to the student's stage: "for his/her stage" (Miami), "readiness for independent doctoral research" (Penn), "foundation for a qualifying paper" (Philosophy). - **Lower burden.** Many forms let instructors paste comments they have already given: Philosophy, Pitt, Penn and UCSD. - **Transparency.** Where a form exists, the student usually sees it verbatim and attributed. Where input is oral, the student gets a summary letter. - **No concern flag.** No form had an explicit concern checkbox.
 
 **What appears to be new here.** No program I found compiles a year's instructor feedback into a single digest, curated by the GPC and delivered to the student. Philosophy compiles reports for the faculty, and Boulder, Pittsburgh and Florida summarize in a letter. The Course Feedback Record (§6) combines the two: the verbatim reports and a short synthesis.
-
-**Not reached, so absence there means nothing:** Anthropology at UCLA, UC Davis, Stanford, Harvard, Yale, Chicago, Penn, Cornell, Duke, UNC, Wisconsin, Minnesota, UT Austin, WashU, Emory, Northwestern, Penn State, Oregon, UBC and Toronto. Michigan, Illinois and ASU handbooks would not download. At UW, Linguistics, Political Science, Psychology (only a 2003–04 manual surfaced) and the Allen School (its page redirects to an internal site) were not checked for instructor feedback. Statistics, Music, Evans, Law, Public Health, Communication and most language departments got only broad searches.
 
 ### 2.3 Evidence on brief narrative feedback
 
 | Finding | Source | Design consequence |
-|---|---|---|
+|------------------------|------------------------|------------------------|
 | Narrative evaluations differ by gender and race: women were "described as more communal and less agentic"; in 87,922 clerkship evaluations, "62% [of the words that differed by gender] represented personal attributes, such as 'lovely'," and "knowledgeable" appeared more often for non-URM students; MSPEs described Black applicants as "competent" | [Madera et al. 2009](https://doi.org/10.1037/a0016539); [Rojek et al. 2019](https://doi.org/10.1007/s11606-019-04889-9); [Ross et al. 2017](https://doi.org/10.1371/journal.pone.0181659); [Trix & Psenka 2003](https://doi.org/10.1177/0957926503014002277) | Prompts ask about the **work** ("what did the student do well, with an example"), not the person. The form shows a one-line reminder. The GPC reads each record before release (§6.2) |
 | Committing to criteria in advance "eliminated discrimination" in a hiring experiment. Scales aligned to the construct reduced assessor disagreement | [Uhlmann & Cohen 2005](https://doi.org/10.1111/j.0956-7976.2005.01559.x); [Crossley et al. 2011](https://doi.org/10.1111/j.1365-2923.2010.03913.x) | The same fixed prompts every quarter, with **stage-relative anchors** instead of "excellent/poor" |
 | Feedback improves performance on average (d = .41), but more than a third of feedback interventions made it worse. Effectiveness falls "as attention moves… closer to the self and away from the task" | [Kluger & DeNisi 1996](https://doi.org/10.1037/0033-2909.119.2.254) | One strength and **one concrete next step**, both about the task |
@@ -74,53 +58,46 @@ Checked and found **no** per-instructor course feedback: Sociology (its annual r
 | "Individual data points are maximised for learning and feedback value, whereas high-stake decisions are based on the aggregation of many data points" | [van der Vleuten et al. 2012](https://doi.org/10.3109/0142159x.2012.652239) | Each comment is low-stakes. **No averages** are computed. Only the year's record, read by the GPC and the advisor, informs any judgement |
 | Shorter e-questionnaires (OR 1.51) and brief invitation letters (OR 3.26) raise response | [Edwards et al. 2023, Cochrane](https://doi.org/10.1002/14651858.mr000008.pub5) | A short email with one link, and one page per instructor |
 
-Not established by what we found, so not relied on: any reminder effect for e-forms, the "mum effect" applied to shared evaluations, and a formal source for "feed-forward." The design choices above do not depend on them.
-
----
+------------------------------------------------------------------------
 
 ## 3. Design principles
 
-1. **One link per instructor per quarter.** All of that instructor's graduate students in a course appear on one page. Multi-section and joint-listed offerings are merged, so nobody gets duplicates.
-2. **"Not enough contact" is a respectable one-click answer.** A student in a 150-seat lecture may be invisible to the instructor. Forcing a comment produces noise.
-3. **Reuse before writing.** Instructors can paste the comments they already gave on the final paper (Philosophy, Pitt, Penn).
-4. **About the course work only.** The form collects no grades: the transcript has them, and Philosophy notes that grades cannot be emailed. It collects nothing on TA or RA performance, which stays in the TA system under UAW Article 22.1 (principle 8 of the annual review plan). It does not ask about personality, health or personal circumstances.
-5. **Attributed and visible to the student.** Every comment carries the instructor's name and course. Nothing is anonymous, and the form says so. This is what FERPA requires anyway (§9), and peers do the same.
-6. **Low-stakes points, one considered record.** Single comments are never averaged, ranked or used alone for any decision.
-7. **Concerns do not wait for June.** An instructor can ask the GPC to follow up this quarter (§5.3).
-8. **No fellow students.** Graduate students who are instructors of record, and quiz-section TAs, are never asked (Policy 3.7.2: "Fellow students should not be involved").
-9. **One system.** This is a module of the annual review system, not a third app. It uses the same `Students` roster, legal basis, retention series, recusal rules and infrastructure.
+1.  **One link per instructor per quarter.** All of that instructor's graduate students in a course appear on one page. Multi-section and joint-listed offerings are merged, so nobody gets duplicates.
+2.  **"Not enough contact" is a respectable one-click answer.** A student in a 150-seat lecture may be invisible to the instructor. Forcing a comment produces noise.
+3.  **Reuse before writing.** Instructors can paste the comments they already gave on the final paper (Philosophy, Pitt, Penn).
+4.  **About the course work only.** The form collects no grades: the transcript has them, and Philosophy notes that grades cannot be emailed. It collects nothing on TA or RA performance, which stays in the TA system under UAW Article 22.1 (principle 8 of the annual review plan). It does not ask about personality, health or personal circumstances.
+5.  **Attributed and visible to the student.** Every comment carries the instructor's name and course. Nothing is anonymous, and the form says so. This is what FERPA requires anyway (§9), and peers do the same.
+6.  **Low-stakes points, one considered record.** Single comments are never averaged, ranked or used alone for any decision.
+7.  **Concerns do not wait for June.** An instructor can ask the GPC to follow up this quarter (§5.3).
+8.  **No fellow students.** Graduate students who are instructors of record, and quiz-section TAs, are never asked (Policy 3.7.2: "Fellow students should not be involved").
+9.  **One system.** This is a module of the annual review system, not a third app. It uses the same `Students` roster, legal basis, retention series, recusal rules and infrastructure.
 
----
+------------------------------------------------------------------------
 
 ## 4. The roster: who is asked about whom
-
-This is the hardest part, so the plan builds outward from it.
 
 ### 4.1 What we need each quarter
 
 One row per (student, course section) with the student's UW email, quarter, course, section, SLN, instructor name and instructor UW email.
 
-### 4.2 Candidate sources (none yet verified for this use)
+### 4.2 Sources
+
+We will get current student registration data from student transcripts in **MyGrad**.
 
 | Source | What it gives | Limits | Status |
-|---|---|---|---|
-| **BI Portal report "Current Student Registration Courses"** | "current registration information for all students in a selected major," which covers courses in every department | Needs an ASTRA role ("Advisor/Academic Staff") and on-campus access. It is not known whether it covers graduate majors or shows instructors | **Verify first** (task R1) |
-| BI Portal "Class List by Curriculum Course Section" | Rosters of every section in a curriculum | Covers our own curricula (ANTH, ARCHY, BIO A); access to other departments' lists is unknown | Possible for phase 1 |
-| MyGrad transcript page (already read by the Student Summary bookmarklet) | Courses and grades per student | One student at a time, and only after grades post. Sections and instructors are probably absent | Cross-check only |
-| EARS | Official student record, one student at a time | Per-student lookups; access must be requested | Cross-check only |
-| **Fallback: student confirmation** | In week 3, each student confirms a prefilled list of their courses, or adds courses (one minute) | Adds a small student task, and completeness depends on students | Use if R1 fails |
+|------------------|------------------|------------------|------------------|
+| **MyGrad: Current Student List and each student's transcript page** | The [Current Student List](https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist?orgid=14) gives every current student and their UW email (`EmailUCS`). Each transcript page (`/home/transcript?id=…`) has one table per quarter, newest first, with the columns Course, Course Title, Credits and Grade. The current quarter appears before grades post, with the grade blank, and next quarter's registrations appear once students register. The Course cell includes the section letter (e.g., `ANTH 4xx A`), and the transcript covers courses in every department. Instructor and SLN, both come from the Time Schedule export (R2) by matching quarter, curriculum, course number and section. MyGrad pages work in a signed-in browser only, so Apps Script cannot read them. The export keeps only the target quarter's course and section and drops the Grade column (principle 4). Department View access is limited to GPC and GPA roles | **Primary source.** Task R1 adds a "Send registrations to the app" step to the repository's MyGrad Table Audit bookmarklet (§4.5), which already reads every student's transcript (one request per student, about a minute for the current 41 students) and checks that each page names the student it asked for | Available |
+| BI Portal report "[Current Student Registration Courses](https://biportal.uw.edu/details/2B7F3DF0-32AB-49F3-89A4-4F5E86C73D13)" ([run in Power BI](https://app.powerbi.com/groups/b35daad0-d4e5-47ea-a979-0cbffd8f013f/rdlreports/c0a734b2-31c9-45a3-9b52-4a70fe895fe7?chromeless=true)) | "An overview of courses taken by students within a selected major, using current registration data." Its published SQL returns one row per student and section, with the student's email, SLN, curriculum, course number, section, section type and `Course_Instructor`. It does not filter by curriculum, so it covers courses in every department. The data refresh daily | Required filters: Quarter, College and Department. The quarter list offers only recent quarters (from the previous quarter to about two ahead). Access needs an ASTRA role with full access, such as "Advisors/Academic Staff," and on-campus access. `Course_Instructor` is a name only (no email or NetID), and the SQL keeps one instructor per section, the one with the highest percent involvement, so co-instructors are dropped. Rows repeat for each meeting time. The output also includes grades, gender, ethnicity and veteran status. A cross-check run deselects those columns, which the report allows (principle 4) | Available |
 
-**Sections to instructors.** The Time Schedule names each section's instructor, but its pages now require a NetID. Apps Script therefore cannot read them; a browser can. The repository's Time Schedule bookmarklet already parses instructors, so the plan adds an **"Export sections and instructors (CSV)"** button to it (task R2). The Time Schedule can differ from who actually taught (instructors change after construction), and the invitation handles that with a "This isn't my course" link (§5.1). Time Schedule names (`Marwick,B`) are matched to UW emails through an `Instructors` sheet. The administrator maintains that sheet and checks new names in the [UW Directory](https://directory.uw.edu).
-
-**No evidence found** that UW has adopted Workday Student. The only trace is a September 2026 RFI for a new student information system, seen on third-party procurement sites. Keep the import as a separate step (`RosterImport.gs`) so the source can be swapped later.
+**Sections to instructors.** MyGrad gives the section but no instructor, so each MyGrad row is matched to the Time Schedule on quarter, curriculum, course number and section. The Time Schedule lists every instructor of a section, so co-taught courses keep all their names. If a transcript shows a quiz section (e.g., `AB`), the import matches it to its lecture (`A`). The Time Schedule names each section's instructor, but its pages now require a NetID. Apps Script therefore cannot read them; a browser can. The repository's Time Schedule bookmarklet already parses instructors, so the plan adds a **"Send sections to the app"** step to it (task R2, §4.5). The Time Schedule can differ from who actually taught (instructors change after construction), and the invitation handles that with a "This isn't my course" link (§5.1). Time Schedule names (`Marwick,B`) are matched to UW emails through an `Instructors` sheet. The administrator maintains that sheet and checks new names in the [UW Directory](https://directory.uw.edu).
 
 ### 4.3 Who is asked: rules applied automatically, with the reason shown
 
 | Case | Rule |
-|---|---|
+|------------------------------------|------------------------------------|
 | Courses in ANTH, ARCHY, BIO A | Included from phase 1 |
 | Courses in other departments | Included from phase 2 (autumn 2027), with a fuller invitation explaining who we are and why. The user asked for "all instructors"; this phases it in |
-| Instructor of record is a graduate student; quiz-section TAs | **Excluded** (principle 8). The `Instructors` sheet has an `Appointment` column. The R2 export fills it from the appointment the CEC lists, which the Time Schedule bookmarklet already reads. The administrator confirms it for new names, because the CEC lags by a year and does not list everyone. Quiz sections are dropped by section type |
+| Instructor of record is a graduate student; quiz-section TAs | **Excluded** (principle 8). The `Instructors` sheet has an `Appointment` column. The R2 export fills it from the appointment the CEC lists, which the Time Schedule bookmarklet already reads. The administrator confirms it for new names, because the CEC lags by a year and does not list everyone. A quiz-section registration is matched to its lecture, so the quiz-section TA is never asked |
 | Individual and research credits (600, 700, 800 and equivalents elsewhere) | **Excluded.** The advisor covers this work in the annual review |
 | Instructor is the student's advisor | Asked, with a one-click option: "Covered in my annual review." Default: asked |
 | Co-taught course | One shared page. Any co-instructor can draft it, one submits, and every name is recorded (the same pattern as co-advisors) |
@@ -132,10 +109,26 @@ One row per (student, course section) with the student's UW email, quarter, cour
 
 ### 4.4 Roster steps for the administrator
 
-1. **Week 3:** import registrations, then run the instructor export. Rows that fail a rule are marked with their reason rather than deleted.
-2. **Monday of finals week:** refresh the import to drop withdrawals, check the preview (instructors × number of students), then **Launch**.
+1.  **Week 3:** on the app's Roster page (§4.5), get the MyGrad registrations, then the Time Schedule sections, and import them. Rows that fail a rule are marked with their reason rather than deleted.
+2.  **Monday of finals week:** repeat both steps to drop withdrawals and pick up instructor changes, check the preview (instructors × number of students), then **Launch**.
 
----
+### 4.5 The Roster page: buttons plus bookmarklets
+
+The app cannot fetch either source by itself. Apps Script cannot sign in to MyGrad or the Time Schedule as the user: a request without the user's UW session is redirected to the UW login page. A web page in the browser cannot read another site either. A test on 17 Nov 2026 found that a fetch from the MyGrad page to the Time Schedule failed with "Failed to fetch." The Roster page therefore pairs one button per source with a bookmarklet that runs in the opened tab.
+
+1.  The administrator clicks **Get MyGrad registrations**. The app opens the MyGrad Current Student List in a new tab.
+2.  In that tab, the administrator clicks the MyGrad bookmarklet (R1). It reads every student's transcript and keeps only the target quarter's student email, curriculum, course number and section. Grades never leave MyGrad.
+3.  The bookmarklet sends the rows back to the app tab with `window.opener.postMessage`. The app accepts a message only from `https://webappssecure.grad.uw.edu` and shows a preview (e.g., "41 students, 52 registrations").
+4.  The administrator clicks **Get Time Schedule sections**. The app opens that quarter's Time Schedule with the curricula found in step 3 in the URL fragment (e.g., `#curricula=ANTH,ARCHY,BIO%20A,CSDE`), which the browser does not send to the server. The Time Schedule bookmarklet (R2) fetches only those departments' pages and sends back each section's SLN, section type, instructors, joint-listing flag and meeting time. The app accepts this message only from `https://www.washington.edu`.
+5.  The administrator clicks **Import**. `RosterImport.gs` checks that the signed-in user is the administrator or the GPC, joins the two sets of rows (§4.2, "Sections to instructors"), applies the rules in §4.3, and writes `Enrollments`. The page then shows the counts matched, excluded with their reasons, and unmatched, and lists any instructor names missing from the `Instructors` sheet. **Launch** stays disabled until that list is empty.
+
+**Fallback.** If the app tab cannot receive messages, each bookmarklet downloads a CSV instead, and the Roster page has an **Upload CSV** button for each source. The CSV holds the same columns as the message.
+
+**Checked and unchecked.** Neither MyGrad nor the Time Schedule sends a `Cross-Origin-Opener-Policy` header (checked 17 Nov 2026), so the opened tab keeps its link to the app tab. Google serves an Apps Script page inside a sandboxed frame, and it is not yet known whether that frame receives messages from a tab it opened. Task R3 tests this before the build.
+
+A Chrome extension could read both sites without bookmarklet clicks. It would need installing and maintaining on each administrator's machine, and UW may restrict extensions on managed computers, so the plan does not use one.
+
+------------------------------------------------------------------------
 
 ## 5. The instructor's page
 
@@ -143,15 +136,14 @@ One row per (student, course section) with the student's UW email, quarter, cour
 
 The email is short and holds one link and no student content. Following Registrar guidance, the email names no student and includes no grade or comment.
 
-> *Subject: Brief feedback on graduate students in ANTH 512 (Winter 2027)*
-> You had 3 Anthropology graduate students in ANTH 512 this quarter. One page, about 3 minutes per student. Students will read your comments with your name on them; they use them to plan their next year. [Open the page]. Due Friday 2 April. Not your course? [Tell us].
+> *Subject: Brief feedback on graduate students in ANTH 512 (Winter 2027)* You had 3 Anthropology graduate students in ANTH 512 this quarter. One page, about 3 minutes per student. Students will read your comments with your name on them; they use them to plan their next year. [Open the page]. Due Friday 2 April. Not your course? [Tell us].
 
 The link opens a NetID-authenticated page and uses the same tokenized, identity-checked link as the TA system.
 
 ### 5.2 Fields (per student, repeated down one page)
 
 | Field | Type | Required? | Target time | Source |
-|---|---|---|---|---|
+|---------------|---------------|---------------|---------------|---------------|
 | Prefilled header: student name, program and subfield, **year in program**, course, quarter | Display | — | — | Stage context (Miami, Penn) |
 | Contact | "Enough contact to comment" / "Not enough contact" (the student's row ends here) / "Covered in my annual review" (advisor only) | Yes | 5 sec | Principle 2 |
 | Written work | 4 levels *relative to the student's stage*: **Below what I'd expect at this stage · Approaching · Meeting · Beyond**, or **Not observed** | Yes if contact | 10 sec | MSU rubric; Pitt HAA; Philosophy |
@@ -165,10 +157,7 @@ The link opens a NetID-authenticated page and uses the same tokenized, identity-
 
 Once per page, the instructor gives a typed name as signature and an optional "How long did this take?" (under 5 / 5–15 / over 15 minutes) for the pilot metrics.
 
-**Shown at the top of the page, in three lines:**
-- Describe the work, not the person: what they did and what they should do next.
-- The student will read this with your name on it. It is part of their education record.
-- Don't include grades, TA work, or health or personal circumstances. If those matter, tick "follow up" and talk to the GPC.
+**Shown at the top of the page, in three lines:** - Describe the work, not the person: what they did and what they should do next. - The student will read this with your name on it. It is part of their education record. - Don't include grades, TA work, or health or personal circumstances. If those matter, tick "follow up" and talk to the GPC.
 
 **Deliberately not asked:** an overall rating, a numeric score, a ranking against peers, a grade, or a free-for-all "other comments" box. The strength and next-step fields carry the narrative.
 
@@ -187,7 +176,7 @@ Once per page, the instructor gives a typed name as signature and an optional "H
 The page opens on the **Monday of finals week**, so instructors can write while grading. It closes on a Friday at least 10 days after the grade deadline. Reminders are set per quarter in `Config.gs`, at most two: the Wednesday after grades are due, and a later one about three days before the deadline. After that there is no escalation. A missing response simply shows in the record as "no feedback received."
 
 | Quarter | Finals | Grades due (5 p.m.) | Page opens | Reminders | Due |
-|---|---|---|---|---|---|
+|------------|------------|------------|------------|------------|------------|
 | Autumn 2026 | 12–18 Dec | Tue 22 Dec | Mon 14 Dec | 23 Dec, 5 Jan | Fri 8 Jan 2027 (decision 9: probably skipped) |
 | Winter 2027 | 13–19 Mar | Tue 23 Mar | Mon 15 Mar | 24 Mar, 30 Mar | **Fri 2 Apr**, the end of spring week 1 (check against the spring start date). Records are released at the end of spring week 2 |
 | Spring 2027 | 5–11 Jun | Tue 15 Jun | Mon 7 Jun | 16 Jun, 22 Jun | Fri 25 Jun |
@@ -197,31 +186,35 @@ The page opens on the **Monday of finals week**, so instructors can write while 
 
 Finals and grade dates come from the [2026–27 academic calendar](https://www.washington.edu/students/reg/2627cal.html). The grade deadline is "always at 5 p.m. on the Tuesday following the final day of the quarter" ([Registrar](https://registrar.washington.edu/staff-faculty/grading-resources)).
 
----
+------------------------------------------------------------------------
 
 ## 6. The Course Feedback Record (the GPC's collation)
 
 ### 6.1 Contents (one per student per feedback year)
 
-1. **Coverage line:** for example, "6 courses; feedback from 5 instructors; 1 'not enough contact'; 0 not received." A record with fewer than two comments says, in plain words, that it is too thin to show patterns.
-2. **Ratings grid:** courses as rows, the three dimensions as columns, each cell showing the level given. **Not averaged** (principle 6).
-3. **Comments,** verbatim, attributed and in date order. For each course: the strength, the next step, the pasted comments and the milestone note.
-4. **All the next steps gathered into one list**, so the student sees recurring themes.
-5. **Follow-up flags** raised that year and their recorded outcomes.
-6. **GPC synthesis** (optional): 2–4 sentences on patterns across courses, written by the GPC with no AI drafting, consistent with the repository's practice for decisions about students.
-7. **Student response:** the student answers in the annual review self-report, in a new field (§8).
+1.  **Coverage line:** for example, "6 courses; feedback from 5 instructors; 1 'not enough contact'; 0 not received." A record with fewer than two comments says, in plain words, that it is too thin to show patterns.
+2.  **Ratings grid:** courses as rows, the three dimensions as columns, each cell showing the level given. **Not averaged** (principle 6).
+3.  **Comments,** verbatim, attributed and in date order. For each course: the strength, the next step, the pasted comments and the milestone note.
+4.  **All the next steps gathered into one list**, so the student sees recurring themes.
+5.  **Follow-up flags** raised that year and their recorded outcomes.
+6.  **GPC synthesis** (optional): 2–4 sentences on patterns across courses, written by the GPC with no AI drafting, consistent with the repository's practice for decisions about students.
+7.  **Student response:** the student answers in the annual review self-report, in a new field (§8).
 
 ### 6.2 The GPC's steps (spring week 2; about 5 minutes per student)
 
-1. Open the batch view, filtered by subfield. Every student's draft record is already assembled.
-2. **Read each record before release**, with a three-item check on screen:
-   - Is anything about the person rather than the work?
-   - Is anything outside course work (grades, TA work, health)?
-   - Is any comment unclear?
+1.  Open the batch view, filtered by subfield. Every student's draft record is already assembled.
 
-   The GPC **never edits an instructor's words.** If a comment needs to change, the GPC returns it to the instructor with a logged reason, and the instructor revises it within 5 days. If the instructor hasn't revised it by release, the comment goes **to the student only**, who is entitled to it, with a GPC note. It is held out of the advisor's view, the calibration view and the PDF copies until the instructor revises it or the GPC resolves it.
-3. Add the synthesis if useful.
-4. **Release.** The record appears in the student's annual review form (`STUDENT_PENDING`) and in the advisor's view before their meeting.
+2.  **Read each record before release**, with a three-item check on screen:
+
+    - Is anything about the person rather than the work?
+    - Is anything outside course work (grades, TA work, health)?
+    - Is any comment unclear?
+
+    The GPC **never edits an instructor's words.** If a comment needs to change, the GPC returns it to the instructor with a logged reason, and the instructor revises it within 5 days. If the instructor hasn't revised it by release, the comment goes **to the student only**, who is entitled to it, with a GPC note. It is held out of the advisor's view, the calibration view and the PDF copies until the instructor revises it or the GPC resolves it.
+
+3.  Add the synthesis if useful.
+
+4.  **Release.** The record appears in the student's annual review form (`STUDENT_PENDING`) and in the advisor's view before their meeting.
 
 For the GPC's own advisees, the alternate reviewer (by default the department chair) does steps 1–4.
 
@@ -238,7 +231,7 @@ The one exception to the year-end timing in decision 2 is the MA rule, which is 
 ### 6.4 Where the record goes
 
 | Who | What |
-|---|---|
+|------------------------------------|------------------------------------|
 | Student | The full record in the app, plus a PDF shared only with their UW account |
 | Advisor(s) | The full record, in the advisor stage of the annual review |
 | Committee chair | The record as an appendix to the annual review PDF (decision 6) |
@@ -247,26 +240,23 @@ The one exception to the year-end timing in decision 2 is the MA rule, which is 
 | Instructors | Only what they wrote, until the window closes |
 | Fellow students | Nothing |
 
----
+------------------------------------------------------------------------
 
 ## 7. Data model
 
 These are new tabs in the annual review spreadsheet. They reuse the `Students` roster and the `Instructors` sheet.
 
 | Sheet | One row per | Key columns |
-|---|---|---|
-| `Enrollments` | Student × section × quarter | `Quarter`, `Student_Email`, `Course`, `Section`, `SLN`, `Joint_Group`, `Instructor_Emails`, `Exclusion_Reason`, `Source` (BI Portal / student / manual) |
+|------------------------|------------------------|------------------------|
+| `Enrollments` | Student × section × quarter | `Quarter`, `Student_Email`, `Course`, `Section`, `SLN`, `Joint_Group`, `Instructor_Emails`, `Exclusion_Reason`, `Source` (MyGrad / BI Portal / student / manual) |
 | `Feedback_Requests` | Instructor page (instructor(s) × merged offering × quarter) | `Request_ID`, `Instructor_Emails`, `Status` (`NOT_STARTED`, `SENT`, `DRAFT`, `SUBMITTED`, `NOT_MY_COURSE`, `CLOSED`), `Secure_Token`, `Token_Expiry`, `Reminder_Count`, `Minutes_Bucket` |
 | `Course_Feedback` | **Student × offering** (kept per student so that each student's export holds only their own rows, as [34 CFR 99.12(a)](https://www.law.cornell.edu/cfr/text/34/99.12) requires) | `Request_ID`, `Student_Email`, `Contact`, three ratings, `Strength`, `Next_Step`, `Prior_Comments`, `Milestone_Note`, `Followup_Flag`, `Followup_Note`, `Submitted_By`, `Submitted_At`, `Returned_Reason` |
 | `Followups` | Flag | `Feedback_ID`, `Handled_By`, `Contact_Date`, `Outcome`, `Interim_Review_ID` |
 | `Feedback_Records` | Student × feedback year | `Window` (e.g., `SPR2026–WIN2027`), `Coverage`, `GPC_Synthesis`, `Released_At`, `Released_By`, `PDF_File_ID` |
 
-**Code:**
-- **New files:** `RosterImport.gs`, `CourseFeedback.gs` (launch, merge, the exclusion rules, assembly of the record) and `FeedbackForm.html` (the one-page batch form, accessible to WCAG 2.1 AA, with server-side drafts).
-- **Reused:** tokens, identity checks, the audit log, the dead-letter queue, reminders and the PDF engine.
-- **Menu items added:** **Import Registrations**, **Launch Course Feedback**, **Build Feedback Records**.
+**Code:** - **New files:** `RosterImport.gs`, `RosterPage.html` (the Roster page in §4.5, with its buttons, message listener, preview and CSV upload fallback), `CourseFeedback.gs` (launch, merge, the exclusion rules, assembly of the record) and `FeedbackForm.html` (the one-page batch form, accessible to WCAG 2.1 AA, with server-side drafts). - **Reused:** tokens, identity checks, the audit log, the dead-letter queue, reminders and the PDF engine. - **Menu items added:** **Import Registrations** (opens the Roster page), **Launch Course Feedback**, **Build Feedback Records**.
 
----
+------------------------------------------------------------------------
 
 ## 8. Changes needed in the annual review plan
 
@@ -277,7 +267,7 @@ These are new tabs in the annual review spreadsheet. They reuse the `Students` r
 - **§9.5 metrics:** add response rate by quarter, the share of "not enough contact," the minutes per page, and the number of flags.
 - **§10 privacy:** add the course-feedback rows to the who-sees-what table. **Retention** follows the same series as the review, Student Folders (6 years after the degree or last activity), pending the same Records Management check.
 
----
+------------------------------------------------------------------------
 
 ## 9. Privacy and legal basis
 
@@ -286,27 +276,27 @@ These are new tabs in the annual review spreadsheet. They reuse the `Students` r
 - **Separate from employment.** Feedback covers enrollment in courses, not ASE work. TA and RA evaluations stay in the TA system.
 - **Privacy notice:** add a course-feedback section to the annual review's notice, covering what instructors submit, who sees it, the student's rights to inspect and request amendment (WAC 478-140), and retention.
 
----
+------------------------------------------------------------------------
 
 ## 10. Rollout
 
 | When | What |
-|---|---|
-| Dec 2026 | Graduate committee settles decisions 1–11. **R1:** the administrator requests the BI Portal role and tests "Current Student Registration Courses" for our graduate majors (does it list them, and does it show sections?). Ask the BI Portal team (help@uw.edu, subject "BI Portal") about class lists for other departments |
-| Jan 2027 | **R2:** add the instructor CSV export to the Time Schedule bookmarklet. Build the `Instructors` sheet. Build the module alongside the annual review build (§12 of that plan) |
+|------------------------------------|------------------------------------|
+| Dec 2026 | Graduate committee settles decisions 1–11. **R1:** add the "Send registrations to the app" step, with its CSV download fallback, to the MyGrad Table Audit bookmarklet and test it on Autumn 2026. Check how the transcript shows a quiz section and a dropped course. Optionally run the BI Portal report "[Current Student Registration Courses](https://biportal.uw.edu/details/2B7F3DF0-32AB-49F3-89A4-4F5E86C73D13)" for the same quarter as a cross-check |
+| Jan 2027 | **R3:** before building the Roster page, publish a test Apps Script page that opens a MyGrad tab and a Time Schedule tab, and check that it receives a `postMessage` from each. If it does not, build the CSV upload fallback (§4.5) instead. **R2:** add the "Send sections to the app" step, with its CSV download fallback, to the Time Schedule bookmarklet. Build the `Instructors` sheet. Build the module alongside the annual review build (§12 of that plan) |
 | Early Mar 2027 | Test run with one account playing instructor, student and GPC |
 | **Winter 2027** (opens 15 Mar) | **Pilot:** ANTH, ARCHY and BIO A courses only. The first records cover Winter 2027 alone. Say so on the record ("first year: one quarter") |
 | Spring 2027 | Winter feedback due end of spring week 1; records released end of week 2. Spring quarter feedback (June) begins the 2027–28 window |
 | Summer 2027 | Debrief: response rate, minutes, "not enough contact" share, and what students and advisors found useful (add one question to the post-cycle survey) |
 | **Autumn 2027** | Phase 2: courses in other departments, with the fuller invitation |
 
----
+------------------------------------------------------------------------
 
 ## 11. Open decisions (each with a recommended default)
 
-| # | Decision | Recommended default |
-|---|---|---|
-| 1 | Which quarters does one record cover, and when is it released? | **Spring + Autumn + Winter (plus Summer if switched on), released at the end of spring week 2** so it feeds that year's review. The alternative is a June digest of Autumn–Spring, which reaches the review a year late |
+| \# | Decision | Recommended default |
+|------------------------|------------------------|------------------------|
+| 1 | Which quarters does one record cover, and when is it released? | **Spring + Autumn + Winter, released at the end of spring week 2** so it feeds that year's review. The alternative is a June digest of Autumn–Spring, which reaches the review a year late |
 | 2 | Should students also see each quarter's feedback as soon as its window closes? | **No for the first cycle; year-end only, as specified.** Revisit after the pilot. Philosophy, Northwestern, MSU and Architecture all give feedback straight to the student, and timely feedback is more useful. A follow-up flag is always shared within the quarter regardless (§5.3) |
 | 3 | Which students are covered? | **All students in the roster.** Philosophy and MSU stop at an early milestone; ours limits itself because later students take few courses |
 | 4 | Ask instructors outside the department? | **Yes, from autumn 2027** |
@@ -318,24 +308,14 @@ These are new tabs in the annual review spreadsheet. They reuse the `Students` r
 | 10 | Allow instructors to edit after submitting? | **Yes, until the window closes.** After that, only through the GPC's "return for revision" route |
 | 11 | Should Sociocultural's first-year evaluation use these records? | **Yes**, as an input to its existing portfolio review |
 
----
+------------------------------------------------------------------------
 
 ## 12. Risks
 
 - **Roster gaps.** If R1 fails and students don't confirm their courses, coverage will be patchy. The coverage line makes gaps visible rather than hiding them.
+
 - **Instructor fatigue.** Keep the page to one screen, keep "not enough contact" to one click, cap reminders at two, and measure minutes in the pilot. If the burden is high, cut the optional fields first.
+
 - **Bland or hedged comments.** Expected in year 1 (Ginsburg). The fixed strength and next-step prompts and the follow-up route are the main remedies. The GPC's "return for revision" route is for real problems, not style.
+
 - **Over-reading one comment.** The design has no averages. The thin-record wording and the calibration view showing no free text by default guard against it.
-- **Mission creep into funding decisions.** State in the handbook that the records inform advising and the annual review and are not used to rank students for funding. If faculty want them used for funding, that is a separate decision to publish.
-
----
-
-## Appendix: sources not fully verified
-
-- **CU Boulder:** the form itself was not found.
-- **History:** the form is not online.
-- **Penn History:** how the form is used comes from a fetch summary only.
-- **Pathobiology and Nursing:** seen in snippets only.
-- **The Workday Student RFI:** seen on third-party procurement sites, which give different due dates.
-- **Dated forms:** French & Italian (2004), Rutgers (2013), Florida (2007) and UCSD (2021) may no longer reflect current practice.
-- **BI Portal coverage:** not yet tested for graduate majors or for instructor columns (task R1).
