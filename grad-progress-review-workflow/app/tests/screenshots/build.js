@@ -86,7 +86,7 @@ const preview = {
 };
 const rosterData = {
   quarter: Q, quarterLabel: run(`quarterLabel_('${Q}')`), curriculaFilter: run('CONFIG.CF_ALL_DEPARTMENTS ? null : CONFIG.CF_CURRICULA_PHASE1'),
-  window: run(`courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS)`), missingEmails: [],
+  window: run(`courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES)`), missingEmails: [],
   requests: [
     { requestId: 'REQ-1', offering: 'ANTH 512', instructors: 'Rowan,Bea / Stone,Cal', emails: 'bea.rowan.sample@uw.edu, cal.stone.sample@uw.edu', status: 'SENT' },
     { requestId: 'REQ-2', offering: 'ANTH 203 A / LING 203 A', instructors: 'Quill,Ada M', emails: 'ada.quill.sample@uw.edu', status: 'SUBMITTED' },
@@ -98,7 +98,7 @@ const regMsg = { type: 'mygrad-data', mode: 'registrations', quarter: Q, student
 const tsMsg = { type: 'ts-sections', quarter: Q, sections, missingCurricula: [], appointments: {}, cecError: '' };
 
 /* ---------- Course feedback comments and the records built from them ---------- */
-const win = run(`courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS)`);
+const win = run(`courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES)`);
 const parkComments = [
   { course: 'ANTH 512', quarter: 'AUT2026', instructorNames: ['Rowan,Bea', 'Stone,Cal'], contact: 'enough', written: 'Meeting', discussion: 'Beyond', literature: 'Meeting',
     strength: 'Your seminar presentation on kinship and care work tied three of the readings to your own field notes and set up the best discussion of the quarter.',

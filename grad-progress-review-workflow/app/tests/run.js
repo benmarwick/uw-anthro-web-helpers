@@ -293,3 +293,16 @@ test('records list courses in date order and label quarters for display', () => 
   deq(rec.comments.map(g => g.quarterLabel), ['Autumn 2026', 'Winter 2027', 'Spring 2027']);
   assert.ok(ctx.quarterOrder_('WIN2027') < ctx.quarterOrder_('SPR2027') && ctx.quarterOrder_('SPR2027') < ctx.quarterOrder_('AUT2027'));
 });
+
+test('Autumn 2026 uses the dates set in Config.gs (last week of classes to the last day of finals)', () => {
+  const c = {};
+  vm.createContext(c);
+  ['Config.gs', 'CoreDates.gs'].forEach(f => vm.runInContext(fs.readFileSync(path.join(APP, f), 'utf8'), c, { filename: f }));
+  const w = JSON.parse(JSON.stringify(vm.runInContext("courseFeedbackWindow_('AUT2026', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES)", c)));
+  deq([w.opens, w.reminders[0], w.reminders[1], w.due, w.release], ['2026-12-07', '2026-12-14', '2026-12-16', '2026-12-18', '2027-01-08']);
+  const q = JSON.parse(JSON.stringify(vm.runInContext("quarterDates_('AUT2026')", c)));
+  assert.equal(w.due, q.finalsEnd);                       // the last day of finals
+  assert.equal(vm.runInContext("weekday_('2026-12-07')", c), 1);   // a Monday, in the week classes end (11 Dec)
+  const win = JSON.parse(JSON.stringify(vm.runInContext("courseFeedbackWindow_('WIN2027', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES)", c)));
+  assert.equal(win.opens, '2027-03-15');                  // other quarters keep the usual rule
+});

@@ -125,8 +125,9 @@ function gradeDeadline_(code) {
    opens the Monday of finals week; closes on a Friday at least 10 days after the grade deadline
    (moved a week later if that Friday is a holiday); reminders the Wednesday after grades are due
    and three days before the due date; comments released 7 days after the page closes, or the
-   number of days in releaseOffsets for that quarter type (spring: 14, course-feedback plan §5.4). */
-function courseFeedbackWindow_(code, releaseOffsets) {
+   number of days in releaseOffsets for that quarter type (spring: 14, course-feedback plan §5.4).
+   overrides: { AUT2026: { opens, reminders, due, release } } replaces any of these dates for one quarter. */
+function courseFeedbackWindow_(code, releaseOffsets, overrides) {
   var q = quarterDates_(code);
   var opens = addDays_(q.finalsEnd, -4);
   while (weekday_(opens) !== 1) opens = addDays_(opens, -1);
@@ -137,7 +138,7 @@ function courseFeedbackWindow_(code, releaseOffsets) {
   var offsets = releaseOffsets || {};
   var type = code.slice(0, 3);
   var release = addDays_(due, offsets[type] !== undefined ? offsets[type] : 7);
-  return {
+  var w = {
     quarter: code,
     opens: opens,
     gradesDue: grades,
@@ -145,6 +146,9 @@ function courseFeedbackWindow_(code, releaseOffsets) {
     due: due,
     release: release
   };
+  var o = (overrides || {})[code];
+  if (o) ['opens', 'reminders', 'due', 'release'].forEach(function(k) { if (o[k]) w[k] = o[k]; });
+  return w;
 }
 
 /* Friday of spring week N (week 1 starts on the first day of spring instruction, a Monday). */

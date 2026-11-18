@@ -25,16 +25,16 @@ It is a sibling of [`ta-evaluation-workflow`](../ta-evaluation-workflow) and reu
 
 ## Status (18 November 2026)
 
-**First use: Autumn 2026 course feedback** (decision 9, changed 18 Nov 2026). Instructor pages open Monday 14 December 2026, reminders go out on 23 December and 5 January, pages are due Friday 8 January 2027, and comments are released Friday 15 January 2027. The annual review starts in spring 2027.
+**First use: Autumn 2026 course feedback** (decision 9, changed 18 Nov 2026). Instructor pages open Monday 7 December 2026, in the last week of classes; reminders go out on 14 and 16 December; pages are due Friday 18 December, the last day of finals; and comments are released Friday 8 January 2027, after the winter break. These dates are set in `CF_WINDOW_OVERRIDES` in `Config.gs`; later quarters follow the usual rule (course-feedback plan §5.4). The annual review starts in spring 2027.
 
-**Before Monday 14 December 2026:**
+**Before Monday 7 December 2026:**
 
 1. Load the real students: on the Roster page, **Get MyGrad data** (setup step 9). On 18 Nov 2026 MyGrad refused connections from the deploying computer, so this is not done yet.
 2. Fill in `Advisor_Emails`, `Chair_Email` and `Subfield` in `Students`. Recusal needs them, because the GPC's own advisees and the students whose committee the GPC chairs go to the alternate reviewer. So does the advisor's option on instructor pages.
 3. Import the Autumn 2026 roster and enter the email of every instructor the CEC catalog does not list (course feedback steps below).
 4. Test with a second UW account: an instructor who is not the administrator should open their own page and be refused another's.
 5. The GPC creates the triggers (setup step 10).
-6. Monday 14 December: re-import, then **Launch course feedback** on the Roster page.
+6. Monday 7 December: re-import, then **Launch course feedback** on the Roster page.
 
 **Built:** every server module and page in build-spec §2, both bookmarklet bridges, the 24 email templates (CF-1 to CF-11, AR-1 to AR-13), the daily trigger, and metrics.
 
@@ -192,7 +192,7 @@ On the Roster page, click **Get MyGrad data** and then the MyGrad bookmarklet in
 
 Do this after steps 7 to 9, when the sheets list real people and no test rows. The GPC, signed in as the owner, chooses **Graduate review → Create Triggers**; the menu refuses anyone else, because triggers run as, and send email from, the account that creates them. It sets a daily task at 7 a.m. Pacific and two hourly tasks, and from then on the system sends reminders by itself (see "What runs by itself" below). If the sheets ever held test data, delete those rows from `Students`, `Enrollments`, `Instructors`, `Feedback_Requests` and `Course_Feedback` first.
 
-The daily task also launches the MA check-ins on the Monday of finals week, for every active MA student with an advisor in `Students`. With the triggers on, that first happens on Monday 14 December 2026.
+The daily task also launches the MA check-ins on the day the quarter's instructor pages open (usually the Monday of finals week), for every active MA student with an advisor in `Students`. With the triggers on, that first happens on Monday 7 December 2026, and those check-ins are due Friday 18 December.
 
 ### Trying the app with sample data
 
@@ -237,7 +237,7 @@ Open it signed in with the UW account named in `ADMIN_EMAIL` or `GPC_EMAIL`. Any
 
 ### Each quarter: course feedback
 
-The calendar is in course-feedback plan §5.4. For Autumn 2026, the first quarter: the instructor page opens Mon 14 Dec 2026, is due Fri 8 Jan 2027, and comments are released Fri 15 Jan 2027. For Winter 2027: opens Mon 15 Mar, due Fri 2 Apr, released Fri 9 Apr.
+The calendar is in course-feedback plan §5.4. For Autumn 2026, the first quarter: the instructor page opens Mon 7 Dec 2026 (last week of classes), reminders go out Mon 14 and Wed 16 Dec, the page is due Fri 18 Dec (last day of finals), and comments are released Fri 8 Jan 2027. Launch on Mon 7 Dec instead of the Monday of finals week. For Winter 2027: opens Mon 15 Mar, due Fri 2 Apr, released Fri 9 Apr.
 
 **Administrator, week 3 of the quarter.**
 

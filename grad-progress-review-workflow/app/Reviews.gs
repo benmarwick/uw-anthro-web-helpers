@@ -61,7 +61,7 @@ function launchAnnualCycle_(year, actor) {
 /* MA students: a short check-in at the end of every enrolled quarter, including spring (decision 4).
    It opens on the Monday of finals week and is due with that quarter's course feedback. */
 function launchMaCheckins_(quarter, actor) {
-  const S = C_().SHEETS, w = courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS);
+  const S = C_().SHEETS, w = courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES);
   const have = {};
   readTable_(S.REVIEWS).forEach(function(r) { if (r.Type === 'INTERIM' && r.Program === 'MA' && r.Cycle === quarter) have[normEmail_(r.Student_Email)] = true; });
   let n = 0;

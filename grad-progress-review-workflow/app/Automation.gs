@@ -67,7 +67,7 @@ function runCourseFeedbackSchedule_(today) {
   readTable_(S.REQUESTS).forEach(function(r) { quarters[r.Quarter] = true; });
   Object.keys(quarters).forEach(function(q) {
     let w;
-    try { w = courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS); } catch (err) { return; }
+    try { w = courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES); } catch (err) { return; }
     readTable_(S.REQUESTS).forEach(function(r) {
       if (r.Quarter !== q || ['SENT', 'DRAFT'].indexOf(r.Status) === -1) return;
       if (daysBetween_(w.due, today) > 0) { updateRow_(S.REQUESTS, r._row, { Status: 'CLOSED' }); return; }
@@ -110,7 +110,7 @@ function runFollowups_(today) {
 function runMaLaunch_(today) {
   const q = quarterForDate_(today);
   if (!q || q.indexOf('SUM') === 0) return;
-  if (courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS).opens === today) launchMaCheckins_(q, 'SYSTEM');
+  if (courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES).opens === today) launchMaCheckins_(q, 'SYSTEM');
 }
 
 /* AR-11 five business days before the Alert deadline, grouped by reviewer. */

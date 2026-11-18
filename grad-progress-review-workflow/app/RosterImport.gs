@@ -14,7 +14,7 @@ function rosterPageData(quarter) {
     quarter: q,
     quarterLabel: quarterLabel_(q),
     curriculaFilter: C_().CF_ALL_DEPARTMENTS ? null : C_().CF_CURRICULA_PHASE1,
-    window: q ? courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS) : null,
+    window: q ? courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES) : null,
     missingEmails: readTable_(C_().SHEETS.INSTRUCTORS).filter(function(r) { return !r.Email; }).map(function(r) { return r.TS_Name; }),
     requests: (function() {
       const inst = instructorsMap_();

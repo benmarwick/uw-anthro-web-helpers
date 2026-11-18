@@ -33,6 +33,11 @@ const CONFIG = {
   CF_CURRICULA_PHASE1: ['ANTH', 'ARCHY', 'BIO A'],
   CF_ALL_DEPARTMENTS: false,        // phase 2 from autumn 2027 (decision 4)
   CF_RELEASE_OFFSET_DAYS: { SPR: 14 },   // otherwise 7 days after the page closes
+  /* Dates that replace the usual rule for one quarter (course-feedback plan §5.4). Autumn 2026, set 18 Nov 2026:
+     open in the last week of classes, close on the last day of finals, release after the winter break. */
+  CF_WINDOW_OVERRIDES: {
+    AUT2026: { opens: '2026-12-07', reminders: ['2026-12-14', '2026-12-16'], due: '2026-12-18', release: '2027-01-08' }
+  },
   CF_RETURN_DAYS: 5,
   CF_LOCK_MINUTES: 30,
   CF_QUARTERS_ON: { AUT2026: true, WIN2027: true, SPR2027: true, SUM2027: false },  // decision 9: first use Autumn 2026 (set 18 Nov 2026); summer off by default

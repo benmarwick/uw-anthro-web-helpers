@@ -10,7 +10,7 @@
 function launchCourseFeedback_(quarter, actor) {
   const S = C_().SHEETS;
   if (C_().CF_QUARTERS_ON[quarter] === false) throw new Error(quarterLabel_(quarter) + ' is switched off in Config.gs (CF_QUARTERS_ON).');
-  const w = courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS);
+  const w = courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES);
   const pending = readTable_(S.REQUESTS).filter(function(r) { return r.Quarter === quarter && r.Status === 'NOT_STARTED'; });
   /* Every instructor who should be asked needs an email (course-feedback plan §4.5); see pageMissingInstructors_. */
   const inst = instructorsMap_();
@@ -249,7 +249,7 @@ function releasePageData(quarter) {
   const mine = reviewableStudents_(email);
   if (!mine.length && !isGpc_(email) && !isAlternate_(email)) throw new Error('This page is for the GPC.');
   const S = C_().SHEETS;
-  const w = quarter ? courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS) : null;
+  const w = quarter ? courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES) : null;
   const comments = readTable_(S.COMMENTS).filter(function(c) { return c.Quarter === quarter && mine.indexOf(normEmail_(c.Student_Email)) !== -1 && c.Status !== 'DRAFT'; });
   const students = {};
   readTable_(S.STUDENTS).forEach(function(s) { students[normEmail_(s.Email)] = s; });
