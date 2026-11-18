@@ -284,3 +284,12 @@ test('21. the PDF model never contains a GPC-only or development field', () => {
 test('24. metrics suppress every count under 5', () => {
   deq(JSON.parse(JSON.stringify(ctx.suppressSmallCounts_({ a: 0, b: 1, c: 4, d: 5, e: 12 }))), { a: 0, b: '<5', c: '<5', d: 5, e: 12 });
 });
+
+test('records list courses in date order and label quarters for display', () => {
+  const c = (course, quarter) => ({ course, quarter, instructorNames: ['Quill,Ada M'], contact: 'enough', written: 'Meeting', discussion: 'Meeting',
+    literature: 'Meeting', strength: 's', nextStep: 'n', status: 'RELEASED', releasedAt: '2027-04-09' });
+  const rec = ctx.buildFeedbackRecord_([], [c('ANTH 3', 'WIN2027'), c('ANTH 1', 'AUT2026'), c('ANTH 4', 'SPR2027')], [], 'student', '');
+  deq(rec.grid.map(g => g.course), ['ANTH 1', 'ANTH 3', 'ANTH 4']);
+  deq(rec.comments.map(g => g.quarterLabel), ['Autumn 2026', 'Winter 2027', 'Spring 2027']);
+  assert.ok(ctx.quarterOrder_('WIN2027') < ctx.quarterOrder_('SPR2027') && ctx.quarterOrder_('SPR2027') < ctx.quarterOrder_('AUT2027'));
+});

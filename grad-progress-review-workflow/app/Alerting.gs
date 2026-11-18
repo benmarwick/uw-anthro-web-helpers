@@ -209,7 +209,7 @@ function sendAlertSummary_(alerts) {
   `;
 
   GmailApp.sendEmail({
-    to: C_().ADMIN_EMAIL,
+    to: C_().ALERT_EMAIL || C_().GPC_EMAIL,
     subject,
     htmlBody,
     name: 'Graduate Review System Alerts'

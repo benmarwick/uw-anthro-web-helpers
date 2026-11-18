@@ -163,7 +163,7 @@ function pick(c) { return { contact: c.contact, written: c.written, discussion: 
 /* ---------- Instructor page ---------- */
 const feedbackPage = {
   offering: 'ANTH 512', quarter: run(`quarterLabel_('${Q}')`), due: run(`dateLong_('${win.due}')`), closed: false, readOnlyLock: false, lockOwner: '',
-  levels: CF_LEVELS, signature: '', status: 'DRAFT',
+  levels: CF_LEVELS, signature: '', minutes: '', status: 'DRAFT',
   students: [
     { email: 'robin.park.sample@uw.edu', name: 'Robin Park', program: 'PhD', subfield: 'Sociocultural', year: run(`yearInProgram_('AUT2024', '${Q}')`), course: 'ANTH 512', isAdvisee: true,
       contact: 'enough', ...pick(parkComments[0]), followup: false, followupNote: '', status: 'DRAFT', returnedReason: '', editable: true },
@@ -191,7 +191,9 @@ const reviewStudent = {
     lastGoals: [{ goal: 'Form the doctoral committee', status: '', comment: '' }],
     actionItemsProgress: [{ action: 'Take a qualitative methods course', status: '', note: '' }]
   },
-  development: {}, courseFeedback: recStudent
+  development: {}, courseFeedback: recStudent,
+  onFile: { program: 'PhD', subfield: 'Sociocultural', advisors: ['bea.rowan.sample@uw.edu'], chair: 'bea.rowan.sample@uw.edu', gsr: '',
+            entryQuarter: run("quarterLabel_('AUT2024')"), leaveEnds: '' }
 };
 
 /* ---------- Student's course feedback page ---------- */

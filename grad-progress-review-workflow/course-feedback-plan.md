@@ -193,6 +193,7 @@ We will get current student registration data from student transcripts in **MyGr
 | Instructor is the student's advisor | Asked, with a one-click option: "Covered in my annual review." Default: asked |
 | Co-taught course | One shared page. Whoever opens the draft holds a 30-minute editing lock; the others see it read-only, with the holder's name. Any co-instructor can submit, every name is recorded, and any of them can edit until the page closes (the same pattern as co-advisors) |
 | Joint-listed offering (e.g., ANTH 322 / RELIG 320) | Merged into one page |
+| Student registered under the other department's side of a joint listing (e.g., LING 203 A, joint with ANTH 203 A) | **Excluded in phase 1** (decided 18 Nov 2026): the curriculum the student registered under decides. Students registered under the ANTH side are asked about as usual |
 | Student dropped the course before the end of the quarter | Excluded at the finals-week refresh: the row disappears, or its grade starts with `W` |
 | Student on leave or graduated | No requests |
 | GPC teaches the course | The GPC is asked like any instructor. Recusal applies only to compiling and releasing the record of the GPC's own advisees (§6.2) |
@@ -275,7 +276,7 @@ The page opens on the **Monday of finals week**, so instructors can write while 
 
 | Quarter | Finals | Grades due (5 p.m.) | Page opens | Reminders | Due | Released to student |
 |------------|------------|------------|------------|------------|------------|------------|
-| Autumn 2026 | 12–18 Dec | Tue 22 Dec | Mon 14 Dec | 23 Dec, 5 Jan | Fri 8 Jan 2027 (decision 9: probably skipped) | — |
+| Autumn 2026 | 12–18 Dec | Tue 22 Dec | Mon 14 Dec | 23 Dec, 5 Jan | Fri 8 Jan 2027 | Fri 15 Jan 2027 (decision 9: the first quarter run) |
 | Winter 2027 | 13–19 Mar | Tue 23 Mar | Mon 15 Mar | 24 Mar, 30 Mar | **Fri 2 Apr**, the end of spring week 1 (check against the spring start date) | **Fri 9 Apr**, the end of spring week 2, the same day as the year's records |
 | Spring 2027 | 5–11 Jun | Tue 15 Jun | Mon 7 Jun | 16 Jun, 22 Jun | Fri 25 Jun | Fri 9 Jul, if the GPC or the alternate is available in summer |
 | Summer | — | — | Off by default; on only if a student takes a graded summer course the GPC wants covered | — | — | — |
@@ -409,8 +410,9 @@ These were applied to the annual review plan on 17 November 2026.
 |------------------------------------|------------------------------------|
 | Dec 2026 | Decisions 1–11 were settled on 17 November 2026; the graduate committee reviews them. **R1: built 18 Nov 2026** as the "app bridge" section of the MyGrad Table Audit bookmarklet, with a CSV fallback; no grades leave MyGrad for course feedback (a withdrawal is sent as `withdrawn:true`). Checked 17 Nov 2026: transcripts show the lecture section, and dropped courses show a `W` grade (§4.2). Optionally run the BI Portal report "[Current Student Registration Courses](https://biportal.uw.edu/details/2B7F3DF0-32AB-49F3-89A4-4F5E86C73D13)" for the same quarter as a cross-check |
 | Jan 2027 | **R3: done 17 Nov 2026, passed** (§4.5); messages work in both directions, and the curricula list is passed by message, not by URL fragment. **R2: built 18 Nov 2026** as a separate bookmarklet, [`bookmarklet-time-schedule-sections.js`](../bookmarklet-time-schedule-sections.js), not a step inside the minified workload bookmarklet; it reuses that bookmarklet's parsing approach and its CEC appointment lookup. Tested on the real Autumn 2026 ANTH, ARCHY, BIO A and LING pages, including real joint pairs. Build the `Instructors` sheet. Build the module alongside the annual review build (§12 of that plan) |
-| Early Mar 2027 | Test run with one account playing instructor, student and GPC |
-| **Winter 2027** (opens 15 Mar) | **Pilot:** ANTH, ARCHY and BIO A courses only. The first records cover Winter 2027 alone. Say so on the record ("first year: one quarter") |
+| 18 Nov 2026 | Test run in the app with one account playing administrator, instructor and GPC, on invented data (README, Status) |
+| **Autumn 2026** (opens Mon 14 Dec) | **First run:** ANTH, ARCHY and BIO A courses only (decision 9, changed 18 Nov 2026). Due Fri 8 Jan 2027; comments released Fri 15 Jan 2027 |
+| **Winter 2027** (opens 15 Mar) | Second quarter. The first records, released in spring week 2, cover Autumn 2026 and Winter 2027. Say so on the record ("first year: two quarters") |
 | Spring 2027 | Winter feedback due end of spring week 1; records released end of week 2. Spring quarter feedback (June) begins the 2027–28 feedback year |
 | Summer 2027 | Spring quarter comments released Fri 9 Jul (§5.4). Debrief: response rate, minutes, "not enough contact" share, and two questions added to the post-cycle survey: what students and advisors found useful, and whether the ratings or the comments shaped what students did next (§12) |
 | **Autumn 2027** | Phase 2: courses in other departments, with the fuller invitation |
@@ -431,7 +433,7 @@ Settled on 17 November 2026, each at its recommended default. For decision 8, th
 | 6 | Append the record to the annual review PDF? | **Yes**, so the committee chair sees it |
 | 7 | Show free-text comments at subfield calibration? | **No.** Coverage, grid and flags only; the GPC can open more for a specific student |
 | 8 | Scale wording | **Below what I'd expect at this stage / Approaching / Meeting / Beyond / Not observed.** Option, untested here: a one-line description of each level for each of the three dimensions, shown on the form. It would bring the scale closer to the independence-anchored scales that reduced rater disagreement (Crossley et al. 2011), but someone has to draft nine descriptions |
-| 9 | Run a quick Google Form for Autumn 2026 (opens 14 Dec)? | **No.** There is too little time to settle the decisions; start with Winter 2027 |
+| 9 | Run course feedback for Autumn 2026 (opens 14 Dec)? | **Yes, in the app** (changed 18 Nov 2026, when the app was ready). Autumn 2026 is the first quarter run; its comments are released Fri 15 Jan 2027 |
 | 10 | Allow instructors to edit after submitting? | **Yes, until the page closes.** After that, only through the GPC's "return for revision" route |
 | 11 | Should Sociocultural's first-year evaluation use these records? | **Yes**, as an input to its existing portfolio review |
 

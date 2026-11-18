@@ -5,10 +5,11 @@
    ============================================================ */
 
 /* What the Roster page needs to start. */
-function rosterPageData() {
+/* quarter: the quarter typed on the Roster page; without one, the current calendar quarter. */
+function rosterPageData(quarter) {
   assertAdminOrGpc_();
   const today = todayIso_();
-  const q = quarterForDate_(today);
+  const q = /^(AUT|WIN|SPR|SUM)\d{4}$/.test(String(quarter || '')) ? String(quarter) : quarterForDate_(today);
   return {
     quarter: q,
     quarterLabel: quarterLabel_(q),
@@ -63,10 +64,7 @@ function importMyGradPrefill(data) {
   return { added: added.length, updated: updated.length, failures: (data.failures || []).length, notInMyGrad: notInMyGrad };
 }
 
-function quarterOrder_(code) {
-  const m = String(code || '').match(/^(WIN|SPR|SUM|AUT)(\d{4})$/);
-  return m ? Number(m[2]) * 10 + { WIN: 1, SPR: 2, SUM: 3, AUT: 4 }[m[1]] : 0;
-}
+/* quarterOrder_ is in CoreDates.gs. */
 
 /* ---------- Course feedback roster ---------- */
 
@@ -181,6 +179,7 @@ function importCourseFeedback(quarter, mygrad, tsData) {
       if (['NOT_STARTED', 'SENT', 'DRAFT'].indexOf(reqs[k].Status) !== -1) updateRow_(S.REQUESTS, reqs[k]._row, { Status: 'CLOSED' });
     });
     logEvent_({ action: C_().ACTIONS.ROSTER_IMPORTED, evaluationId: quarter, details: res.counts, actorEmail: actor });
+    SpreadsheetApp.flush();   // commit every write before the lock is released and the page reloads its list
     return { summary: joinSummary_(res.counts), created: created.length, missingInstructors: res.missingInstructors, canLaunch: res.canLaunch };
   } finally {
     lock.releaseLock();
@@ -196,9 +195,30 @@ function saveInstructor(tsName, email, appointment) {
   const row = readTable_(C_().SHEETS.INSTRUCTORS).filter(function(r) { return normalizeInstructorName_(r.TS_Name) === normalizeInstructorName_(tsName); })[0];
   const fields = { Email: email, Checked_By: actor, Checked_At: nowIso_() };
   if (appointment) { fields.Appointment = appointment; fields.Appointment_Source = 'administrator'; }
-  if (row) updateRow_(C_().SHEETS.INSTRUCTORS, row._row, fields);
-  else appendObjects_(C_().SHEETS.INSTRUCTORS, [Object.assign({ TS_Name: tsName }, fields)]);
-  return true;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    if (row) updateRow_(C_().SHEETS.INSTRUCTORS, row._row, fields);
+    else appendObjects_(C_().SHEETS.INSTRUCTORS, [Object.assign({ TS_Name: tsName }, fields)]);
+    /* Pages not yet sent that name this instructor get the address now, so Launch does not need a second Import.
+       A page already sent keeps its list: an instructor added to it later would never have had CF-1. */
+    const name = normalizeInstructorName_(tsName);
+    let pages = 0;
+    readTable_(C_().SHEETS.REQUESTS).forEach(function(r) {
+      if (r.Status !== 'NOT_STARTED') return;
+      const names = String(r.Instructor_Names || '').split(/\s*\/\s*/).map(normalizeInstructorName_);
+      if (names.indexOf(name) === -1) return;
+      const emails = splitList_(r.Instructor_Emails);
+      if (emails.indexOf(email) !== -1) return;
+      emails.push(email);
+      updateRow_(C_().SHEETS.REQUESTS, r._row, { Instructor_Emails: emails.join(', ') });
+      pages++;
+    });
+    SpreadsheetApp.flush();
+    return { pages: pages };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* Adds a co-instructor the Time Schedule does not show (course-feedback plan §4.2). */

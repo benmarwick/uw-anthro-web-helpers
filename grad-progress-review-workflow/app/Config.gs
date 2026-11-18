@@ -5,14 +5,15 @@
    ============================================================ */
 const CONFIG = {
   /* ---- Set these when installing ---- */
-  SPREADSHEET_ID: '1mdkZo7d2e2WElWzjzGFgbQUUC0dxB_1hGmGRW_QDi1Q',  // the main spreadsheet (build copy, created 18 Nov 2026) (Reviews, Students, course feedback tabs, logs)
-  CONFIDENTIAL_SPREADSHEET_ID: '1cHgReD-TfNRXBQzQw8RySnBp-KxxZYCJhd8awqIsz6Y',  // build copy; a separate spreadsheet shared with no person (annual review plan §8)
-  ARCHIVE_FOLDER_ID: '',            // Drive folder for PDFs and CV uploads, owned by the system account
-  APP_URL: 'https://script.google.com/a/macros/uw.edu/s/AKfycbz5Ux91ZrBe-V8gH3aCg6DZBIHYES4_CyhcJFtTvBGOXHAFA5tM0Iy_9kzPW-Twjwxn/exec',  // build deployment
-  ADMIN_EMAIL: 'bmarwick@uw.edu',   // Graduate Student Administrator: runs menus and the Roster page
-  GPC_EMAIL: 'bmarwick@uw.edu',     // Graduate Program Coordinator
+  SPREADSHEET_ID: '1mdkZo7d2e2WElWzjzGFgbQUUC0dxB_1hGmGRW_QDi1Q',  // the main spreadsheet (Reviews, Students, course feedback tabs, logs)
+  CONFIDENTIAL_SPREADSHEET_ID: '1cHgReD-TfNRXBQzQw8RySnBp-KxxZYCJhd8awqIsz6Y',  // a separate spreadsheet shared with no person (annual review plan §8)
+  ARCHIVE_FOLDER_ID: '1OJjLmo2DU12-v1lh87-4X07LHvpGvfK6',  // Drive folder for PDFs and CV uploads, owned by the owner account
+  APP_URL: 'https://script.google.com/a/macros/uw.edu/s/AKfycbz5Ux91ZrBe-V8gH3aCg6DZBIHYES4_CyhcJFtTvBGOXHAFA5tM0Iy_9kzPW-Twjwxn/exec',  // the web app deployment
+  ADMIN_EMAIL: 'agp-advisor@uw.edu',  // Graduate Student Administrator: runs menus and the Roster page; gets "not my course" notices
+  GPC_EMAIL: 'bmarwick@uw.edu',     // Graduate Program Coordinator; also owns the script, the spreadsheets and the triggers
   GPC_NAME: 'Ben Marwick',          // signs every email
-  ALTERNATE_EMAIL: '',              // alternate reviewer for the GPC's advisees (default: department chair; decision 16)
+  ALTERNATE_EMAIL: 'csaulter@uw.edu',  // alternate reviewer for the GPC's advisees (default: department chair; decision 16)
+  ALERT_EMAIL: 'bmarwick@uw.edu',   // who maintains the system: receives system alerts (failed emails, trigger health, quotas)
   SUBFIELD_COORDINATORS: {},        // { 'Archaeology': 'x@uw.edu', 'Sociocultural': ..., 'Biological': ..., 'MA': ... }
   PRIVACY_URL: 'https://github.com/benmarwick/uw-anthro-web-helpers/blob/main/grad-progress-review-workflow/README.md#privacy-notice',
   SURVEY_URL: '',                   // the anonymous post-cycle survey (annual review plan §9.5)
@@ -34,7 +35,7 @@ const CONFIG = {
   CF_RELEASE_OFFSET_DAYS: { SPR: 14 },   // otherwise 7 days after the page closes
   CF_RETURN_DAYS: 5,
   CF_LOCK_MINUTES: 30,
-  CF_QUARTERS_ON: { AUT2026: false, WIN2027: true, SPR2027: true, SUM2027: false },  // decision 9; summer off by default
+  CF_QUARTERS_ON: { AUT2026: true, WIN2027: true, SPR2027: true, SUM2027: false },  // decision 9: first use Autumn 2026 (set 18 Nov 2026); summer off by default
 
   /* ---- Sheets ---- */
   SHEETS: {

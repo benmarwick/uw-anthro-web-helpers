@@ -25,7 +25,8 @@
 
   <h2>Instructor pages this quarter</h2>
   <div id="pages"></div>
-  <button id="launch" class="primary">Launch course feedback</button>
+  <button id="launch" class="primary" disabled>Launch course feedback</button>
+  <p id="launchNote" class="muted"></p>
 
   <h2>Annual review: MyGrad data</h2>
   <p class="muted">Milestones, leave, GPA, candidacy, ANTH 800 credits and the year's courses for the self-report (annual review plan §9.3). Students confirm or correct every value.</p>
@@ -173,7 +174,7 @@
     var i = e.target.getAttribute('data-save');
     if (i === null) return;
     call('saveInstructor', e.target.getAttribute('data-name'), document.getElementById('em' + i).value, document.getElementById('ap' + i).value)
-      .then(function () { e.target.textContent = 'Saved'; e.target.disabled = true; }).catch(function (er) { say(er.message, 'bad'); });
+      .then(function () { e.target.textContent = 'Saved'; e.target.disabled = true; loadPages(); }).catch(function (er) { say(er.message, 'bad'); });
   });
 
   document.getElementById('preview').onclick = function () {
@@ -190,10 +191,18 @@
   };
 
   function loadPages() {
-    call('rosterPageData').then(function (c) {
+    call('rosterPageData', q()).then(function (c) {
       CFG = c;
       if (!document.getElementById('quarter').value) document.getElementById('quarter').value = c.quarter || '';
-      var rows = c.requests.filter(function (r) { return !q() || true; });
+      var rows = c.requests;
+      var waiting = rows.filter(function (r) { return r.status === 'NOT_STARTED'; });
+      /* A page is missing someone when it lists fewer emails than instructor names (the server applies the same rule). */
+      var count = function (v, sep) { return String(v || '').split(sep).map(function (x) { return x.trim(); }).filter(Boolean).length; };
+      var noEmail = waiting.filter(function (r) { return count(r.emails, ',') < Math.max(1, count(r.instructors, '/')); });
+      document.getElementById('launch').disabled = !waiting.length || noEmail.length > 0;
+      document.getElementById('launchNote').textContent = !waiting.length ? 'No pages waiting to be sent for ' + c.quarterLabel + '.'
+        : noEmail.length ? 'Launch is disabled: ' + noEmail.length + ' page(s) are missing an instructor email. Add the emails above; they apply at once.'
+        : waiting.length + ' page(s) ready to send for ' + c.quarterLabel + '.';
       document.getElementById('pages').innerHTML = rows.length ? '<table class="rows"><thead><tr><th>Offering</th><th>Instructors</th><th>Status</th><th>Action</th></tr></thead><tbody>' +
         rows.map(function (r) {
           var act = r.status === 'NOT_MY_COURSE'
@@ -209,6 +218,7 @@
     if (re) call('reissueRequest', re, document.getElementById('re_' + re).value).then(function () { say('Page re-sent.', 'ok'); loadPages(); }).catch(function (er) { say(er.message, 'bad'); });
   });
 
+  document.getElementById('quarter').addEventListener('change', loadPages);
   loadPages();
 </script>
 </body>

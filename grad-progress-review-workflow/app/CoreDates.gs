@@ -50,6 +50,12 @@ function quarterCode_(label) {
 }
 
 /* 'AUT2026' -> 'Autumn 2026'. */
+/* A number that sorts quarter codes in date order: WIN2027 < SPR2027 < SUM2027 < AUT2027. */
+function quarterOrder_(code) {
+  var m = String(code || '').match(/^(WIN|SPR|SUM|AUT)(\d{4})$/);
+  return m ? Number(m[2]) * 10 + { WIN: 1, SPR: 2, SUM: 3, AUT: 4 }[m[1]] : 0;
+}
+
 function quarterLabel_(code) {
   var m = String(code || '').match(/^(AUT|WIN|SPR|SUM)(\d{4})$/);
   return m ? QUARTER_NAMES_[m[1]] + ' ' + m[2] : String(code || '');

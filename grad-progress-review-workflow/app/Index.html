@@ -111,6 +111,10 @@
         if (!draft.coursework && pre.coursework) draft.coursework = pre.coursework;
         if (!draft.lastGoals && pre.lastGoals) draft.lastGoals = pre.lastGoals;
         if (!draft.actionItemsProgress && pre.actionItemsProgress) draft.actionItemsProgress = pre.actionItemsProgress;
+        var of = R.onFile || {};
+        h += '<div class="note"><strong>On file:</strong> ' + esc(of.program || '') + (of.subfield ? ' · ' + esc(of.subfield) : '') +
+          (of.entryQuarter ? ' · entered ' + esc(of.entryQuarter) : '') + ' · advisor' + ((of.advisors || []).length === 1 ? '' : 's') + ': ' + esc((of.advisors || []).join(', ') || 'none recorded') +
+          ' · committee chair: ' + esc(of.chair || 'none recorded') + (of.gsr ? ' · GSR: ' + esc(of.gsr) : '') + (of.leaveEnds ? ' · on leave until ' + esc(of.leaveEnds) : '') + '</div>';
         var m = pre.mygrad || {};
         h += '<div class="note"><strong>From MyGrad:</strong> candidacy ' + esc(m.candidacyDate || 'not yet') + ' · ANTH 800 credits ' + esc(m.anth800Credits || 0) +
           ' · doctoral committee ' + esc(m.hasDocComm || '?') + ' · UW degrees ' + esc(m.uwDegrees || 'none') + '. Correct anything wrong in the first box.</div>';

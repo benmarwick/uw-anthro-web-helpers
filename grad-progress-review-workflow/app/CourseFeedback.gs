@@ -12,8 +12,12 @@ function launchCourseFeedback_(quarter, actor) {
   if (C_().CF_QUARTERS_ON[quarter] === false) throw new Error(quarterLabel_(quarter) + ' is switched off in Config.gs (CF_QUARTERS_ON).');
   const w = courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS);
   const pending = readTable_(S.REQUESTS).filter(function(r) { return r.Quarter === quarter && r.Status === 'NOT_STARTED'; });
-  const noEmail = pending.filter(function(r) { return !splitList_(r.Instructor_Emails).length; });
-  if (noEmail.length) throw new Error(noEmail.length + ' page(s) have no instructor email. Add the missing emails on the Roster page first.');
+  /* Every instructor named on a page needs an email (course-feedback plan §4.5); a co-instructor added by hand only adds one. */
+  const noEmail = pending.filter(function(r) {
+    const names = String(r.Instructor_Names || '').split(/\s*\/\s*/).filter(Boolean).length;
+    return splitList_(r.Instructor_Emails).length < Math.max(1, names);
+  });
+  if (noEmail.length) throw new Error(noEmail.length + ' page(s) are missing an instructor email. Add the missing emails on the Roster page first.');
   let sent = 0;
   pending.forEach(function(r) {
     const t = newToken_();
@@ -102,7 +106,7 @@ function loadFeedbackPage(token) {
   return {
     offering: r.Offering, quarter: quarterLabel_(r.Quarter), due: r.Due_Date ? dateLong_(r.Due_Date) : '', closed: closed,
     readOnlyLock: shared && !lock.allowed, lockOwner: lock.allowed ? '' : lock.owner, levels: CF_LEVELS_, students: students,
-    signature: r.Signature || '', status: r.Status
+    signature: r.Signature || '', minutes: r.Minutes_Bucket || '', status: r.Status
   };
 }
 
@@ -173,7 +177,7 @@ function saveFeedbackPage(token, data, final) {
     if (final) {
       if (!String(data.signature || '').trim()) throw new Error('Please type your name to sign.');
       Object.assign(reqFields, { Status: 'SUBMITTED', Signature: sanitizeText_(data.signature, 200, false), Submitted_By: a.email, Submitted_At: nowIso_(),
-        Minutes_Bucket: ['under 5', '5-15', 'over 15'].indexOf(data.minutes) !== -1 ? data.minutes : '' });
+        Minutes_Bucket: ['under 5', '5 to 15', 'over 15'].indexOf(data.minutes) !== -1 ? data.minutes : '' });
       logEvent_({ action: C_().ACTIONS.CF_SUBMITTED, evaluationId: r.Request_ID, actorEmail: a.email });
     } else if (r.Status === 'SENT') reqFields.Status = 'DRAFT';
     updateRow_(S.REQUESTS, r._row, reqFields);

@@ -25,38 +25,48 @@ It is a sibling of [`ta-evaluation-workflow`](../ta-evaluation-workflow) and reu
 
 ## Status (18 November 2026)
 
+**First use: Autumn 2026 course feedback** (decision 9, changed 18 Nov 2026). Instructor pages open Monday 14 December 2026, reminders go out on 23 December and 5 January, pages are due Friday 8 January 2027, and comments are released Friday 15 January 2027. The annual review starts in spring 2027.
+
+**Before Monday 14 December 2026:**
+
+1. Load the real students: on the Roster page, **Get MyGrad data** (setup step 9). On 18 Nov 2026 MyGrad refused connections from the deploying computer, so this is not done yet.
+2. Fill in `Advisor_Emails`, `Chair_Email` and `Subfield` in `Students`. Recusal needs them, because the GPC's own advisees and the students whose committee the GPC chairs go to the alternate reviewer. So does the advisor's option on instructor pages.
+3. Import the Autumn 2026 roster and enter the email of every instructor the CEC catalog does not list (course feedback steps below).
+4. Test with a second UW account: an instructor who is not the administrator should open their own page and be refused another's.
+5. The GPC creates the triggers (setup step 10).
+6. Monday 14 December: re-import, then **Launch course feedback** on the Roster page.
+
 **Built:** every server module and page in build-spec §2, both bookmarklet bridges, the 24 email templates (CF-1 to CF-11, AR-1 to AR-13), the daily trigger, and metrics.
 
 **Verified:**
 
-- 26 Node tests pass, covering the pure-logic acceptance tests in build-spec §4 (1 to 6, 8, 10, 11, 13, 16, 20 to 22, 24, and the flow part of 19) and the calendar dates both plans state.
+- 27 Node tests pass, covering the pure-logic acceptance tests in build-spec §4 (1 to 6, 8, 10, 11, 13, 16, 20 to 22, 24, and the flow part of 19), the calendar dates both plans state, and the date order of Course Feedback Records.
 - R3: an Apps Script page receives `postMessage` from MyGrad and Time Schedule tabs (course-feedback plan §4.5).
 - The Time Schedule parser on the real Autumn 2026 ANTH, ARCHY, BIO A and LING pages, and the joint-listing merge on real pairs.
 - How MyGrad shows current, next-quarter and withdrawn courses (all 41 transcripts, 1,329 rows), and that MyGrad's GPA follows the Graduate School's definition (34 of 34).
 - Both bookmarklet bridges, run live on 18 Nov 2026 with only counts printed. MyGrad registrations: 41 students, 62 Autumn 2026 rows, no grades sent. MyGrad prefill: 41 students, entry and leave quarters read correctly (MyGrad writes winter as `WTR`). Time Schedule: 98 sections for ANTH, ARCHY and BIO A, and CEC appointment types for 25 of 39 instructors; the other 14 are not in the catalog, so the administrator confirms them.
 - Every server file parses, every helper resolves, and every page's script parses and calls only public server functions.
 
-**Run live (18 Nov 2026, build deployment, invented sample data):** the Roster page's CSV uploads, Preview and Import; saving instructor emails; Launch, which sent three CF-1 emails (all to the owner's address); the instructor page opened from the CF-1 link and submitted; and the GPC's Review and Release page. The `Students` and `Enrollments` sheets match acceptance test 7 for the fields the sample filled (GPA, committee flags, ANTH 800 credits, courses; no grade column in `Enrollments`). Leave and candidacy were blank in the sample, so those two are untested.
+**Run live (18 Nov 2026, invented sample data, since deleted):** the Roster page's CSV uploads, Preview and Import; saving instructor emails; Launch, which sent three CF-1 emails (all to the owner's address); the instructor page opened from the CF-1 link and submitted; and the GPC's Review and Release page. The `Students` and `Enrollments` sheets matched acceptance test 7 for the fields the sample filled. These fixes were then checked live on the sample rows:
 
-**Not yet verified:** acceptance tests 9, 12, 14, 15, 17, 18 and 23, and the annual review pages, which need a launched cycle and student or advisor accounts. Releasing comments was not run, because it emails the students. The bookmarklet changes are on the `grad-review-build` branch; the loaders in the main [readme](../readme.md) fetch from `main`, so they take effect after merging.
+- **Launch** is disabled, with the reason shown, while any unsent page lists fewer instructor emails than instructor names.
+- Saving an instructor's email adds it at once to that instructor's unsent pages, so no second Import is needed. Pages already sent are left alone.
+- The page list follows the quarter typed in the box.
+- The instructor page reloads the saved "How long did this take?" answer. The option "5-15" became "5 to 15", because Google Sheets stored "5-15" as a date.
 
-**Known issues** (found in the live run, not yet fixed):
+**Not yet verified:** acceptance tests 9, 12, 14, 15, 17, 18 and 23, and the annual review pages, which need a launched cycle and student or advisor accounts. Releasing comments has not been run, because it emails the students.
 
-- The Roster page says "Launch stays disabled" while instructors lack an email, but the button stays enabled; the server refuses the launch with an error instead.
-- Saving a missing instructor email updates the `Instructors` sheet only. Click **Import** again before **Launch**, so the existing instructor pages pick up the address.
-- The "Instructor pages this quarter" list shows the current calendar quarter, whatever quarter is typed in the box.
-- Right after Import, the page list can show blank emails until the page is reloaded.
-- The instructor page does not reload the saved "How long did this take?" answer.
-- On a spreadsheet that has not been initialized, the Roster upload fails with "The number of columns in the range must be at least 1." Run Initialize first (setup step 7).
-- Course Feedback Records print raw quarter codes such as `AUT2026`.
-- The student report's first box says "shown above", but the page does not show the program, subfield or advisors.
-- A student registered under the non-ANTH side of a joint listing (for example LING 203 A with ANTH 203 A) is excluded as "outside the departments in this phase." Decide whether that is intended.
+**Fixed in the code but not yet seen live:** a clear error ("run Graduate review → Initialize") on a spreadsheet without header rows; quarter names such as "Autumn 2026" instead of `AUT2026` in Course Feedback Records, which now list courses in date order; and an "On file" note on the student's report showing the program, subfield, advisors and chair that its first box asks the student to check.
+
+**Known issue:** once, right after Import, the page list showed blank instructor emails until the page was reloaded. Import now commits its writes before it returns, and the problem did not recur, but the cause is not confirmed.
+
+**Decided:** a student registered under the non-ANTH side of a joint listing (for example LING 203 A, joint with ANTH 203 A) is not asked about in phase 1, because LING is outside the phase-1 departments.
 
 ## Screenshots {#screenshots}
 
-**Live.** These three come from the build deployment on 18 Nov 2026, signed in as the owner, who is also set as administrator and GPC. The data are invented: three students and the instructors in the Time Schedule test fixture, uploaded through the Roster page's CSV fallback.
+**Live.** These three come from the deployed app on 18 Nov 2026, signed in as the owner, who was then also set as administrator. The data are invented: three students and the instructors in the Time Schedule test fixture, uploaded through the Roster page's CSV fallback.
 
-The Roster page after the CSV uploads and Preview for Winter 2027. The list under "Instructor pages this quarter" shows the Autumn 2026 sample pages, because that list follows the calendar quarter (see Known issues).
+The Roster page after the CSV uploads and Preview for Winter 2027. This image was taken before the fix that makes the list under "Instructor pages this quarter" follow the quarter box, so the list still shows the Autumn 2026 sample pages.
 
 ![Live Roster page with a join preview](screenshots/live-roster-preview.png)
 
@@ -84,11 +94,13 @@ The student's course feedback for one quarter.
 
 ## Setup
 
-The build copy described here was set up on 18 Nov 2026 and runs. For production, repeat these steps under the department account (step 1).
+The system described here was set up on 18 Nov 2026 and runs. These are the steps for setting it up again, for example under a new owner.
 
 ### 1. Accounts
 
-The plan calls for a department account that owns the spreadsheets, the script and the Drive folder (annual review plan, decision 11). Every email the system sends goes out from the owner's Gmail, and the web app runs as the owner, so the owner's account is the one that matters. The build copy is owned by a personal UW account. Move to the department account before launch by repeating steps 2 to 9 under that account.
+The GPC's own UW account owns the script, both spreadsheets, the archive folder and the triggers. The department chose this on 18 Nov 2026 in place of a department account (annual review plan, decision 11). The owner's account matters because the web app runs as the owner, and every email the web app and the triggers send goes out from the owner's Gmail.
+
+The spreadsheet menu is different: a menu item runs as, and sends email from, whoever clicks it. So the GPC runs the menu items that send email (Launch Annual Cycle, Launch MA Check-ins, Build Feedback Records), and the Graduate Student Administrator launches course feedback from the Roster page, which runs as the owner. To hand the system to a new owner, repeat steps 2 to 10 under that account.
 
 ### 2. Tools
 
@@ -102,9 +114,9 @@ On the computer you deploy from:
 
 Create three things in the owner's Drive:
 
-- **The main spreadsheet**, with the Apps Script project bound to it (Extensions → Apps Script). The build copy is `1mdkZo7d2e2WElWzjzGFgbQUUC0dxB_1hGmGRW_QDi1Q`.
-- **The confidential spreadsheet**, an empty spreadsheet shared with no one. It keeps the self-report section marked "Only for the GPC" (annual review plan §8). The build copy is `1cHgReD-TfNRXBQzQw8RySnBp-KxxZYCJhd8awqIsz6Y`.
-- **The archive folder** for review PDFs and CV uploads. The build copy does not have one yet, so PDFs and CV uploads will fail until it is set.
+- **The main spreadsheet**, with the Apps Script project bound to it (Extensions → Apps Script). The current one is `1mdkZo7d2e2WElWzjzGFgbQUUC0dxB_1hGmGRW_QDi1Q`.
+- **The confidential spreadsheet**, an empty spreadsheet shared with no one. It keeps the self-report section marked "Only for the GPC" (annual review plan §8). The current one is `1cHgReD-TfNRXBQzQw8RySnBp-KxxZYCJhd8awqIsz6Y`.
+- **The archive folder** for review PDFs and CV uploads. The current one is `1OJjLmo2DU12-v1lh87-4X07LHvpGvfK6` ("Anthropology Graduate Review archive").
 
 Put the project's script ID in `app/.clasp.json`.
 
@@ -118,15 +130,16 @@ Edit [`app/Config.gs`](app/Config.gs). The values at the top:
 | `CONFIDENTIAL_SPREADSHEET_ID` | The confidential spreadsheet's ID. Initialize stops with an error without it |
 | `ARCHIVE_FOLDER_ID` | The archive folder's ID |
 | `APP_URL` | The web app URL from step 5. Every email link uses it |
-| `ADMIN_EMAIL` | The Graduate Student Administrator, who runs the menus and the Roster page |
+| `ADMIN_EMAIL` | The Graduate Student Administrator (`agp-advisor@uw.edu`), who runs the Roster page and gets the "not my course" notices |
 | `GPC_EMAIL`, `GPC_NAME` | The Graduate Program Coordinator. `GPC_NAME` signs every email, and replies go to `GPC_EMAIL` |
-| `ALTERNATE_EMAIL` | Who does the GPC's work for the GPC's own advisees (by default the department chair; decision 16) |
+| `ALTERNATE_EMAIL` | Who does the GPC's work for the GPC's own advisees and the students whose committee the GPC chairs (`csaulter@uw.edu`; decision 16) |
+| `ALERT_EMAIL` | Who maintains the system and receives its alerts (failed emails, trigger health, quotas) |
 | `SUBFIELD_COORDINATORS` | One email per subfield, for the subfield summary page |
 | `SURVEY_URL` | The anonymous post-cycle survey (annual review plan §9.5) |
 | `CYCLE_YEAR` | The spring year of the current annual cycle, for example `2027` |
-| `CF_QUARTERS_ON` | Which quarters run course feedback. Autumn 2026 and summers are off (decision 9) |
+| `CF_QUARTERS_ON` | Which quarters run course feedback. Autumn 2026 is the first; summers are off (decision 9) |
 
-The build copy sets the IDs and URL above, and uses the owner's address for both `ADMIN_EMAIL` and `GPC_EMAIL` for testing. This repository is public, so anything in `Config.gs` is public once committed. The spreadsheet IDs grant no access by themselves; only the people the files are shared with can open them.
+Every value above is set. This repository is public, so anything in `Config.gs` is public once committed, including the role email addresses. The spreadsheet and folder IDs grant no access by themselves; only the people the files are shared with can open them.
 
 ### 5. Push and deploy
 
@@ -146,7 +159,7 @@ clasp push --force
 clasp update-deployment <deployment ID>
 ```
 
-The build deployment ID is `AKfycbz5Ux91ZrBe-V8gH3aCg6DZBIHYES4_CyhcJFtTvBGOXHAFA5tM0Iy_9kzPW-Twjwxn`. The `tests/` folder is never pushed (see `.claspignore`).
+The deployment ID is `AKfycbz5Ux91ZrBe-V8gH3aCg6DZBIHYES4_CyhcJFtTvBGOXHAFA5tM0Iy_9kzPW-Twjwxn`. The `tests/` folder is never pushed (see `.claspignore`).
 
 ### 6. Approve the permissions (owner, once)
 
@@ -175,11 +188,13 @@ On the Roster page, click **Get MyGrad data** and then the MyGrad bookmarklet in
 
 ### 10. Create the triggers (last)
 
-Choose **Graduate review → Create Triggers** only when the sheets list real people. It sets a daily task at 7 a.m. Pacific and two hourly tasks, and from then on the system sends reminders by itself (see "What runs by itself" below). The build copy has not run it. Before running it on a copy that has had test data, delete the test rows from `Students`, `Enrollments`, `Instructors`, `Feedback_Requests` and `Course_Feedback`.
+Do this after steps 7 to 9, when the sheets list real people and no test rows. The GPC, signed in as the owner, chooses **Graduate review → Create Triggers**; the menu refuses anyone else, because triggers run as, and send email from, the account that creates them. It sets a daily task at 7 a.m. Pacific and two hourly tasks, and from then on the system sends reminders by itself (see "What runs by itself" below). If the sheets ever held test data, delete those rows from `Students`, `Enrollments`, `Instructors`, `Feedback_Requests` and `Course_Feedback` first.
+
+The daily task also launches the MA check-ins on the Monday of finals week, for every active MA student with an advisor in `Students`. With the triggers on, that first happens on Monday 14 December 2026.
 
 ### Trying the app with sample data
 
-To exercise the course feedback steps without real records, set `ADMIN_EMAIL` and `GPC_EMAIL` to your own address, and give every sample instructor your own address too, so every CF-1 email comes to you. An instructor page opens only for its instructors and the administrator. Then upload invented CSVs through the Roster page's **Upload CSVs instead** in the same columns the bookmarklets download, and follow the course feedback steps below. Students' addresses receive email when comments are released, so stop before **Release** unless they are real accounts you control.
+Never do this in the spreadsheet with real records: make a separate copy of the project first (steps 3 to 7). To exercise the course feedback steps without real records, set `ADMIN_EMAIL` and `GPC_EMAIL` to your own address, and give every sample instructor your own address too, so every CF-1 email comes to you. An instructor page opens only for its instructors and the administrator. Then upload invented CSVs through the Roster page's **Upload CSVs instead** in the same columns the bookmarklets download, and follow the course feedback steps below. Students' addresses receive email when comments are released, so stop before **Release** unless they are real accounts you control.
 
 ## How to Use
 
@@ -210,7 +225,7 @@ Every page checks the signed-in UW account. Opening a link sent to someone else 
 
 ### Opening the Roster page
 
-The Roster page has its own web address: the web app URL followed by `?view=roster`. For the build copy that is
+The Roster page has its own web address: the web app URL followed by `?view=roster`. Here that is
 
 <https://script.google.com/a/macros/uw.edu/s/AKfycbz5Ux91ZrBe-V8gH3aCg6DZBIHYES4_CyhcJFtTvBGOXHAFA5tM0Iy_9kzPW-Twjwxn/exec?view=roster>
 
@@ -220,7 +235,7 @@ Open it signed in with the UW account named in `ADMIN_EMAIL` or `GPC_EMAIL`. Any
 
 ### Each quarter: course feedback
 
-The calendar is in course-feedback plan §5.4. For Winter 2027: the instructor page opens Mon 15 Mar, is due Fri 2 Apr, and comments are released Fri 9 Apr.
+The calendar is in course-feedback plan §5.4. For Autumn 2026, the first quarter: the instructor page opens Mon 14 Dec 2026, is due Fri 8 Jan 2027, and comments are released Fri 15 Jan 2027. For Winter 2027: opens Mon 15 Mar, due Fri 2 Apr, released Fri 9 Apr.
 
 **Administrator, week 3 of the quarter.**
 
@@ -228,11 +243,11 @@ The calendar is in course-feedback plan §5.4. For Winter 2027: the instructor p
 2.  Click **Get MyGrad registrations**. In the MyGrad tab that opens, click the MyGrad Table Audit bookmarklet. When the Roster page shows "MyGrad: … registrations", close the tab. Grades never leave MyGrad.
 3.  Click **Get Time Schedule sections**. In the Time Schedule tab, click the Time Schedule Sections bookmarklet, wait for "Time Schedule: … sections", and close the tab.
 4.  Click **Preview**. It writes nothing. Check the counts, the excluded rows and their reasons, and the list of instructor pages.
-5.  Click **Import**. For each name under "Instructors without an email", look the person up in the UW Directory, enter their UW email, confirm the appointment if the CEC did not give one, and click **Save**. Then click **Import** again so the pages pick up the emails.
+5.  Click **Import**. For each name under "Instructors without an email", look the person up in the UW Directory, enter their UW email, confirm the appointment if the CEC did not give one, and click **Save**. The email goes straight onto that instructor's unsent pages. **Launch** stays disabled, with the reason shown below it, until every page has an email for each of its instructors.
 
 If a bookmarklet cannot send its data back, it offers a CSV download instead. Upload it under **Upload CSVs instead**.
 
-**Administrator, Monday of finals week.** Repeat steps 1 to 5 to drop withdrawals and catch instructor changes. Then click **Launch course feedback** (or **Graduate review → Launch Course Feedback…**). Each instructor gets one CF-1 email per course, with a link to their page. Co-taught courses share one page, which locks for 30 minutes while one instructor edits. The **Add** box beside a page adds a co-instructor the Time Schedule does not list.
+**Administrator, Monday of finals week.** Repeat steps 1 to 5 to drop withdrawals and catch instructor changes. Then click **Launch course feedback** on the Roster page, which sends from the owner's account. (The menu item **Graduate review → Launch Course Feedback…** does the same but sends from the account of whoever clicks it.) Each instructor gets one CF-1 email per course, with a link to their page. Co-taught courses share one page, which locks for 30 minutes while one instructor edits. The **Add** box beside a page adds a co-instructor the Time Schedule does not list.
 
 **Instructor.** Open the link in the email while signed in to UW. For each student, say whether you had enough contact to comment. If you did, give the three ratings, one thing the student did well, and the one next step. Tick "follow up" only for something the GPC should act on this quarter. Sign and click **Submit**; you can edit until the page closes. If the course is not yours, use "let us know" in the email; the administrator then re-sends the page with **Re-send** on the Roster page.
 
@@ -305,18 +320,35 @@ The `Core*.gs` files contain the plans' rules as pure functions with no Google s
 
 ## Privacy notice
 
-*Draft for review before launch (course-feedback plan §9; annual review plan §10).*
+*Last reviewed 18 November 2026. This notice covers the Anthropology Graduate Review System: the annual review of graduate students and instructor feedback on graduate students in courses.*
 
-**What the system keeps.** For each graduate student: the student's annual review report and check-ins; the advisor's evaluation; the program's rating, letter and any status action; the student's acknowledgement and response; and instructors' feedback on the student's course work, with the instructor's name. From MyGrad it keeps the student's email, entry quarter, GPA, leave dates, committee flags, UW degrees, candidacy date, ANTH 800 credits and the year's courses. No grades are collected for course feedback.
+**What the system keeps.**
+
+- *For each graduate student:* the annual review report and any check-ins; the advisor's evaluation; the program's rating, letter and any status action; the student's acknowledgement and written response; any CV the student uploads; and instructors' feedback on the student's course work, with each instructor's name.
+- *From MyGrad, for each student:* UW email, name, program, entry quarter, GPA, leave dates, committee flags, UW degrees, candidacy date, ANTH 800 credits, and the year's courses with their grades. The courses and grades fill in the coursework table of the student's own annual report. Course feedback collects no grades: instructors are never shown or asked for one.
+- *For each instructor:* name, UW email, and appointment type (faculty or graduate student) from the UW course evaluation catalog, used to decide who is asked for feedback.
+- *Logs:* who did what and when (imports, launches, submissions, releases) and which emails were sent.
 
 **Why.** To review each student's performance and progress under Graduate School Policy 3.7, and to give students feedback on their course work.
 
-**Who sees what.** The student sees everything written about them in the app, except the GPC's calibration notes, which are available on request. Advisors see their advisees' reviews and released course feedback. The committee chair receives the final PDF. Subfield coordinators and calibration meetings see a summary of course feedback only. The section of the self-report marked "Only for the GPC" is kept from the advisor and stored separately. No fellow student sees any record. Instructors see only what they wrote.
+**Who sees what in the app.**
 
-**Your rights.** These are education records under FERPA. You may inspect your records (the University responds within 45 days; WAC 478-140-022) and ask for them to be amended (WAC 478-140).
+- The **student** sees everything written about them, except the GPC's calibration notes, which the student can request.
+- **Advisors** see their advisees' reviews and released course feedback. The **committee chair** receives the final review PDF.
+- **Instructors** see their own course page, which co-instructors of the same course share. Beside each student's name the page shows only the program, subfield and year in the program. Instructors do not see other instructors' pages or anything else about the student.
+- The **GPC** reads every comment and review. For the GPC's own advisees, and students whose committee the GPC chairs, the alternate reviewer does this work instead.
+- **Subfield coordinators** and calibration meetings see a summary only: the course feedback coverage, ratings and follow-ups, without the comments, and the advisor's recommended rating.
+- The section of the self-report marked "Only for the GPC" is kept from the advisor, stored in a separate spreadsheet, and never printed in the PDF.
+- No fellow student sees any record.
+
+**Where the records are stored, and who can open them directly.** The records are kept in Google Sheets and Google Drive in the University of Washington Google Workspace, in the account of the GPC, who owns the system. The GPC can therefore open every record, including those of students the app routes to the alternate reviewer. The graduate program office (agp-advisor@uw.edu), which runs the roster and launches course feedback, can open instructors' course feedback pages from the app, and can open the main spreadsheet if it is shared with that account. Review PDFs are shared by link only with the student, the advisors, the committee chair and the reviewer.
+
+**Your rights.** These are education records under FERPA. You may inspect your records (the University responds within 45 days; WAC 478-140-022) and ask for them to be amended (WAC 478-140). Ask the GPC or the graduate program office (agp-advisor@uw.edu).
 
 **Email.** Emails never contain a review, a rating, a comment or a letter; they link to the app or to a PDF shared only with your UW account. Course feedback emails never name a student.
 
-**Retention.** The likely records series is Student Folders (6 years after the degree or last activity), pending confirmation with UW Records Management. Nothing is deleted automatically; logs are pruned after 90 days.
+**Retention.** Nothing is deleted automatically; logs of system events are deleted after 90 days. The department has not yet confirmed the records retention schedule with UW Records Management. The likely series is Student Folders (kept for 6 years after the degree or last activity), and this notice will be updated when the series is confirmed.
 
-**No AI** is used anywhere in the system, and the GPC writes any synthesis of course feedback without AI drafting.
+**No AI.** No part of the system uses AI. Nothing written about a student is read, drafted, summarized or judged by an AI tool, and the GPC writes any synthesis of course feedback without AI drafting.
+
+**Questions.** Contact the Graduate Program Coordinator or the graduate program office (agp-advisor@uw.edu) in the Department of Anthropology.

@@ -9,9 +9,10 @@ function getCurrentUserEmailSafe_() { return activeEmail_() || 'SYSTEM'; }
 function assertTriggerOrOwner_(e, handlerName) { return assertTriggerOrAdmin_(e, handlerName); }
 
 function sendAdminAlert_(params) {
-  if (!C_().ADMIN_EMAIL) return;
+  const to = C_().ALERT_EMAIL || C_().GPC_EMAIL;
+  if (!to) return;
   const body = String(params.body || '');
-  const emailParams = { to: C_().ADMIN_EMAIL, subject: '[ALERT] Graduate Review System: ' + params.subject, body: body,
+  const emailParams = { to: to, subject: '[ALERT] Graduate Review System: ' + params.subject, body: body,
                         htmlBody: '<pre style="font-family:monospace;white-space:pre-wrap;">' + escapeHtmlCore_(body) + '</pre>' };
   try { rawSendEmail_(emailParams); } catch (err) { logError_('Health.sendAdminAlert', 'Alert email failed', { error: err.message }); }
 }

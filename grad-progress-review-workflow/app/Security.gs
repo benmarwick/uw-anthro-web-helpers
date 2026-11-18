@@ -90,12 +90,15 @@ function assertAdmin_() {
   return e;
 }
 
-/* Trigger handlers: the administrator, or one of this project's own triggers. */
+/* Trigger handlers: the administrator, the GPC, or one of this project's own triggers. A trigger runs as
+   the account that created it (the owner), so a trigger call shows either no active user or the owner. */
 function assertTriggerOrAdmin_(e, handlerName) {
   const active = activeEmail_();
-  if (active && isAdmin_(active)) return;
+  if (active && (isAdmin_(active) || isGpc_(active))) return;
   const uid = e && e.triggerUid ? String(e.triggerUid) : '';
-  if (!active && uid && ScriptApp.getProjectTriggers().some(function(t) {
+  let owner = '';
+  try { owner = normEmail_(Session.getEffectiveUser().getEmail()); } catch (err) { owner = ''; }
+  if ((!active || active === owner) && uid && ScriptApp.getProjectTriggers().some(function(t) {
     return String(t.getUniqueId()) === uid && t.getHandlerFunction() === handlerName;
   })) return;
   throw new Error('Not authorized.');

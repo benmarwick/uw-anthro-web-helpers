@@ -55,7 +55,8 @@ function ensureSchema_() {
 function headersOf_(name) {
   const sheet = getSheetCached_(name);
   const lastCol = sheet.getLastColumn();
-  return lastCol ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String) : [];
+  if (!lastCol) throw new Error('The ' + name + ' sheet has no header row yet. In the spreadsheet, run Graduate review → Initialize, then try again.');
+  return sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
 }
 
 /* All rows as objects keyed by header, each with _row (1-based sheet row). */

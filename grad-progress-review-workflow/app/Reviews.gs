@@ -130,7 +130,13 @@ function loadReview(token) {
     levels: CF_LEVELS_, ratings: REVIEW_RATINGS_, flags: computeFlags_(student, r)
   };
   const sp = parseJson_(r.Student_Payload), ap = parseJson_(r.Advisor_Payload), pp = parseJson_(r.Program_Payload), dp = parseJson_(r.Development_Payload);
-  if (stage === 'student') { out.draft = sp; out.prefill = sp.prefill || {}; out.development = dp; }
+  if (stage === 'student') {
+    out.draft = sp; out.prefill = sp.prefill || {}; out.development = dp;
+    /* What the first box of the report asks the student to check (annual review plan §5.1). */
+    out.onFile = { program: student.Program === 'MA' ? 'MA (Archaeological Heritage)' : 'PhD', subfield: student.Subfield || '',
+                   advisors: splitList_(student.Advisor_Emails), chair: student.Chair_Email || '', gsr: student.GSR_Email || '',
+                   entryQuarter: quarterLabel_(student.Entry_Quarter || ''), leaveEnds: student.Leave_Ends ? quarterLabel_(student.Leave_Ends) : '' };
+  }
   if (stage === 'advisor') { out.studentReport = sp; out.development = dp; out.draft = ap; out.returnNote = x.access.returned ? (pp.returnReason || '') : ''; }
   if (stage === 'ack') {
     out.studentReport = sp; out.advisor = ap; out.advisingChallenges = advisingChallengesFor_(r.Review_ID);

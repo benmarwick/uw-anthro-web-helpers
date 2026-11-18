@@ -51,7 +51,8 @@
     h += guidance() + '<p class="muted">About 30 seconds for a student you could not comment on, and 3 to 4 minutes for one you could.</p>';
     h += page.students.map(studentBlock).join('');
     h += '<section class="card"><label for="sig">Type your name to sign</label><input type="text" id="sig" value="' + esc(page.signature) + '">' +
-      '<label for="mins">How long did this take? <span class="help">Optional, for the pilot</span></label><select id="mins"><option value="">Choose…</option><option>under 5</option><option>5-15</option><option>over 15</option></select></section>';
+      '<label for="mins">How long did this take? <span class="help">Optional, for the pilot</span></label><select id="mins"><option value="">Choose…</option>' +
+      ['under 5', '5 to 15', 'over 15'].map(function (m) { return '<option' + (m === page.minutes ? ' selected' : '') + '>' + m + '</option>'; }).join('') + '</select></section>';
     h += '<div class="status"><button id="save">Save draft</button><button id="submit" class="primary">Submit</button><div id="msg" role="status" aria-live="polite"></div></div>';
     document.getElementById('main').innerHTML = h;
     var main = document.getElementById('main');

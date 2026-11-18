@@ -24,7 +24,7 @@ function onOpen() {
 }
 
 function menuInitialize() {
-  assertAdmin_();
+  assertAdminOrGpc_();
   ensureSchema_();
   ensureAuditLogSheet_();
   ensureLogsSheet_();
@@ -37,9 +37,9 @@ function openLink_(title, url) {
   SpreadsheetApp.getUi().showModalDialog(html, title);
 }
 
-function menuOpenRoster() { assertAdmin_(); openLink_('the Roster page', appUrl_({ view: 'roster' })); }
-function menuOpenRelease() { assertAdmin_(); openLink_('Review and Release', appUrl_({ view: 'release' })); }
-function menuOpenProgram() { assertAdmin_(); openLink_('the program stage', appUrl_({ view: 'program' })); }
+function menuOpenRoster() { assertAdminOrGpc_(); openLink_('the Roster page', appUrl_({ view: 'roster' })); }
+function menuOpenRelease() { assertAdminOrGpc_(); openLink_('Review and Release', appUrl_({ view: 'release' })); }
+function menuOpenProgram() { assertAdminOrGpc_(); openLink_('the program stage', appUrl_({ view: 'program' })); }
 
 function promptValue_(title, prompt, re) {
   const ui = SpreadsheetApp.getUi();
@@ -51,7 +51,7 @@ function promptValue_(title, prompt, re) {
 }
 
 function menuLaunchCourseFeedback() {
-  const actor = assertAdmin_();
+  const actor = assertAdminOrGpc_();
   const q = promptValue_('Launch Course Feedback', 'Quarter (for example WIN2027):', /^(AUT|WIN|SPR|SUM)\d{4}$/);
   if (!q) return;
   const n = launchCourseFeedback_(q, actor);
@@ -59,7 +59,7 @@ function menuLaunchCourseFeedback() {
 }
 
 function menuBuildRecords() {
-  const actor = assertAdmin_();
+  const actor = assertAdminOrGpc_();
   const y = promptValue_('Build Feedback Records', 'Spring year of the record (for example 2027):', /^\d{4}$/);
   if (!y) return;
   const n = buildFeedbackRecords_(Number(y), actor);
@@ -67,7 +67,7 @@ function menuBuildRecords() {
 }
 
 function menuLaunchCycle() {
-  const actor = assertAdmin_();
+  const actor = assertAdminOrGpc_();
   const y = promptValue_('Launch Annual Cycle', 'Cycle year (for example 2027):', /^\d{4}$/);
   if (!y) return;
   const n = launchAnnualCycle_(Number(y), actor);
@@ -75,13 +75,17 @@ function menuLaunchCycle() {
 }
 
 function menuLaunchMa() {
-  const actor = assertAdmin_();
+  const actor = assertAdminOrGpc_();
   const q = promptValue_('Launch MA Check-ins', 'Quarter (for example WIN2027). The daily task also does this on the Monday of finals week:', /^(AUT|WIN|SPR|SUM)\d{4}$/);
   if (!q) return;
   SpreadsheetApp.getUi().alert(launchMaCheckins_(q, actor) + ' MA check-in(s) launched for ' + quarterLabel_(q) + '.');
 }
 
-function menuComputeMetrics() { assertAdmin_(); SpreadsheetApp.getUi().alert(computeMetrics_() + ' metric rows written to the Metrics sheet.'); }
-function menuCreateTriggers() { assertAdmin_(); createTriggers_(); SpreadsheetApp.getUi().alert('Daily and hourly triggers created.'); }
-function menuRunDaily() { assertAdmin_(); dailyRun({}); SpreadsheetApp.getUi().alert('Daily tasks run. See the Logs sheet.'); }
-function menuProcessDlq() { assertAdmin_(); processDeadLetterQueue_(); SpreadsheetApp.getUi().alert('Dead letter queue processed.'); }
+function menuComputeMetrics() { assertAdminOrGpc_(); SpreadsheetApp.getUi().alert(computeMetrics_() + ' metric rows written to the Metrics sheet.'); }
+/* Triggers run as, and send email from, the account that creates them, so only the GPC (the owner) creates them. */
+function menuCreateTriggers() {
+  if (!isGpc_(activeEmail_())) throw new Error('Only the GPC, who owns the system, can create the triggers: they run as, and send email from, whoever creates them.');
+  createTriggers_(); SpreadsheetApp.getUi().alert('Daily and hourly triggers created.');
+}
+function menuRunDaily() { assertAdminOrGpc_(); dailyRun({}); SpreadsheetApp.getUi().alert('Daily tasks run. See the Logs sheet.'); }
+function menuProcessDlq() { assertAdminOrGpc_(); processDeadLetterQueue_(); SpreadsheetApp.getUi().alert('Dead letter queue processed.'); }

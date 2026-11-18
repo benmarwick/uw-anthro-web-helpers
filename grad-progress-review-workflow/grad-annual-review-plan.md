@@ -683,7 +683,7 @@ Settled on 17 November 2026. Each stands at its recommended default except decis
 | 8 | A 3-level or 4-level scale? | **3 levels** (§6). Alerts stay a separate decision by a person |
 | 9 | Should ratings affect funding priority? | **Show a flag only.** Any funding decision stays with the committee |
 | 10 | Does the committee chair, if not the advisor, get the letter? | **Yes** (Geography's practice) |
-| 11 | Which account runs the system? | **A department account**, not a personal one, so sent mail and file ownership do not sit in one faculty member's account (the same lesson as the TA system's README §9) |
+| 11 | Which account runs the system? | **The GPC's own UW account** (changed 18 Nov 2026). The original default was a department account, so that sent mail and file ownership do not sit in one faculty member's account (the TA system's README §9). Handing the system to a new GPC means repeating the setup under that account (README, Setup) |
 | 12 | When does the first cycle run? | **Spring 2027**, after the pilot |
 | 13 | Keep the advisor's "advising challenges" note? | **Keep it and show it to the student at acknowledgement.** Do not keep a note from the student that the advisor wrote about them |
 | 14 | Where does "Is advising meeting your needs?" go? | **In the GPC-only section**, plus an optional advisor-visible version |

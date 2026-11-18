@@ -14,7 +14,8 @@ function buildFeedbackRecord_(offerings, comments, followups, viewer, synthesis)
   var visible = (comments || []).filter(function(c) {
     return c.releasedAt && commentVisibility_(c.status)[viewer];
   });
-  var withText = visible.filter(function(c) { return c.contact === 'enough'; });
+  var withText = visible.filter(function(c) { return c.contact === 'enough'; })
+    .sort(function(a, b) { return quarterOrder_(a.quarter) - quarterOrder_(b.quarter); });   // date order, not alphabetical
   var noContact = visible.filter(function(c) { return c.contact !== 'enough'; }).length;
   var notReceived = (offerings || []).filter(function(o) { return !o.submitted; }).length;
   var instructors = {};
@@ -27,15 +28,15 @@ function buildFeedbackRecord_(offerings, comments, followups, viewer, synthesis)
     thin: withText.length < 2,
     thinNote: withText.length < 2 ? 'This record has fewer than two comments, which is too few to show patterns across courses.' : '',
     grid: withText.map(function(c) {
-      return { course: c.course, quarter: c.quarter, written: c.written, discussion: c.discussion, literature: c.literature };
+      return { course: c.course, quarter: c.quarter, quarterLabel: quarterLabel_(c.quarter), written: c.written, discussion: c.discussion, literature: c.literature };
     }),
     flags: viewer === 'calibration' || viewer === 'student' || viewer === 'advisor' || viewer === 'pdf'
-      ? (followups || []).map(function(f) { return { quarter: f.quarter, outcome: f.outcome || 'Open', contactDate: f.contactDate || '' }; }) : [],
+      ? (followups || []).map(function(f) { return { quarter: f.quarter, quarterLabel: quarterLabel_(f.quarter), outcome: f.outcome || 'Open', contactDate: f.contactDate || '' }; }) : [],
     synthesis: synthesis || ''
   };
   if (viewer === 'calibration') return record; // summary only: no free text (decision 7)
-  record.comments = withText.slice().sort(function(a, b) { return String(a.quarter).localeCompare(String(b.quarter)); }).map(function(c) {
-    return { course: c.course, quarter: c.quarter, instructors: (c.instructorNames || []).join(', '), strength: c.strength,
+  record.comments = withText.map(function(c) {
+    return { course: c.course, quarter: c.quarter, quarterLabel: quarterLabel_(c.quarter), instructors: (c.instructorNames || []).join(', '), strength: c.strength,
              nextStep: c.nextStep, gpcNote: viewer === 'student' && c.status !== 'RELEASED' ? (c.gpcNote || '') : '' };
   });
   record.nextSteps = record.comments.map(function(c) { return { course: c.course, nextStep: c.nextStep }; });
