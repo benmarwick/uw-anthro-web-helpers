@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    button { font-size: 16px; margin: 0 12px 12px 0; padding: 8px 14px; }
+    #log { margin-top: 16px; font-family: monospace; white-space: pre-wrap; }
+    .ok { color: #1a7f37; } .bad { color: #b71c1c; }
+  </style>
+</head>
+<body>
+  <h1>R3 postMessage test</h1>
+  <p>Click a button. In the tab that opens, run the test snippet. Messages received here are listed below.</p>
+  <button id="mygrad">Open MyGrad</button>
+  <button id="ts">Open Time Schedule</button>
+  <div id="status"></div>
+  <div id="log"></div>
+  <script>
+    var ALLOWED = ['https://webappssecure.grad.uw.edu', 'https://www.washington.edu'];
+    var opened = {};
+    function log(cls, msg) {
+      var d = document.createElement('div');
+      d.className = cls;
+      d.textContent = new Date().toISOString().slice(11, 19) + '  ' + msg;
+      document.getElementById('log').appendChild(d);
+    }
+    log('', 'Page origin: ' + location.origin + (window.top === window ? ' (top)' : ' (in a frame)'));
+    window.addEventListener('message', function (e) {
+      var accepted = ALLOWED.indexOf(e.origin) !== -1;
+      log(accepted ? 'ok' : 'bad',
+          (accepted ? 'RECEIVED from ' : 'IGNORED from ') + e.origin + ': ' + JSON.stringify(e.data));
+      if (accepted && e.source) {
+        try { e.source.postMessage({ type: 'r3-ack', receivedAt: Date.now() }, e.origin); }
+        catch (err) { log('bad', 'Could not acknowledge: ' + err.message); }
+      }
+    });
+    function openTab(key, url) {
+      var w = window.open(url, '_blank');
+      opened[key] = w;
+      log(w ? '' : 'bad', w ? 'Opened ' + key + ' (opener link kept: ' + (w !== null) + ')' : 'Popup blocked for ' + key);
+    }
+    document.getElementById('mygrad').onclick = function () {
+      openTab('MyGrad', 'https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist?orgid=14');
+    };
+    document.getElementById('ts').onclick = function () {
+      openTab('Time Schedule', 'https://www.washington.edu/students/timeschd/AUT2026/#curricula=ANTH,ARCHY');
+    };
+  </script>
+</body>
+</html>

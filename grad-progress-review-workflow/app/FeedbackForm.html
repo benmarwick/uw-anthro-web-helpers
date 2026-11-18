@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><base target="_top"><meta charset="utf-8"><?!= include_('Styles') ?></head>
+<body>
+<header class="top"><h1 id="title">Course feedback</h1><p id="sub"></p></header>
+<main id="main"><p>Loading…</p></main>
+<?!= include_('Common') ?>
+<script>
+  var DATA = <?!= dataJson ?>;
+  var page = null;
+
+  function guidance() {
+    return '<div class="note"><ul style="margin:0;padding-left:18px">' +
+      '<li>Describe the work, not the person: what they did and what they should do next.</li>' +
+      '<li>The student will read this with your name on it. It is part of their education record.</li>' +
+      "<li>Don't include grades, TA work, or health or personal circumstances. If those matter, tick \"follow up\" and talk to the GPC.</li></ul></div>";
+  }
+
+  function studentBlock(s, i) {
+    var dis = s.editable && !page.readOnlyLock ? '' : ' disabled';
+    var id = 's' + i;
+    var levels = function (key, label) {
+      return '<label for="' + id + key + '">' + esc(label) + ' <span class="help">Relative to the student\'s stage in their PhD program</span></label><select id="' + id + key + '" data-f="' + key + '"' + dis + '><option value="">Choose…</option>' +
+        page.levels.map(function (l) { return '<option' + (l === s[key] ? ' selected' : '') + '>' + esc(l) + '</option>'; }).join('') + '</select>';
+    };
+    var radio = function (val, label) {
+      return '<label class="radio"><input type="radio" name="' + id + 'c" value="' + val + '" data-f="contact"' + (s.contact === val ? ' checked' : '') + dis + '> ' + label + '</label>';
+    };
+    return '<section class="card" data-student="' + esc(s.email) + '"><h2 style="margin-top:0">' + esc(s.name) + '</h2>' +
+      '<p class="muted">' + esc(s.program) + (s.subfield ? ' · ' + esc(s.subfield) : '') + (s.year ? ' · year ' + esc(s.year) + ' in the program' : '') + ' · ' + esc(s.course) + '</p>' +
+      (s.returnedReason ? '<div class="warnbox"><strong>The GPC asked you to look again at this comment:</strong> ' + nl2br(s.returnedReason) + '</div>' : '') +
+      '<fieldset><legend>Did you have enough contact to comment?</legend>' + radio('enough', 'Enough contact to comment') +
+      radio('not_enough', 'Not enough contact (e.g. in a big class)') + (s.isAdvisee ? radio('covered', 'Covered in my annual review (you are this student\'s advisor)') : '') + '</fieldset>' +
+      '<div data-details style="' + (s.contact === 'enough' ? '' : 'display:none') + '">' +
+      '<div class="grid2"><div>' + levels('written', 'Written work submitted by the student') + '</div><div>' + levels('discussion', 'Student\'s contribution to class discussion and quality of their presentations, if any') + '</div></div>' +
+      levels('literature', 'Command of literature, theory or methods relevant to the course') +
+      '<label for="' + id + 'st">One thing this student did well in this course, with an example</label><textarea id="' + id + 'st" maxlength="500" data-f="strength"' + dis + '>' + esc(s.strength) + '</textarea><div class="counter"></div>' +
+      '<label for="' + id + 'ns">The one thing that would most strengthen their work next, and how they could do it</label><textarea id="' + id + 'ns" maxlength="500" data-f="nextStep"' + dis + '>' + esc(s.nextStep) + '</textarea><div class="counter"></div>' +
+      '<label class="radio"><input type="checkbox" data-f="followup"' + (s.followup ? ' checked' : '') + dis + '> I\'d like the GPC to follow up with this student this quarter</label>' +
+      '<div data-fu style="' + (s.followup ? '' : 'display:none') + '"><label for="' + id + 'fu">What did you observe, and when? <span class="help">For example, missed submissions, or a pattern across the written work.</span></label>' +
+      '<textarea id="' + id + 'fu" maxlength="1000" data-f="followupNote"' + dis + '>' + esc(s.followupNote) + '</textarea></div>' +
+      '</div></section>';
+  }
+
+  function render() {
+    document.getElementById('title').textContent = 'Course feedback: ' + page.offering;
+    document.getElementById('sub').textContent = page.quarter + (page.due ? ' · due ' + page.due : '');
+    var h = '';
+    if (page.readOnlyLock) h += '<div class="warnbox">' + esc(page.lockOwner) + ' is editing this shared page. It will open for you when they finish (within 30 minutes).</div>';
+    if (page.closed) h += '<div class="warnbox">This page has closed. You can still revise any comment the GPC returned to you.</div>';
+    h += guidance() + '<p class="muted">About 30 seconds for a student you could not comment on, and 3 to 4 minutes for one you could.</p>';
+    h += page.students.map(studentBlock).join('');
+    h += '<section class="card"><label for="sig">Type your name to sign</label><input type="text" id="sig" value="' + esc(page.signature) + '">' +
+      '<label for="mins">How long did this take? <span class="help">Optional, for the pilot</span></label><select id="mins"><option value="">Choose…</option><option>under 5</option><option>5-15</option><option>over 15</option></select></section>';
+    h += '<div class="status"><button id="save">Save draft</button><button id="submit" class="primary">Submit</button><div id="msg" role="status" aria-live="polite"></div></div>';
+    document.getElementById('main').innerHTML = h;
+    var main = document.getElementById('main');
+    main.addEventListener('change', function (e) {
+      var card = e.target.closest('[data-student]');
+      if (!card) return;
+      if (e.target.getAttribute('data-f') === 'contact') card.querySelector('[data-details]').style.display = e.target.value === 'enough' ? '' : 'none';
+      if (e.target.getAttribute('data-f') === 'followup') card.querySelector('[data-fu]').style.display = e.target.checked ? '' : 'none';
+    });
+    main.querySelectorAll('textarea[maxlength]').forEach(function (t) {
+      var c = t.nextElementSibling && t.nextElementSibling.classList.contains('counter') ? t.nextElementSibling : null;
+      var upd = function () { if (c) c.textContent = t.value.length + ' / ' + t.getAttribute('maxlength'); };
+      t.addEventListener('input', upd); upd();
+    });
+    document.getElementById('save').onclick = function () { send(false); };
+    document.getElementById('submit').onclick = function () { send(true); };
+    if (page.readOnlyLock) { document.getElementById('save').disabled = true; document.getElementById('submit').disabled = true; }
+  }
+
+  function gather() {
+    var students = {};
+    document.querySelectorAll('[data-student]').forEach(function (card) {
+      var o = {};
+      card.querySelectorAll('[data-f]').forEach(function (el) {
+        var k = el.getAttribute('data-f');
+        if (el.type === 'radio') { if (el.checked) o[k] = el.value; }
+        else if (el.type === 'checkbox') o[k] = el.checked;
+        else o[k] = el.value;
+      });
+      students[card.getAttribute('data-student')] = o;
+    });
+    return { students: students, signature: document.getElementById('sig').value, minutes: document.getElementById('mins').value };
+  }
+
+  function send(final) {
+    say(final ? 'Submitting…' : 'Saving…');
+    call('saveFeedbackPage', DATA.token, gather(), final).then(function () {
+      say(final ? 'Thank you. Your feedback is submitted. You can edit it until the page closes.' : 'Draft saved.', 'ok');
+    }).catch(function (e) { say(e.message, 'bad'); });
+  }
+
+  function notMine() {
+    document.getElementById('title').textContent = 'Not your course?';
+    document.getElementById('main').innerHTML = '<div class="card"><p>Thank you for telling us. If you know who taught it, add their name and we will send the page to them.</p>' +
+      '<label for="who">Who taught it? <span class="help">Optional</span></label><input type="text" id="who">' +
+      '<button class="primary" id="send">Let us know</button><div id="msg" role="status" aria-live="polite"></div></div>';
+    document.getElementById('send').onclick = function () {
+      call('notMyCourse', DATA.token, document.getElementById('who').value).then(function () {
+        document.getElementById('main').innerHTML = '<div class="card"><p>Thank you. We\'ll correct our records and send the page to the right person. There\'s nothing more you need to do.</p></div>';
+      }).catch(function (e) { say(e.message, 'bad'); });
+    };
+  }
+
+  if (DATA.notMine) notMine();
+  else call('loadFeedbackPage', DATA.token).then(function (p) {
+    if (p.error) { document.getElementById('main').innerHTML = '<div class="warnbox">' + esc(p.error) + '</div>'; return; }
+    page = p; render();
+  }).catch(function (e) { document.getElementById('main').innerHTML = '<div class="warnbox">' + esc(e.message) + '</div>'; });
+</script>
+</body>
+</html>

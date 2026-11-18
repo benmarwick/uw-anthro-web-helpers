@@ -1,0 +1,116 @@
+<script>
+  /* Shared helpers. Nothing is stored in the browser. */
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  /* google.script.run as a promise: call('fnName', arg1, arg2) */
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var r = google.script.run.withSuccessHandler(resolve).withFailureHandler(function (e) { reject(e && e.message ? e : new Error(String(e))); });
+      r[fn].apply(r, args);
+    });
+  }
+  function say(text, cls) {
+    var m = document.getElementById('msg');
+    if (!m) return;
+    m.className = cls || '';
+    m.textContent = text;
+  }
+  function nl2br(s) { return esc(s).replace(/\n/g, '<br>'); }
+
+  /* ---------- A small form builder used by the review pages ----------
+     field: { key, label, help, type: text|textarea|date|number|select|check|rows|group, options, required, max,
+              columns: [{ key, label, type, options }] for rows, fields: [...] for group } */
+  function fieldHtml(f, value) {
+    var id = 'f_' + f.key, req = f.required ? ' <span aria-hidden="true">*</span>' : '';
+    var help = f.help ? '<span class="help" id="' + id + '_h">' + esc(f.help) + '</span>' : '';
+    var desc = f.help ? ' aria-describedby="' + id + '_h"' : '';
+    var v = value == null ? '' : value;
+    if (f.type === 'textarea') {
+      return '<label for="' + id + '">' + esc(f.label) + req + help + '</label><textarea id="' + id + '" data-key="' + f.key + '"' + desc +
+        (f.max ? ' maxlength="' + f.max + '"' : '') + '>' + esc(v) + '</textarea>' + (f.max ? '<div class="counter" data-for="' + id + '"></div>' : '');
+    }
+    if (f.type === 'select') {
+      return '<label for="' + id + '">' + esc(f.label) + req + help + '</label><select id="' + id + '" data-key="' + f.key + '"' + desc + '><option value="">Choose…</option>' +
+        f.options.map(function (o) { return '<option' + (String(o) === String(v) ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>';
+    }
+    if (f.type === 'check') {
+      return '<label class="radio"><input type="checkbox" id="' + id + '" data-key="' + f.key + '"' + (v === true ? ' checked' : '') + '> ' + esc(f.label) + '</label>' + help;
+    }
+    if (f.type === 'rows') {
+      var rows = Array.isArray(v) && v.length ? v : [{}];
+      return '<fieldset data-rows="' + f.key + '"><legend>' + esc(f.label) + req + '</legend>' + help +
+        '<table class="rows"><thead><tr>' + f.columns.map(function (c) { return '<th scope="col">' + esc(c.label) + '</th>'; }).join('') + '<th><span class="sr-only">Remove</span></th></tr></thead><tbody>' +
+        rows.map(function (r) { return rowHtml(f, r); }).join('') + '</tbody></table><button type="button" data-addrow="' + f.key + '">Add a row</button></fieldset>';
+    }
+    if (f.type === 'group') {
+      return '<fieldset data-group="' + f.key + '"><legend>' + esc(f.label) + req + '</legend>' + help +
+        f.fields.map(function (g) { return fieldHtml({ key: f.key + '.' + g.key, label: g.label, type: g.type || 'textarea', options: g.options }, (v || {})[g.key]); }).join('') + '</fieldset>';
+    }
+    var t = f.type === 'date' ? 'date' : f.type === 'number' ? 'number' : 'text';
+    return '<label for="' + id + '">' + esc(f.label) + req + help + '</label><input type="' + t + '" id="' + id + '" data-key="' + f.key + '" value="' + esc(v) + '"' + desc + '>';
+  }
+  function rowHtml(f, r) {
+    return '<tr>' + f.columns.map(function (c) {
+      var val = r[c.key] == null ? '' : r[c.key], lab = ' aria-label="' + esc(c.label) + '"';
+      if (c.type === 'select') return '<td><select data-col="' + c.key + '"' + lab + '><option value=""></option>' + c.options.map(function (o) {
+        return '<option' + (String(o) === String(val) ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select></td>';
+      if (c.type === 'readonly') return '<td data-col="' + c.key + '" data-ro="' + esc(val) + '">' + esc(val) + '</td>';
+      return '<td><input type="' + (c.type === 'date' ? 'date' : 'text') + '" data-col="' + c.key + '" value="' + esc(val) + '"' + lab + '></td>';
+    }).join('') + '<td><button type="button" data-delrow aria-label="Remove this row">×</button></td></tr>';
+  }
+  function bindForm(root, fields) {
+    root.addEventListener('click', function (e) {
+      var add = e.target.getAttribute && e.target.getAttribute('data-addrow');
+      if (add) { var f = fields.filter(function (x) { return x.key === add; })[0]; root.querySelector('[data-rows="' + add + '"] tbody').insertAdjacentHTML('beforeend', rowHtml(f, {})); }
+      if (e.target.hasAttribute && e.target.hasAttribute('data-delrow')) { var tr = e.target.closest('tr'); if (tr.parentNode.children.length > 1) tr.remove(); }
+    });
+    root.querySelectorAll('textarea[maxlength]').forEach(function (t) {
+      var c = root.querySelector('.counter[data-for="' + t.id + '"]');
+      var upd = function () { if (c) c.textContent = t.value.length + ' / ' + t.getAttribute('maxlength'); };
+      t.addEventListener('input', upd); upd();
+    });
+  }
+  function collectForm(root) {
+    var out = {};
+    root.querySelectorAll('[data-key]').forEach(function (el) {
+      var k = el.getAttribute('data-key'), v = el.type === 'checkbox' ? el.checked : el.value;
+      if (el.type === 'number' && v !== '') v = Number(v);
+      if (k.indexOf('.') !== -1) { var p = k.split('.'); out[p[0]] = out[p[0]] || {}; out[p[0]][p[1]] = v; } else out[k] = v;
+    });
+    root.querySelectorAll('[data-rows]').forEach(function (fs) {
+      var key = fs.getAttribute('data-rows');
+      out[key] = Array.prototype.map.call(fs.querySelectorAll('tbody tr'), function (tr) {
+        var o = {};
+        tr.querySelectorAll('[data-col]').forEach(function (el) { o[el.getAttribute('data-col')] = el.hasAttribute('data-ro') ? el.getAttribute('data-ro') : el.value; });
+        return o;
+      }).filter(function (o) { return Object.keys(o).some(function (k) { return String(o[k]).trim(); }); });
+    });
+    return out;
+  }
+  /* Read-only rendering of a saved section. */
+  function showValue(v) {
+    if (v === true) return 'Yes'; if (v === false) return 'No';
+    if (Array.isArray(v)) return v.length ? '<table class="rows"><tbody>' + v.map(function (r) {
+      return '<tr>' + (typeof r === 'object' ? Object.keys(r).map(function (k) { return '<td>' + esc(r[k]) + '</td>'; }).join('') : '<td>' + esc(r) + '</td>') + '</tr>'; }).join('') + '</tbody></table>' : '<span class="muted">None</span>';
+    if (v && typeof v === 'object') return Object.keys(v).map(function (k) { return '<div><strong>' + esc(k) + ':</strong> ' + nl2br(v[k]) + '</div>'; }).join('');
+    return v === '' || v == null ? '<span class="muted">Not answered</span>' : nl2br(v);
+  }
+  /* The Course Feedback Record (course-feedback plan §6.1), for any reader. */
+  function recordHtml(rec) {
+    if (!rec) return '<p class="muted">No course feedback has been released yet.</p>';
+    var h = '<p><strong>' + esc(rec.coverage) + '</strong></p>' + (rec.thinNote ? '<p class="muted">' + esc(rec.thinNote) + '</p>' : '');
+    if (rec.grid && rec.grid.length) h += '<table class="rows"><thead><tr><th>Course</th><th>Written work</th><th>Discussion and presentation</th><th>Literature, theory or methods</th></tr></thead><tbody>' +
+      rec.grid.map(function (g) { return '<tr><td>' + esc(g.course) + ' <span class="muted">' + esc(g.quarter) + '</span></td><td>' + esc(g.written) + '</td><td>' + esc(g.discussion) + '</td><td>' + esc(g.literature) + '</td></tr>'; }).join('') +
+      '</tbody></table><p class="muted">Levels are relative to the student\'s stage, are not averaged, and are not compared across instructors or students.</p>';
+    (rec.comments || []).forEach(function (c) {
+      h += '<div class="card"><h3>' + esc(c.course) + ' <span class="muted">' + esc(c.quarter) + ' · ' + esc(c.instructors) + '</span></h3><p><strong>Did well:</strong> ' + nl2br(c.strength) +
+        '</p><p><strong>Next step:</strong> ' + nl2br(c.nextStep) + '</p>' + (c.gpcNote ? '<p class="muted"><strong>Note from the GPC:</strong> ' + nl2br(c.gpcNote) + '</p>' : '') + '</div>';
+    });
+    if (rec.nextSteps && rec.nextSteps.length) h += '<h3>All next steps</h3><ul>' + rec.nextSteps.map(function (n) { return '<li>' + esc(n.course) + ': ' + esc(n.nextStep) + '</li>'; }).join('') + '</ul>';
+    if (rec.flags && rec.flags.length) h += '<h3>Follow-up conversations</h3><ul>' + rec.flags.map(function (f) { return '<li>' + esc(f.quarter) + ': ' + esc(f.outcome) + (f.contactDate ? ' (' + esc(f.contactDate) + ')' : '') + '</li>'; }).join('') + '</ul>';
+    if (rec.synthesis) h += '<div class="note"><strong>From the GPC:</strong> ' + nl2br(rec.synthesis) + '</div>';
+    return h;
+  }
+</script>

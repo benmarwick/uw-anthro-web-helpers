@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><base target="_top"><meta charset="utf-8"><?!= include_('Styles') ?></head>
+<body>
+<header class="top"><h1>Review and release</h1><p>Each quarter's comments, follow-up conversations, and the yearly Course Feedback Records.</p></header>
+<main>
+  <label for="quarter">Quarter</label><input type="text" id="quarter"><button id="load">Load</button>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="note"><strong>Before releasing each comment, check:</strong>
+    <ol style="margin:4px 0 0">
+      <li>Is anything about the person rather than the work?</li>
+      <li>Is anything outside course work (grades, TA work, health)?</li>
+      <li>Is any comment unclear?</li>
+      <li>Is anything faint praise or hedged, so that the student could not tell what the instructor means?</li>
+    </ol>
+    <p style="margin:6px 0 0">You never edit an instructor's words. Return a comment with a reason instead; the instructor has 5 days to revise. A comment still unrevised on release day goes to the student only, with your note.</p></div>
+  <h2>Comments</h2><div id="comments"></div>
+  <button id="release" class="primary">Release this quarter's comments</button>
+  <h2>Follow-up conversations</h2><div id="followups"></div>
+  <h2>Course Feedback Records</h2><div id="records"></div>
+</main>
+<?!= include_('Common') ?>
+<script>
+  var DATA = <?!= dataJson ?>;
+  document.getElementById('quarter').value = DATA.quarter || '';
+
+  function load() {
+    var q = document.getElementById('quarter').value.trim().toUpperCase();
+    say('Loading…');
+    call('releasePageData', q).then(function (d) {
+      say(d.releaseDate ? 'Planned release date: ' + d.releaseDate + '.' : '');
+      document.getElementById('comments').innerHTML = d.comments.length ? d.comments.map(function (c) {
+        var actions = c.released ? '<span class="pill">Released</span>' :
+          (c.status === 'SUBMITTED' || c.status === 'REVISED' || c.status === 'REVISED_AFTER_RELEASE' ? '<button data-check="' + esc(c.id) + '">Passes the check</button>' +
+            '<label for="r_' + esc(c.id) + '">Reason to return (the instructor sees this)</label><textarea id="r_' + esc(c.id) + '"></textarea>' +
+            '<label for="n_' + esc(c.id) + '">Note for the student if it is still unrevised on release day (optional)</label><textarea id="n_' + esc(c.id) + '"></textarea><button data-return="' + esc(c.id) + '">Return to the instructor</button>' : '');
+        return '<div class="card"><h3>' + esc(c.student) + ' · ' + esc(c.course) + ' <span class="pill">' + esc(c.status) + '</span></h3><p class="muted">' + esc(c.instructors) + (c.subfield ? ' · ' + esc(c.subfield) : '') + '</p>' +
+          (c.contact === 'enough'
+            ? '<p>Written work: ' + esc(c.written) + ' · Discussion: ' + esc(c.discussion) + ' · Literature: ' + esc(c.literature) + '</p><p><strong>Did well:</strong> ' + nl2br(c.strength) + '</p><p><strong>Next step:</strong> ' + nl2br(c.nextStep) + '</p>'
+            : '<p class="muted">' + (c.contact === 'covered' ? 'Covered in the advisor\'s annual review' : 'Not enough contact') + '</p>') +
+          (c.returnedReason ? '<p class="warn">Returned: ' + esc(c.returnedReason) + (c.returnUntil ? ' (revise by ' + esc(c.returnUntil) + ')' : '') + '</p>' : '') + actions + '</div>';
+      }).join('') : '<p class="muted">No comments for this quarter yet.</p>';
+      document.getElementById('followups').innerHTML = d.followups.length ? d.followups.map(function (f) {
+        return '<div class="card"><h3>' + esc(f.student) + ' · ' + esc(f.course) + (f.overdue ? ' <span class="pill bad">Overdue</span>' : '') + '</h3><p>' + nl2br(f.note) + '</p><p class="muted">Day ' + esc(f.day) + ' · talk with the student by ' + esc(f.deadline) + '</p>' +
+          '<div class="grid2"><div><label for="o_' + esc(f.id) + '">Outcome</label><select id="o_' + esc(f.id) + '"><option value="">Choose…</option><option>Discussed</option><option>Support arranged</option><option>Raised as an interim check-in</option></select></div>' +
+          '<div><label for="d_' + esc(f.id) + '">Date of the conversation</label><input type="date" id="d_' + esc(f.id) + '"></div></div>' +
+          '<label class="radio"><input type="checkbox" id="i_' + esc(f.id) + '"> Create the interim check-in now (only with "Raised as an interim check-in")</label><button data-close="' + esc(f.id) + '">Record</button></div>';
+      }).join('') : '<p class="muted">No open follow-ups.</p>';
+      document.getElementById('records').innerHTML = d.records.length ? d.records.map(function (r) {
+        return '<div class="card"><h3>' + esc(r.student) + ' · ' + esc(r.year) + (r.released ? ' <span class="pill">Released</span>' : '') + '</h3><p>' + esc(r.coverage) + '</p>' +
+          '<label for="s_' + esc(r.id) + '">Synthesis (optional, 2–4 sentences on patterns across courses; written by you, without AI drafting). Note any next steps from different instructors that conflict.</label>' +
+          '<textarea id="s_' + esc(r.id) + '">' + esc(r.synthesis) + '</textarea><button data-syn="' + esc(r.id) + '">Save synthesis</button></div>';
+      }).join('') + '<label for="yr">Release the records for</label><input type="text" id="yr" placeholder="SPR2026–WIN2027" value="' + esc((d.records[0] || {}).year || '') + '"><button id="relRec" class="primary">Release records</button>'
+        : '<p class="muted">No records assembled yet. The administrator runs "Build Feedback Records" in spring week 2.</p>';
+      var rr = document.getElementById('relRec');
+      if (rr) rr.onclick = function () { call('releaseRecords', document.getElementById('yr').value.trim()).then(function (n) { say(n + ' record(s) released.', 'ok'); load(); }).catch(function (e) { say(e.message, 'bad'); }); };
+    }).catch(function (e) { say(e.message, 'bad'); });
+  }
+
+  document.querySelector('main').addEventListener('click', function (e) {
+    var t = e.target, id;
+    if ((id = t.getAttribute('data-check'))) call('checkComment', id).then(load).catch(function (er) { say(er.message, 'bad'); });
+    if ((id = t.getAttribute('data-return'))) call('returnComment', id, document.getElementById('r_' + id).value, document.getElementById('n_' + id).value)
+      .then(function (until) { say('Returned; the instructor can revise until ' + until + '.', 'ok'); load(); }).catch(function (er) { say(er.message, 'bad'); });
+    if ((id = t.getAttribute('data-close'))) call('closeFollowup', id, document.getElementById('o_' + id).value, document.getElementById('d_' + id).value, document.getElementById('i_' + id).checked)
+      .then(function () { say('Recorded.', 'ok'); load(); }).catch(function (er) { say(er.message, 'bad'); });
+    if ((id = t.getAttribute('data-syn'))) call('saveSynthesis', id, document.getElementById('s_' + id).value).then(function () { say('Saved.', 'ok'); }).catch(function (er) { say(er.message, 'bad'); });
+  });
+  document.getElementById('load').onclick = load;
+  document.getElementById('release').onclick = function () {
+    if (!confirm('Release this quarter\'s comments to students and advisors now?')) return;
+    call('releaseQuarter', document.getElementById('quarter').value.trim().toUpperCase()).then(function (n) { say('Released to ' + n + ' student(s).', 'ok'); load(); }).catch(function (e) { say(e.message, 'bad'); });
+  };
+  load();
+</script>
+</body>
+</html>

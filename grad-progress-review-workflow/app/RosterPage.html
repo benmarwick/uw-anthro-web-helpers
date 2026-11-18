@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><base target="_top"><meta charset="utf-8"><?!= include_('Styles') ?></head>
+<body>
+<header class="top"><h1>Roster</h1><p>MyGrad registrations and Time Schedule sections for course feedback; MyGrad data for the annual review.</p></header>
+<main>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="note">Each button opens a tab. In that tab, click the matching bookmarklet (MyGrad Table Audit on MyGrad; Time Schedule Sections on the Time Schedule). The data comes back here by itself, and you can close the tab. If that ever fails, each bookmarklet can download a CSV instead, which you upload below.</div>
+
+  <h2>Quarter</h2>
+  <label for="quarter">Course feedback quarter</label>
+  <input type="text" id="quarter" placeholder="WIN2027">
+
+  <h2>Course feedback roster</h2>
+  <button id="getReg" class="primary">Get MyGrad registrations</button>
+  <button id="getTs" class="primary">Get Time Schedule sections</button>
+  <p id="regState" class="muted">MyGrad: not yet.</p>
+  <p id="tsState" class="muted">Time Schedule: not yet.</p>
+  <details><summary>Upload CSVs instead</summary>
+    <label for="regCsv">MyGrad registrations CSV</label><input type="file" id="regCsv" accept=".csv,text/csv">
+    <label for="tsCsv">Time Schedule sections CSV</label><input type="file" id="tsCsv" accept=".csv,text/csv">
+  </details>
+  <button id="preview">Preview</button><button id="import" class="primary">Import</button>
+  <div id="previewOut"></div>
+
+  <h2>Instructor pages this quarter</h2>
+  <div id="pages"></div>
+  <button id="launch" class="primary">Launch course feedback</button>
+
+  <h2>Annual review: MyGrad data</h2>
+  <p class="muted">Milestones, leave, GPA, candidacy, ANTH 800 credits and the year's courses for the self-report (annual review plan §9.3). Students confirm or correct every value.</p>
+  <button id="getPre">Get MyGrad data</button>
+  <label for="preCsv">Or upload the MyGrad prefill CSV</label><input type="file" id="preCsv" accept=".csv,text/csv">
+  <div id="preOut"></div>
+</main>
+<?!= include_('Common') ?>
+<script>
+  var MYGRAD = 'https://webappssecure.grad.uw.edu', TS = 'https://www.washington.edu';
+  var CFG = null, REG = null, TSD = null, pending = { mygrad: null, ts: null };
+
+  function q() { return document.getElementById('quarter').value.trim().toUpperCase(); }
+
+  function yearQuarters(code) {
+    var y = Number(code.slice(3)), t = code.slice(0, 3);
+    var spring = t === 'AUT' ? y + 1 : y;
+    return ['SUM' + (spring - 1), 'AUT' + (spring - 1), 'WIN' + spring, 'SPR' + spring];
+  }
+
+  function curriculaFromReg() {
+    var set = {};
+    (REG.registrations || []).forEach(function (r) { if (!r.withdrawn) set[r.curric] = true; });
+    var list = Object.keys(set).sort();
+    return CFG.curriculaFilter ? list.filter(function (c) { return CFG.curriculaFilter.indexOf(c) !== -1; }) : list;
+  }
+
+  window.addEventListener('message', function (e) {
+    var d = e.data || {};
+    if (e.origin === MYGRAD) {
+      if (d.type === 'mygrad-ready' && pending.mygrad) e.source.postMessage(pending.mygrad, e.origin);
+      if (d.type === 'mygrad-error') say(d.error, 'bad');
+      if (d.type === 'mygrad-data' && d.mode === 'registrations') {
+        REG = d; pending.mygrad = null;
+        document.getElementById('regState').textContent = 'MyGrad: ' + d.students.length + ' students, ' + d.registrations.length + ' registrations for ' + d.quarter +
+          (d.failures.length ? '; ' + d.failures.length + ' transcript(s) failed: ' + d.failures.map(function (f) { return f.email; }).join(', ') : '') + '.';
+      }
+      if (d.type === 'mygrad-data' && d.mode === 'prefill') {
+        pending.mygrad = null;
+        call('importMyGradPrefill', d).then(showPrefill).catch(function (er) { say(er.message, 'bad'); });
+      }
+    }
+    if (e.origin === TS) {
+      if (d.type === 'ts-ready' && pending.ts) e.source.postMessage(pending.ts, e.origin);
+      if (d.type === 'ts-error') say(d.error, 'bad');
+      if (d.type === 'ts-sections') {
+        TSD = d; pending.ts = null;
+        document.getElementById('tsState').textContent = 'Time Schedule: ' + d.sections.length + ' sections for ' + d.quarter +
+          (d.missingCurricula.length ? '; not found: ' + d.missingCurricula.join(', ') : '') + (d.cecError ? '; appointment types not read (' + d.cecError + ')' : '') + '.';
+      }
+    }
+  });
+
+  function showPrefill(res) {
+    document.getElementById('preOut').innerHTML = '<p class="ok">Students: ' + res.added + ' added, ' + res.updated + ' updated' + (res.failures ? ', ' + res.failures + ' failed' : '') + '.</p>' +
+      (res.notInMyGrad.length ? '<p class="warn">Active in the Students sheet but not on the MyGrad list (check whether they have left): ' + res.notInMyGrad.map(esc).join(', ') + '</p>' : '');
+  }
+
+  document.getElementById('getReg').onclick = function () {
+    if (!/^(AUT|WIN|SPR|SUM)\d{4}$/.test(q())) { say('Enter the quarter first, for example WIN2027.', 'bad'); return; }
+    pending.mygrad = { type: 'mygrad-config', mode: 'registrations', quarter: q() };
+    window.open(CFG.myGradUrl, '_blank');
+    say('MyGrad opened. Click the MyGrad Table Audit bookmarklet in that tab.');
+  };
+  document.getElementById('getTs').onclick = function () {
+    if (!REG) { say('Get the MyGrad registrations first; they decide which departments to read.', 'bad'); return; }
+    var cs = curriculaFromReg();
+    if (!cs.length) { say('No registrations in the departments for this phase.', 'bad'); return; }
+    pending.ts = { type: 'ts-config', quarter: q(), curricula: cs };
+    window.open('https://www.washington.edu/students/timeschd/' + q() + '/', '_blank');
+    say('Time Schedule opened for ' + cs.join(', ') + '. Click the Time Schedule Sections bookmarklet in that tab.');
+  };
+  document.getElementById('getPre').onclick = function () {
+    var code = q() || CFG.quarter;
+    pending.mygrad = { type: 'mygrad-config', mode: 'prefill', quarters: yearQuarters(code) };
+    window.open(CFG.myGradUrl, '_blank');
+    say('MyGrad opened. Click the MyGrad Table Audit bookmarklet in that tab.');
+  };
+
+  function parseCsv(text) {
+    var rows = [], row = [], cell = '', inQ = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (inQ) { if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') inQ = false; else cell += ch; }
+      else if (ch === '"') inQ = true;
+      else if (ch === ',') { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += ch;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    var head = rows.shift() || [];
+    return rows.filter(function (r) { return r.length > 1; }).map(function (r) { var o = {}; head.forEach(function (h, j) { o[h] = r[j]; }); return o; });
+  }
+  function readFile(input, fn) {
+    var f = input.files[0]; if (!f) return;
+    var rd = new FileReader(); rd.onload = function () { fn(parseCsv(String(rd.result))); }; rd.readAsText(f);
+  }
+  document.getElementById('regCsv').onchange = function () {
+    readFile(this, function (rows) {
+      REG = { type: 'mygrad-data', mode: 'registrations', quarter: (rows[0] || {}).quarter || q(), students: [], failures: [],
+        registrations: rows.map(function (r) { return { quarter: r.quarter, studentEmail: r.studentEmail, curric: r.curric, number: r.number, section: r.section, withdrawn: r.withdrawn === 'true' }; }) };
+      document.getElementById('regState').textContent = 'MyGrad (CSV): ' + REG.registrations.length + ' registrations for ' + REG.quarter + '.';
+    });
+  };
+  document.getElementById('tsCsv').onchange = function () {
+    readFile(this, function (rows) {
+      var appts = {};
+      var sections = rows.map(function (r) {
+        var names = r.instructors ? r.instructors.split('/') : [], kinds = r.appointments ? r.appointments.split('/') : [];
+        names.forEach(function (n, i) { if (kinds[i]) appts[n.toUpperCase().replace(/\s*,\s*/g, ',').replace(/\.+$/, '').replace(/\s+/g, ' ').trim()] = { appointment: kinds[i], quarter: r.quarter }; });
+        return { quarter: r.quarter, curric: r.curric, number: r.number, section: r.section, sln: r.sln, type: r.type, credits: r.credits, instructors: names,
+          joint: r.joint === 'true', independentStudy: r.independentStudy === 'true', meeting: r.meeting };
+      });
+      TSD = { type: 'ts-sections', quarter: (rows[0] || {}).quarter || q(), sections: sections, missingCurricula: [], appointments: appts, cecError: '' };
+      document.getElementById('tsState').textContent = 'Time Schedule (CSV): ' + sections.length + ' sections for ' + TSD.quarter + '.';
+    });
+  };
+  document.getElementById('preCsv').onchange = function () {
+    readFile(this, function (rows) {
+      var d = { type: 'mygrad-data', mode: 'prefill', students: rows.map(function (r) { var o = Object.assign({}, r); try { o.courses = JSON.parse(r.courses || '[]'); } catch (e) { o.courses = []; } return o; }), failures: [] };
+      call('importMyGradPrefill', d).then(showPrefill).catch(function (er) { say(er.message, 'bad'); });
+    });
+  };
+
+  function missingForm(names) {
+    if (!names.length) return '<p class="ok">Every instructor has an email.</p>';
+    return '<h3>Instructors without an email</h3><p class="muted">Launch stays disabled until each has one. Check new names in the UW Directory.</p>' + names.map(function (n, i) {
+      return '<div class="card"><strong>' + esc(n) + '</strong><div class="grid2"><div><label for="em' + i + '">UW email</label><input type="email" id="em' + i + '"></div>' +
+        '<div><label for="ap' + i + '">Appointment</label><select id="ap' + i + '"><option value="">As found in the CEC</option><option>faculty</option><option>graduate student</option><option>other</option></select></div></div>' +
+        '<button data-save="' + i + '" data-name="' + esc(n) + '">Save</button></div>';
+    }).join('');
+  }
+
+  function showPreview(p) {
+    var h = '<div class="card"><p><strong>' + esc(p.summary) + '</strong></p>';
+    if (p.unmatched && p.unmatched.length) h += '<p class="warn">No Time Schedule match: ' + p.unmatched.map(esc).join(', ') + '</p>';
+    if (p.missingCurricula && p.missingCurricula.length) h += '<p class="warn">Departments not found in the Time Schedule: ' + p.missingCurricula.map(esc).join(', ') + '</p>';
+    if (p.pages) h += '<table class="rows"><thead><tr><th>Offering</th><th>Instructors</th><th>Students</th></tr></thead><tbody>' + p.pages.map(function (x) {
+      return '<tr><td>' + esc(x.offering) + '</td><td>' + esc(x.instructors) + '</td><td>' + esc(x.students) + '</td></tr>'; }).join('') + '</tbody></table>';
+    h += missingForm(p.missingInstructors || []) + '</div>';
+    document.getElementById('previewOut').innerHTML = h;
+  }
+
+  document.getElementById('previewOut').addEventListener('click', function (e) {
+    var i = e.target.getAttribute('data-save');
+    if (i === null) return;
+    call('saveInstructor', e.target.getAttribute('data-name'), document.getElementById('em' + i).value, document.getElementById('ap' + i).value)
+      .then(function () { e.target.textContent = 'Saved'; e.target.disabled = true; }).catch(function (er) { say(er.message, 'bad'); });
+  });
+
+  document.getElementById('preview').onclick = function () {
+    say('Running the join…');
+    call('previewCourseFeedback', q(), REG, TSD).then(function (p) { showPreview(p); say('Preview ready. Nothing has been saved yet.', 'ok'); }).catch(function (e) { say(e.message, 'bad'); });
+  };
+  document.getElementById('import').onclick = function () {
+    say('Importing…');
+    call('importCourseFeedback', q(), REG, TSD).then(function (p) { showPreview(p); say('Imported: ' + p.created + ' new instructor page(s).', 'ok'); loadPages(); }).catch(function (e) { say(e.message, 'bad'); });
+  };
+  document.getElementById('launch').onclick = function () {
+    if (!confirm('Send every new instructor page for ' + q() + ' now?')) return;
+    call('launchCourseFeedbackFromPage', q()).then(function (n) { say(n + ' instructor page(s) sent.', 'ok'); loadPages(); }).catch(function (e) { say(e.message, 'bad'); });
+  };
+
+  function loadPages() {
+    call('rosterPageData').then(function (c) {
+      CFG = c;
+      if (!document.getElementById('quarter').value) document.getElementById('quarter').value = c.quarter || '';
+      var rows = c.requests.filter(function (r) { return !q() || true; });
+      document.getElementById('pages').innerHTML = rows.length ? '<table class="rows"><thead><tr><th>Offering</th><th>Instructors</th><th>Status</th><th>Action</th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          var act = r.status === 'NOT_MY_COURSE'
+            ? '<label class="sr-only" for="re_' + esc(r.requestId) + '">Right instructor emails</label><input type="text" id="re_' + esc(r.requestId) + '" placeholder="right instructor email(s)"><button data-reissue="' + esc(r.requestId) + '">Re-send</button>'
+            : '<label class="sr-only" for="co_' + esc(r.requestId) + '">Co-instructor email</label><input type="email" id="co_' + esc(r.requestId) + '" placeholder="add a co-instructor"><button data-co="' + esc(r.requestId) + '">Add</button>';
+          return '<tr><td>' + esc(r.offering) + '</td><td>' + esc(r.instructors) + '<br><span class="muted">' + esc(r.emails) + '</span></td><td>' + esc(r.status) + '</td><td>' + act + '</td></tr>';
+        }).join('') + '</tbody></table>' : '<p class="muted">No instructor pages yet for this quarter.</p>';
+    }).catch(function (e) { say(e.message, 'bad'); });
+  }
+  document.getElementById('pages').addEventListener('click', function (e) {
+    var co = e.target.getAttribute('data-co'), re = e.target.getAttribute('data-reissue');
+    if (co) call('addCoInstructor', co, document.getElementById('co_' + co).value).then(function () { say('Co-instructor added.', 'ok'); loadPages(); }).catch(function (er) { say(er.message, 'bad'); });
+    if (re) call('reissueRequest', re, document.getElementById('re_' + re).value).then(function () { say('Page re-sent.', 'ok'); loadPages(); }).catch(function (er) { say(er.message, 'bad'); });
+  });
+
+  loadPages();
+</script>
+</body>
+</html>

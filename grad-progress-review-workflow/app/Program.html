@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><base target="_top"><meta charset="utf-8"><?!= include_('Styles') ?></head>
+<body>
+<header class="top"><h1>Program stage and calibration</h1><p>For the GPC, or the alternate reviewer for the GPC's own advisees.</p></header>
+<main>
+  <label for="sf">Subfield</label><select id="sf"><option value="">All</option></select>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="note"><strong>Open each calibration meeting with the rating levels</strong> (annual review plan §6), using one or two anonymized examples from past cycles; in the first cycle, write the examples yourself.
+    <ul style="margin:6px 0 0"><li><strong>Satisfactory:</strong> meeting expectations.</li><li><strong>Satisfactory with concerns:</strong> on track overall, with specific issues.</li>
+    <li><strong>Unsatisfactory:</strong> not meeting performance or progress expectations.</li></ul>
+    <p style="margin:6px 0 0">Course feedback appears as a summary only. Its rating levels are never compared across instructors or students.</p></div>
+  <div id="list"></div>
+  <h2>Alert tracker</h2><div id="alerts"></div>
+</main>
+<?!= include_('Common') ?>
+<script>
+  var D = null;
+  var CHECKS = ['Nothing is about the person rather than the work.', 'Nothing is outside academic progress (TA or RA job performance, health, personal circumstances).',
+    'Nothing is unclear.', 'Nothing is faint praise or hedged, so that the student could not tell what it means.',
+    'Nothing describes possible misconduct under the Student Conduct Code (if it does, return it and consult Community Standards & Student Conduct first).'];
+
+  function card(r) {
+    var id = esc(r.reviewId);
+    var h = '<div class="card" id="c_' + id + '"><h2 style="margin-top:0">' + esc(r.student) + ' <span class="pill">' + esc(r.status) + '</span> <span class="pill">' + esc(r.type) + ' · ' + esc(r.program) + '</span></h2>' +
+      '<p class="muted">' + esc(r.subfield) + (r.year ? ' · year ' + esc(r.year) : '') + (r.due ? ' · due ' + esc(r.due) : '') + (r.gpcOnlyPresent ? ' · GPC-only note present' : '') + '</p>';
+    if (r.flags.length) h += '<div class="warnbox"><ul style="margin:0">' + r.flags.map(function (f) { return '<li>' + esc(f.text) + '</li>'; }).join('') + '</ul></div>';
+    if (r.status === 'ESCALATED') {
+      h += '<div class="warnbox"><strong>Escalated from ' + esc(r.escalatedFrom) + '.</strong><label for="er_' + id + '">Reason (required)</label><input type="text" id="er_' + id + '">' +
+        '<label for="ed_' + id + '">New due date (for Extend)</label><input type="date" id="ed_' + id + '">' +
+        '<button data-esc="extend" data-id="' + id + '">Extend</button><button data-esc="skip" data-id="' + id + '">Skip the stage</button><button data-esc="exempt" data-id="' + id + '">Mark exempt</button></div></div>';
+      return h;
+    }
+    if (r.courseFeedback) h += '<details><summary>Course feedback summary</summary>' + recordHtml(r.courseFeedback) + '</details>';
+    h += '<h3>Advisor</h3><p><strong>Recommended rating:</strong> ' + esc(r.recommendedRating || 'not yet') + '</p><p><strong>Accomplishments:</strong> ' + nl2br(r.accomplishments) + '</p>' +
+      (r.developmentAreas.length ? '<p><strong>Areas for development:</strong> ' + r.developmentAreas.map(function (a) { return esc(a.area) + ' (' + esc(a.seriousness) + ')'; }).join('; ') + '</p>' : '') +
+      (r.concerns && r.concerns.benchmark ? '<p><strong>Concerns:</strong> ' + esc(r.concerns.benchmark) + ' · by ' + esc(r.concerns.deadline) + ' · support: ' + esc(r.concerns.support) + ' · consequence: ' + esc(r.concerns.consequence) + '</p>' : '');
+    if (r.status !== 'PROGRAM_PENDING') return h + '</div>';
+    h += '<h3>Program decision</h3><div class="grid2"><div><label for="fr_' + id + '">Final rating</label><select id="fr_' + id + '"><option value="">Choose…</option>' +
+      ['Satisfactory', 'Satisfactory with concerns', 'Unsatisfactory'].map(function (x) { return '<option' + (x === r.finalRating ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></div>' +
+      '<div><label for="sa_' + id + '">Status action (separate from the rating)</label><select id="sa_' + id + '">' + ['none', 'Notification', 'Alert', 'Final Alert'].map(function (x) {
+        return '<option' + (x === r.statusAction ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></div></div>' +
+      '<label for="or_' + id + '">Reason for a different rating (required if it differs from the advisor\'s)</label><input type="text" id="or_' + id + '">' +
+      '<label for="aq_' + id + '">Alert quarter (autumn by default; Anthropology does not require summer registration)</label><input type="text" id="aq_' + id + '" value="' + esc(r.alertQuarter) + '">' +
+      (r.flags.some(function (f) { return f.needsDecision; }) ? '<label for="td_' + id + '">Time-limit decision (Alert, extension, or why neither applies)</label><input type="text" id="td_' + id + '" value="' + esc(r.timeLimitDecision) + '">' : '') +
+      '<label for="lt_' + id + '">Letter</label><textarea id="lt_' + id + '" style="min-height:220px">' + esc(r.letterText) + '</textarea>' +
+      '<label for="cn_' + id + '">Calibration notes (not shown in the app; the student can request them)</label><textarea id="cn_' + id + '"></textarea>' +
+      '<button data-save="' + id + '">Save</button><button data-gpconly="' + id + '">Read GPC-only notes</button><div id="g_' + id + '"></div>' +
+      '<fieldset><legend>Check the advisor\'s narrative and the letter</legend>' + CHECKS.map(function (c, i) { return '<label class="radio"><input type="checkbox" data-chk="' + id + '"> ' + esc(c) + '</label>'; }).join('') + '</fieldset>' +
+      '<button class="primary" data-release="' + id + '">Release the letter</button>' +
+      '<label for="rt_' + id + '">Or return a passage to the advisor (they have 5 days)</label><input type="text" id="rt_' + id + '" placeholder="Reason the advisor will see"><button data-return="' + id + '">Return to the advisor</button>' +
+      (r.returnUntil ? '<p class="warn">With the advisor until ' + esc(r.returnUntil) + '.</p>' : '') + '</div>';
+    return h;
+  }
+
+  function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+
+  function load() {
+    call('programViewData', document.getElementById('sf').value).then(function (d) {
+      D = d;
+      var sel = document.getElementById('sf');
+      if (sel.options.length === 1) d.subfields.forEach(function (s) { sel.insertAdjacentHTML('beforeend', '<option>' + esc(s) + '</option>'); });
+      document.getElementById('list').innerHTML = d.reviews.length ? d.reviews.map(card).join('') : '<p class="muted">No reviews to show.</p>';
+    }).catch(function (e) { say(e.message, 'bad'); });
+    call('alertTracker').then(function (a) {
+      document.getElementById('alerts').innerHTML = a.length ? '<table class="rows"><thead><tr><th>Student</th><th>Alert quarter</th><th>Due (10th business day)</th><th>Petition until</th><th>Sent</th></tr></thead><tbody>' +
+        a.map(function (x) { return '<tr><td>' + esc(x.student) + '</td><td>' + esc(x.quarter) + '</td><td>' + esc(x.due) + '</td><td>' + esc(x.petitionUntil) + '</td><td>' +
+          (x.sent ? esc(x.sent) : '<label class="sr-only" for="as_' + esc(x.reviewId) + '">Date sent</label><input type="date" id="as_' + esc(x.reviewId) + '"><button data-asent="' + esc(x.reviewId) + '">Record</button>') + '</td></tr>'; }).join('') + '</tbody></table>'
+        : '<p class="muted">No Alert recommendations.</p>';
+    }).catch(function () {});
+  }
+
+  function payload(id) {
+    var p = { finalRating: val('fr_' + id), statusAction: val('sa_' + id), overrideReason: val('or_' + id), alertQuarter: val('aq_' + id).toUpperCase(), letterText: val('lt_' + id) };
+    if (document.getElementById('td_' + id)) p.timeLimitDecision = val('td_' + id);
+    if (val('cn_' + id)) p.calibrationNotes = val('cn_' + id);
+    return p;
+  }
+
+  document.querySelector('main').addEventListener('click', function (e) {
+    var t = e.target, id;
+    if ((id = t.getAttribute('data-save'))) call('saveProgramStage', id, payload(id)).then(function () { say('Saved.', 'ok'); }).catch(function (er) { say(er.message, 'bad'); });
+    if ((id = t.getAttribute('data-gpconly'))) call('gpcOnlyNotes', id).then(function (n) {
+      document.getElementById('g_' + id).innerHTML = '<div class="note">' + (Object.keys(n).length ? Object.keys(n).map(function (k) { return '<p><strong>' + esc(k) + ':</strong> ' + nl2br(n[k]) + '</p>'; }).join('') : 'No GPC-only notes.') + '</div>';
+    }).catch(function (er) { say(er.message, 'bad'); });
+    if ((id = t.getAttribute('data-release'))) {
+      var all = Array.prototype.every.call(document.querySelectorAll('[data-chk="' + id + '"]'), function (c) { return c.checked; });
+      call('saveProgramStage', id, payload(id)).then(function () { return call('releaseLetter', id, all); })
+        .then(function () { say('Letter released to the student.', 'ok'); load(); }).catch(function (er) { say(er.message, 'bad'); });
+    }
+    if ((id = t.getAttribute('data-return'))) call('returnToAdvisor', id, val('rt_' + id)).then(function (u) { say('Returned to the advisor until ' + u + '.', 'ok'); load(); }).catch(function (er) { say(er.message, 'bad'); });
+    if (t.getAttribute('data-esc')) { id = t.getAttribute('data-id'); call('resolveEscalationAction', id, t.getAttribute('data-esc'), val('er_' + id), val('ed_' + id))
+      .then(function (s) { say('Now ' + s + '.', 'ok'); load(); }).catch(function (er) { say(er.message, 'bad'); }); }
+    if ((id = t.getAttribute('data-asent'))) call('recordAlertSent', id, val('as_' + id)).then(function () { say('Recorded.', 'ok'); load(); }).catch(function (er) { say(er.message, 'bad'); });
+  });
+  document.getElementById('sf').onchange = load;
+  load();
+</script>
+</body>
+</html>

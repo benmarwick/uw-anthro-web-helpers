@@ -29,7 +29,7 @@
 
 ### 1.2 Course feedback
 
-**Instructor pages (`Feedback_Requests.Status`)**: `NOT_STARTED → SENT → DRAFT → SUBMITTED → CLOSED`. `NOT_MY_COURSE` is reachable from `SENT` or `DRAFT` and ends that page; the administrator's correction creates a new page with the same due date. A submitted page stays editable until it closes (decision 10).
+**Instructor pages (`Feedback_Requests.Status`)**: `NOT_STARTED → SENT → DRAFT → SUBMITTED → CLOSED`. `NOT_MY_COURSE` is reachable from `SENT` or `DRAFT` and ends that page; the administrator's correction creates a new page with the same due date and the same `Request_Key`, and marks the old row `REISSUED` so the record and the next import use the new one. A submitted page stays editable until it closes (decision 10).
 
 **Co-taught lock**: opening a draft writes `Lock_Owner` and `Lock_Until` (30 minutes) to the page row. Others see it read-only, with the name of the person editing. Saving extends the lock; closing the page or letting it expire releases it.
 
@@ -351,6 +351,21 @@ Every page checks the signed-in UW account against the row, applies recusal befo
 >
 > An Academic Alert recommendation for {n} {student_or_students} must reach the student and the Graduate School by {due_long}, the 10th business day of {quarter} (Policy 3.7.3). Petitions are considered up to the 15th. [Open the Alert checklist].
 
+**AR-13. Check-in ready for the advisor** (PhD interim check-ins, and MA check-ins after the student's part; added during the build because §1.1 has no other way to tell the advisor)
+
+> **Subject:** A check-in is ready for you
+>
+> Dear {first_name},
+>
+> {student_name}'s {quarter} check-in is ready for you: [Open the check-in]. It's due {due_long}.
+>
+> {interim_line: It follows up on the plan you agreed at their last review, and asks for progress on each benchmark and your verdict: resolved, continuing, or escalate to me.} {ma_line: It asks for your milestone determinations, any action items, and your verdict on how the quarter went.}
+>
+> Thank you for keeping in touch with them.
+>
+> With thanks,
+> {gpc_name}
+
 **AR-12. Post-cycle survey** (to students and advisors after acknowledgement)
 
 > **Subject:** Help us make the annual review better
@@ -400,9 +415,6 @@ Run each in a test copy, with one account playing every role, as the TA system w
 
 ## 5. Still Unverified Before or During the Build
 
-- **R3:** whether the Apps Script page receives `postMessage` from a MyGrad tab and a Time Schedule tab (course-feedback §4.5).
-- **R1:** how MyGrad shows a quiz-section registration and a dropped course.
-- The joint-listing merge, which relies on matching instructors and meeting times and has not been tried on a real joint pair.
-- Whether MyGrad's `GPA` field follows the Graduate School's definition (annual review plan §6).
-- The 10 MB upload (test 23).
+- **Checked 18 Nov 2026:** the joint-listing merge on real Autumn 2026 pairs (ANTH 203 with LING 203; ANTH 432/532 with LING 432/532; ANTH 324 with 524), and MyGrad's `GPA` field against the Graduate School's definition (34 of 34 students matched within 0.01).
+- The 10 MB upload (test 23), and every test that needs the live app: the owner must first open the deployed web app once and approve its permissions in Google's consent screen.
 - The retention series, still to be confirmed with Records Management (annual review plan §10).

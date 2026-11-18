@@ -493,7 +493,7 @@ A fourth outcome, *"Not reviewed – on leave or exempt"*, records the cycle wit
 - No compact on file, or a compact last revised more than 12 months ago.
 - A milestone past its "unsatisfactory if not done by" date.
 - No committee Chair (Policy 4.2.4).
-- A cumulative GPA below 3.0, prefilled from MyGrad (§9.3). The flag uses the Graduate School's definition: numeric grades in 400- and 500-level courses only, excluding 600, 700, 800 and 801 courses (§2.2). Whether MyGrad's `GPA` field follows that definition is unverified; check it against one student's transcript during the build.
+- A cumulative GPA below 3.0, prefilled from MyGrad (§9.3). The flag uses the Graduate School's definition: numeric grades in 400- and 500-level courses only, excluding 600, 700, 800 and 801 courses (§2.2). MyGrad's `GPA` field follows that definition: for all 34 current students with a GPA on record, it matched a credit-weighted average of their numeric 400- and 500-level transcript grades within 0.01 (checked 18 Nov 2026; the other 7 had no GPA yet).
 - A 3rd consecutive *with concerns* rating.
 - No meeting with the advisor this year, from the student's count of actual meetings (§5.1). Passive ("laissez-faire") supervision was associated with higher odds of psychological distress, and more frequent meetings with less exhaustion (Levecque et al. 2017; Devine & Hunter 2016; §2.5).
 

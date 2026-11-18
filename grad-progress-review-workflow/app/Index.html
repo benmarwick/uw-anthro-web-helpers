@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><base target="_top"><meta charset="utf-8"><?!= include_('Styles') ?></head>
+<body>
+<header class="top"><h1 id="title">Annual review</h1><p id="sub"></p></header>
+<main id="main"><p>Loading…</p></main>
+<?!= include_('Common') ?>
+<script>
+  var DATA = <?!= dataJson ?>;
+  var R = null, FIELDS = [];
+
+  var YN = ['Yes', 'No'];
+  var STUDENT_ANNUAL = [
+    { key: 'status', label: 'Program, subfield, advisors and committee', help: 'Check what we have on file (shown above) and note anything to correct, including quarters on leave.', type: 'textarea' },
+    { key: 'milestones', label: 'Milestones', help: 'Committee, MA, language or methods, qualifying or first-year review, prospectus, General Exam, IRB, fieldwork, candidacy, reading committee, Final Exam.', type: 'rows',
+      columns: [{ key: 'milestone', label: 'Milestone' }, { key: 'doneOn', label: 'Done on', type: 'date' }, { key: 'plannedFor', label: 'Planned for' }] },
+    { key: 'behindSchedule', label: 'If a milestone is past its expected date: what happened, and your plan', type: 'textarea' },
+    { key: 'coursework', label: 'Courses this year', help: 'Filled in from your MyGrad transcript. Add courses planned and any incompletes.', type: 'rows',
+      columns: [{ key: 'quarter', label: 'Quarter' }, { key: 'course', label: 'Course' }, { key: 'title', label: 'Title' }, { key: 'grade', label: 'Grade' }] },
+    { key: 'courseFeedbackResponse', label: 'Which one or two next steps from your course feedback will you act on this year, and how?', help: 'Optional. Your Course Feedback Record is shown above.', type: 'textarea' },
+    { key: 'research', label: 'Research progress', help: 'Fieldwork, lab or collections work, analysis, chapter status, working title. About 500 words.', type: 'textarea', required: true, max: 4000 },
+    { key: 'publications', label: 'Publications and other outputs', type: 'rows', columns: [{ key: 'citation', label: 'Citation' },
+      { key: 'stage', label: 'Stage', type: 'select', options: ['in preparation', 'submitted', 'in review', 'accepted', 'published'] },
+      { key: 'peerReviewed', label: 'Peer reviewed', type: 'select', options: YN }, { key: 'type', label: 'Type', type: 'select', options: ['article', 'chapter', 'dataset', 'software', 'public scholarship'] }] },
+    { key: 'presentations', label: 'Presentations', type: 'rows', columns: [{ key: 'title', label: 'Title' }, { key: 'venue', label: 'Venue' }, { key: 'date', label: 'Date', type: 'date' }, { key: 'type', label: 'Type' }] },
+    { key: 'grants', label: 'Grants and fellowships', help: 'Count unsuccessful applications too.', type: 'rows', columns: [{ key: 'funder', label: 'Funder' }, { key: 'amount', label: 'Amount' },
+      { key: 'outcome', label: 'Outcome', type: 'select', options: ['applied', 'awarded', 'declined', 'pending'] }] },
+    { key: 'appointments', label: 'Teaching and research appointments', help: 'Description only; your TA or RA work is not rated here.', type: 'rows',
+      columns: [{ key: 'role', label: 'Role' }, { key: 'courseOrProject', label: 'Course or project' }, { key: 'quarter', label: 'Quarter' }] },
+    { key: 'service', label: 'Service, outreach and community-engaged work', type: 'textarea' },
+    { key: 'lastGoals', label: "Last year's goals", type: 'rows', columns: [{ key: 'goal', label: 'Goal', type: 'readonly' },
+      { key: 'status', label: 'Met?', type: 'select', options: ['met', 'partly met', 'not met'] }, { key: 'comment', label: 'Comment' }] },
+    { key: 'nextPlan', label: "Next year's plan", help: 'Goals for degree progress, research, skills, career and funding (personal is optional).', type: 'rows', required: true,
+      columns: [{ key: 'category', label: 'Category', type: 'select', options: ['degree progress', 'research', 'skills', 'career', 'funding', 'personal'] }, { key: 'goal', label: 'Goal' }] },
+    { key: 'funding', label: 'Funding and TA requests for next year', help: 'Expected funding source; TA or RA interest by quarter.', type: 'textarea' },
+    { key: 'actionItemsProgress', label: 'Action items from last year', type: 'rows', columns: [{ key: 'action', label: 'Action', type: 'readonly' },
+      { key: 'status', label: 'Status', type: 'select', options: ['done', 'in progress', 'dropped'] }, { key: 'note', label: 'Note' }] },
+    { key: 'careerCheckin', label: 'Career check-in', help: 'Your aspirations, what has changed and what support you want. Seen by you and your advisors only; not in the PDF.', type: 'textarea' },
+    { key: 'mentoringMap', label: 'Your mentoring network', help: 'Optional. Who supports you, by role. Seen by you and your advisors only.', type: 'rows',
+      columns: [{ key: 'role', label: 'Role', type: 'select', options: ['research', 'writing', 'career', 'emotional support', 'accountability', 'community'] }, { key: 'who', label: 'Who' }] },
+    { key: 'challenges', label: 'Challenges', help: 'Optional. Your advisor will read this.', type: 'textarea' },
+    { key: 'actualMeetings', label: 'How many times did you meet your advisor this year?', type: 'number' },
+    { key: 'advising', label: 'Advising', help: 'Preferred meeting frequency; any committee changes needed. Your advisor sees this section.', type: 'textarea' },
+    { key: 'asks', label: 'What would help you most this year?', type: 'textarea' },
+    { key: 'gpcOnly', label: 'Only for the GPC (optional)', help: 'Your advisor will not see this, and it is never printed in the PDF. It is part of your education record, which you can see. You can also use the department\'s anonymous form or talk to the Office of the Ombud.', type: 'textarea' },
+    { key: 'signatureName', label: 'Type your name to sign', type: 'text', required: true }
+  ];
+  var STUDENT_MA = [
+    { key: 'research', label: 'How did this quarter go, and what comes next?', type: 'textarea', required: true },
+    { key: 'careerCheckin', label: 'Career check-in', help: 'Seen by you and your advisor only.', type: 'textarea' },
+    { key: 'gpcOnly', label: 'Only for the GPC (optional)', help: 'Your advisor will not see this.', type: 'textarea' },
+    { key: 'signatureName', label: 'Type your name to sign', type: 'text', required: true }
+  ];
+  var ADVISOR_ANNUAL = [
+    { key: 'meetingDate', label: 'Date you met the student', help: 'The meeting is expected before you evaluate.', type: 'date', required: true },
+    { key: 'milestoneDeterminations', label: 'Milestone determinations', help: 'For each milestone attempted this year. Printed in the letter as your written decision.', type: 'rows',
+      columns: [{ key: 'milestone', label: 'Milestone' }, { key: 'result', label: 'Result', type: 'select', options: ['satisfied', 'not yet satisfied', 'not satisfied'] }, { key: 'reason', label: 'One-line reason' }] },
+    { key: 'mentorChecklist', label: 'Mentor checklist', type: 'group', fields: [
+      { key: 'deadlinesKnown', label: 'The student knows the upcoming milestone deadlines', type: 'select', options: YN },
+      { key: 'feasiblePlan', label: 'The student has a feasible plan to meet them', type: 'select', options: YN },
+      { key: 'standardDiscussed', label: 'We discussed the standard for the next milestone', type: 'select', options: YN },
+      { key: 'roadblocks', label: 'Roadblocks I can remove' }] },
+    { key: 'actionItems', label: 'Action items', help: 'Printed in the letter and carried into next year\'s form and any check-in.', type: 'rows',
+      columns: [{ key: 'action', label: 'Action' }, { key: 'owner', label: 'Owner', type: 'select', options: ['student', 'advisor', 'committee', 'program'] }, { key: 'due', label: 'Due', type: 'date' }] },
+    { key: 'agreement', label: "Do you agree with the student's self-assessment?", help: 'If not, say how you advised the student.', type: 'rows',
+      columns: [{ key: 'area', label: 'Area', type: 'readonly' }, { key: 'agree', label: 'Agree?', type: 'select', options: ['agree', 'disagree'] }, { key: 'comment', label: 'Comment' }] },
+    { key: 'accomplishments', label: 'Notable accomplishments', help: 'Specific work, with an example. Fed into the letter.', type: 'textarea', required: true },
+    { key: 'developmentAreas', label: 'Areas for development', type: 'rows', columns: [{ key: 'area', label: 'Area' }, { key: 'seriousness', label: 'Seriousness', type: 'select', options: ['minor', 'moderate', 'serious'] }] },
+    { key: 'timelineComments', label: 'Comments on the timeline', help: 'Required if a milestone is overdue.', type: 'textarea' },
+    { key: 'goalsAdded', label: 'Goals added or amended for next year', type: 'textarea' },
+    { key: 'careerSkillsComment', label: 'Comment on the career check-in (optional, no rating)', type: 'textarea' },
+    { key: 'recommendedRating', label: 'Recommended rating', type: 'select', options: ['Satisfactory', 'Satisfactory with concerns', 'Unsatisfactory'], required: true },
+    { key: 'concerns', label: 'If there are concerns', help: 'Each is required when the rating is below Satisfactory (Policy 3.7.2).', type: 'group', fields: [
+      { key: 'benchmark', label: 'The specific benchmark' }, { key: 'deadline', label: 'The deadline' }, { key: 'support', label: 'The support you and the department will give' },
+      { key: 'consequence', label: 'The consequence if the benchmark is not met' }] },
+    { key: 'checkinMonths', label: 'Check-in in', help: 'Three months is required if the student is missing a milestone or has a GPA below 3.0.', type: 'select', options: ['3', '6'] },
+    { key: 'letterParagraph', label: 'Paragraph for the letter (optional)', type: 'textarea' },
+    { key: 'discussedCourseFeedback', label: 'We discussed the Course Feedback Record', type: 'check' },
+    { key: 'advisingChallenges', label: 'Is anything making it hard to advise this student well? (optional)', help: 'The GPC reads this, and the student sees it with the letter.', type: 'textarea' },
+    { key: 'signatureName', label: 'Type your name to sign', help: 'Co-advisors can add to this draft; one of you signs.', type: 'text', required: true }
+  ];
+  var ADVISOR_CHECKIN = [
+    { key: 'benchmarkProgress', label: 'Progress on each benchmark', type: 'textarea' },
+    { key: 'milestoneDeterminations', label: 'Milestone determinations', type: 'rows', columns: [{ key: 'milestone', label: 'Milestone' },
+      { key: 'result', label: 'Result', type: 'select', options: ['satisfied', 'not yet satisfied', 'not satisfied'] }, { key: 'reason', label: 'Reason' }] },
+    { key: 'actionItems', label: 'Action items', type: 'rows', columns: [{ key: 'action', label: 'Action' }, { key: 'owner', label: 'Owner', type: 'select', options: ['student', 'advisor', 'committee', 'program'] }, { key: 'due', label: 'Due', type: 'date' }] },
+    { key: 'verdict', label: 'Your verdict', type: 'select', options: ['resolved', 'continuing', 'escalate'], required: true, help: '"escalate" sends the check-in to the GPC.' },
+    { key: 'signatureName', label: 'Type your name to sign', type: 'text', required: true }
+  ];
+  var ACK = [
+    { key: 'acknowledged', label: 'I have read my advisor\'s evaluation and the letter. (Acknowledging does not mean agreeing.)', type: 'check', required: true },
+    { key: 'responseText', label: 'Your written response (optional)', help: 'It will be attached to your review.', type: 'textarea' },
+    { key: 'meetGpc', label: 'I would like to meet with the GPC', type: 'check' },
+    { key: 'signatureName', label: 'Type your name to sign', type: 'text', required: true }
+  ];
+
+  function section(title, body) { return '<h2>' + esc(title) + '</h2>' + body; }
+
+  function render() {
+    var stageName = { student: R.type === 'ANNUAL' ? 'Your report' : 'Your check-in', advisor: R.type === 'ANNUAL' ? 'Advisor evaluation' : 'Advisor check-in', ack: 'Your letter' }[R.stage];
+    document.getElementById('title').textContent = (R.type === 'ANNUAL' ? 'Annual review ' + R.cycle : 'Check-in') + ': ' + stageName;
+    document.getElementById('sub').textContent = R.studentName + (R.due ? ' · due ' + R.due : '');
+    var h = '';
+    if (R.returned) h += '<div class="warnbox"><strong>The GPC asked you to look again at your evaluation:</strong> ' + nl2br(R.returnNote) + '</div>';
+    if (R.flags && R.flags.length && R.stage !== 'student') h += '<div class="note"><strong>Flags</strong><ul>' + R.flags.map(function (f) { return '<li>' + esc(f.text) + '</li>'; }).join('') + '</ul></div>';
+    var draft = R.draft || {};
+    if (R.stage === 'student') {
+      var pre = R.prefill || {};
+      FIELDS = R.type === 'ANNUAL' ? STUDENT_ANNUAL : STUDENT_MA;
+      if (R.type === 'ANNUAL') {
+        if (!draft.coursework && pre.coursework) draft.coursework = pre.coursework;
+        if (!draft.lastGoals && pre.lastGoals) draft.lastGoals = pre.lastGoals;
+        if (!draft.actionItemsProgress && pre.actionItemsProgress) draft.actionItemsProgress = pre.actionItemsProgress;
+        var m = pre.mygrad || {};
+        h += '<div class="note"><strong>From MyGrad:</strong> candidacy ' + esc(m.candidacyDate || 'not yet') + ' · ANTH 800 credits ' + esc(m.anth800Credits || 0) +
+          ' · doctoral committee ' + esc(m.hasDocComm || '?') + ' · UW degrees ' + esc(m.uwDegrees || 'none') + '. Correct anything wrong in the first box.</div>';
+        h += '<div class="note">Your advisor reads your report before you meet. Each box says who reads it.</div>';
+        if (R.courseFeedback) h += section('Your Course Feedback Record', recordHtml(R.courseFeedback));
+      }
+    }
+    if (R.stage === 'advisor') {
+      FIELDS = R.type === 'ANNUAL' ? ADVISOR_ANNUAL : ADVISOR_CHECKIN;
+      if (R.type === 'ANNUAL' && !draft.agreement) draft.agreement = ['milestones', 'research', 'coursework', 'professional activity', 'next year\'s plan'].map(function (a) { return { area: a, agree: '', comment: '' }; });
+      var sr = R.studentReport || {};
+      h += section("The student's report", Object.keys(sr).filter(function (k) { return k !== 'prefill' && k !== 'signatureName'; }).map(function (k) {
+        return '<h3>' + esc(k) + '</h3>' + showValue(sr[k]); }).join('') || '<p class="muted">Nothing submitted.</p>');
+      if (R.development && Object.keys(R.development).length) h += section('Development modules (you and the student only)', Object.keys(R.development).map(function (k) { return '<h3>' + esc(k) + '</h3>' + showValue(R.development[k]); }).join(''));
+      if (R.courseFeedback) h += section('Course Feedback Record (read-only)', recordHtml(R.courseFeedback));
+    }
+    if (R.stage === 'ack') {
+      FIELDS = ACK;
+      h += section("Your advisor's evaluation", Object.keys(R.advisor || {}).filter(function (k) { return k !== 'signatureName'; }).map(function (k) { return '<h3>' + esc(k) + '</h3>' + showValue(R.advisor[k]); }).join(''));
+      if (R.advisingChallenges) h += section("Your advisor's note on advising", nl2br(R.advisingChallenges));
+      h += section('Final rating', esc(R.finalRating)) + section('Your letter', '<div class="card">' + nl2br(R.letterText) + '</div>');
+      h += '<div class="note">You can respond in writing, ask to meet the GPC, use informal resolution with the GPC or the Office of the Ombud, and then the College of Arts &amp; Sciences grievance procedure (Policy 3.8).</div>';
+    }
+    h += '<h2>' + esc(stageName) + '</h2><form id="form" onsubmit="return false">' + FIELDS.map(function (f) { return fieldHtml(f, draft[f.key]); }).join('') + '</form>';
+    if (R.stage === 'student' && R.type === 'ANNUAL') h += '<h3>CV (recommended)</h3><form id="cvform"><label for="cv">CV with the past year highlighted (PDF, 10 MB or smaller)</label><input type="file" id="cv" name="cv" accept="application/pdf"><button type="button" id="cvup">Upload CV</button></form>';
+    h += '<div class="status"><button id="save">Save draft</button><button id="submit" class="primary">Submit</button><div id="msg" role="status" aria-live="polite"></div></div>';
+    document.getElementById('main').innerHTML = h;
+    bindForm(document.getElementById('form'), FIELDS);
+    document.getElementById('save').onclick = function () { send(false); };
+    document.getElementById('submit').onclick = function () { if (confirm('Submit now? You will not be able to change it afterwards.')) send(true); };
+    var up = document.getElementById('cvup');
+    if (up) up.onclick = function () {
+      say('Uploading…');
+      google.script.run.withSuccessHandler(function () { say('CV uploaded.', 'ok'); }).withFailureHandler(function (e) { say(e.message, 'bad'); }).uploadCv(DATA.token, document.getElementById('cvform'));
+    };
+    setInterval(function () { send(false, true); }, 30000);
+  }
+
+  var sending = false;
+  function send(final, quiet) {
+    if (sending) return;
+    sending = true;
+    if (!quiet) say(final ? 'Submitting…' : 'Saving…');
+    call('saveReviewStage', DATA.token, collectForm(document.getElementById('form')), final).then(function (res) {
+      sending = false;
+      if (final) document.getElementById('main').innerHTML = '<div class="card"><h2>Thank you</h2><p>Your ' + (R.stage === 'ack' ? 'acknowledgement' : 'submission') + ' is saved. You\'ll get an email when there is a next step.</p></div>';
+      else if (!quiet) say('Draft saved.', 'ok');
+    }).catch(function (e) { sending = false; if (!quiet) say(e.message, 'bad'); });
+  }
+
+  call('loadReview', DATA.token).then(function (r) {
+    if (r.error) { document.getElementById('main').innerHTML = '<div class="warnbox">' + esc(r.error) + '</div>'; return; }
+    R = r; render();
+  }).catch(function (e) { document.getElementById('main').innerHTML = '<div class="warnbox">' + esc(e.message) + '</div>'; });
+</script>
+</body>
+</html>

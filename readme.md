@@ -183,7 +183,9 @@ Each cell has three states, and the glyph or the number carries the meaning rath
 
 One caveat worth knowing: the Anthropology MA test reads UW degrees only, so an MA earned at another institution is not counted.
 
-The script does not collect or use any information about the student outside of MyGrad. The script does not use or contain AI. The data collected by the script are protected by the Family Educational Rights and Privacy Act ([FERPA](https://registrar.washington.edu/staff-faculty/ferpa/)) of 1974 and must not be shared outside of the UW Anthropology advising office without written consent of the student. No data are collected from your computer. 
+The script does not collect or use any information about the student outside of MyGrad. The script does not use or contain AI. The data collected by the script are protected by the Family Educational Rights and Privacy Act ([FERPA](https://registrar.washington.edu/staff-faculty/ferpa/)) of 1974 and must not be shared outside of the UW Anthropology advising office without written consent of the student.
+
+**Sending data to the graduate review app.** When the [graduate review app](grad-progress-review-workflow/README.md) opens the Current Student List in a new tab, the panel shows a "Graduate review app" section. The bookmarklet then reads every student's transcript and sends the result back to the app tab with `postMessage`. It answers only an Apps Script page (an `https://*-script.googleusercontent.com` origin) that asked for the data first. For course feedback it sends each student's courses for one quarter, with no grades; a withdrawal is sent only as `withdrawn: true`. For the annual review it sends the Current Student List fields, candidacy, ANTH 800 credits and the year's courses with grades, which the student then confirms in their own form. Without the app, the same panel can download either set as a CSV. Nothing leaves your browser unless the app asks for it or you download a CSV. 
 
 #### Script for the bookmarklet:
 
@@ -214,6 +216,36 @@ javascript:(function(){
 -   Check the panel for any `?` cells. A question mark means the request failed rather than that the milestone is missing, and **Refresh milestones** will retry.
 -   Click any milestone value to open the MyGrad page it came from in a new tab, and hover to see the evidence behind it. Click the panel title to collapse the panel if it is in the way.
 
+
+## Time Schedule Sections Bookmarklet
+
+#### Overview
+
+This script supplies the course feedback module of the [graduate review app](grad-progress-review-workflow/README.md) with the Time Schedule sections its students are registered in ([course-feedback plan](grad-progress-review-workflow/course-feedback-plan.md) §4.2, §4.5). Run it on any UW Time Schedule page. When the app opened the tab, the app sends the quarter and the departments it needs; the script fetches only those departments' Time Schedule pages and sends back every section: SLN, section ID, credits or type (`QZ` marks a quiz section), instructor, the joint-listing flag (a `J` in the Other column) and the meeting time. It also reads each instructor's appointment type from the index of the [Course Evaluation Catalog](https://www.washington.edu/cec/), so the app can leave out graduate-student instructors. It answers only an Apps Script page (an `https://*-script.googleusercontent.com` origin). Run without the app, it asks for a quarter and departments and downloads a CSV. The Time Schedule and the CEC index contain no student data. The script does not use or contain AI. No data are collected from your computer.
+
+#### Script for the bookmarklet:
+
+```
+javascript:(function(){
+  var repo = 'benmarwick/uw-anthro-web-helpers';
+  var file = 'bookmarklet-time-schedule-sections.js';
+  var hint = 'Open a UW Time Schedule page, then click the bookmark again.';
+  function load(ref) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/gh/' + repo + '@' + ref + '/' + file + (ref === 'main' ? '?t=' + Date.now() : '');
+    s.onerror = function() { alert('The tool could not load. Check your internet connection. ' + hint); };
+    document.body.appendChild(s);
+  }
+  fetch('https://api.github.com/repos/' + repo + '/commits/main', { headers: { Accept: 'application/vnd.github.sha' } })
+    .then(function(r) { return r.ok ? r.text() : ''; })
+    .then(function(sha) { load(/^[0-9a-f]{40}$/.test(sha) ? sha : 'main'); }, function() { load('main'); });
+})();
+```
+
+#### How to use:
+
+-   You usually do not open this yourself: on the app's Roster page, click **Get Time Schedule sections**. In the Time Schedule tab that opens, sign in if asked, then click this bookmark. The sections go back to the app, and you can close the tab.
+-   Without the app, open any Time Schedule page, click the bookmark, and answer the two prompts; a CSV downloads, which the Roster page can upload.
 
 ## MyGrad Anthropology Department Student Summary Bookmarklet
 

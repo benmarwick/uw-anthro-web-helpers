@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><base target="_top"><meta charset="utf-8"><?!= include_('Styles') ?></head>
+<body>
+<header class="top"><h1 id="title">Your course feedback</h1><p id="sub"></p></header>
+<main id="main"><p>Loading…</p></main>
+<?!= include_('Common') ?>
+<script>
+  var DATA = <?!= dataJson ?>;
+  var main = document.getElementById('main');
+  function fail(e) { main.innerHTML = '<div class="warnbox">' + esc(e.message) + '</div>'; }
+
+  if (DATA.view === 'student') {
+    call('myCourseFeedback').then(function (d) {
+      document.getElementById('sub').textContent = 'Notes from your instructors, released after the GPC reads them.';
+      var h = '<div class="note">Each note names one thing you did well and one suggestion for what to work on next. They are separate from your grades and meant to help you plan, so take what is useful. If anything is unclear, your advisor and the GPC are glad to talk it over.</div>';
+      if (d.records.length) h += d.records.map(function (r) { return '<h2>Course Feedback Record ' + esc(r.year) + '</h2>' + recordHtml(r.record); }).join('');
+      h += d.quarters.length ? d.quarters.map(function (q) { return '<h2>' + esc(q.quarter) + '</h2>' + recordHtml(q.record); }).join('') : '<p class="muted">No course feedback has been released to you yet.</p>';
+      main.innerHTML = h;
+    }).catch(fail);
+  } else if (DATA.view === 'advisor') {
+    document.getElementById('title').textContent = "Your advisees' course feedback";
+    call('adviseesCourseFeedback').then(function (list) {
+      main.innerHTML = list.length ? list.map(function (a) {
+        return '<h2>' + esc(a.name) + '</h2>' + a.quarters.map(function (q) { return '<h3>' + esc(q.quarter) + '</h3>' + recordHtml(q.record); }).join('');
+      }).join('') : '<p class="muted">No course feedback has been released for your advisees yet.</p>';
+    }).catch(fail);
+  } else {
+    document.getElementById('title').textContent = 'Subfield summary';
+    document.getElementById('sub').textContent = 'For preparing the calibration meeting: coverage, ratings grid and follow-ups only.';
+    call('coordinatorSummary').then(function (list) {
+      main.innerHTML = '<div class="note">Course feedback levels are relative to each student\'s stage, are not averaged, and are never compared across instructors or students.</div>' +
+        (list.length ? list.map(function (s) {
+          return '<div class="card"><h2 style="margin-top:0">' + esc(s.name) + '</h2><p class="muted">' + esc(s.subfield) + (s.year ? ' · year ' + esc(s.year) : '') +
+            (s.recommendedRating ? ' · advisor recommends: ' + esc(s.recommendedRating) : '') + '</p>' + recordHtml(s.record) + '</div>';
+        }).join('') : '<p class="muted">No students in your subfield yet.</p>');
+    }).catch(fail);
+  }
+</script>
+</body>
+</html>

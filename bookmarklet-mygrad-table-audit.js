@@ -64,7 +64,11 @@ javascript:(function(){
    against the student it was asked for, which turns a silently
    wrong answer into a visible failure.
 
-   No AI is used. Nothing leaves the browser.
+   No AI is used. Nothing leaves the browser unless you press "Send
+   to the app" (when the graduate review app opened this tab) or
+   download a CSV. The app bridge below sends only to an Apps Script
+   page (an https://*-script.googleusercontent.com origin) that asked
+   for the data first, and sends no grades for course feedback.
    ============================================================ */
 
 const url = new URLSearchParams(location.search);
@@ -903,6 +907,211 @@ function updateCounts(g){
     });
 }
 
+
+/* ============================================================
+   APP BRIDGE (course-feedback plan §4.5, task R1;
+   annual review plan §9.3)
+
+   When the graduate review app opens this tab, the bookmarklet
+   tells the app it is ready, waits for the app's request, reads
+   every student's transcript with the identity check above, and
+   sends the result back with postMessage. It answers only an
+   Apps Script page (https://*-script.googleusercontent.com).
+
+   Two requests:
+     registrations: the target quarter's courses for every student.
+       No grades are sent; a withdrawal (W, W3...) is sent as
+       withdrawn:true so the import can drop it.
+     prefill: Current Student List fields, candidacy and ANTH 800
+       credits, and the year's courses with titles and grades for
+       the annual review's coursework field.
+   Without an opener tab, the same data can be downloaded as CSV.
+   ============================================================ */
+
+const APP_ORIGIN_RE = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
+const QUARTER_WORDS = {AUT:'AUTUMN', WIN:'WINTER', SPR:'SPRING', SUM:'SUMMER'};
+const RE_QTR_LABEL = /\b(AUTUMN|WINTER|SPRING|SUMMER)\s+(\d{4})\b/;
+
+function quarterCodeFromWords(label){
+    const m = norm(label).toUpperCase().match(RE_QTR_LABEL);
+    if(!m) return '';
+    const code = Object.keys(QUARTER_WORDS).find(k => QUARTER_WORDS[k] === m[1]);
+    return code + m[2];
+}
+
+/* Every course row on a student's transcript: [{quarter, course, title, grade}]. */
+async function transcriptCourses(d){
+    const r = await fetchVerified(transcriptUrl(d.SystemKey), RE_TR_NAME, d.StudentName, {tries:3});
+    if(r.login) return {login:true};
+    if(r.error) return {error:r.error};
+    const rows = [];
+    Array.prototype.slice.call(r.doc.querySelectorAll('table')).forEach(t => {
+        const head = Array.prototype.slice.call(t.querySelectorAll('thead th')).map(x => norm(x.textContent)).join('|');
+        if(head.indexOf('Course Title') === -1) return;
+        let prev = t.previousElementSibling, quarter = '';
+        for(let k = 0; k < 4 && prev && !quarter; k++){
+            quarter = quarterCodeFromWords(prev.textContent);
+            prev = prev.previousElementSibling;
+        }
+        Array.prototype.slice.call(t.querySelectorAll('tbody tr')).forEach(tr => {
+            const c = Array.prototype.slice.call(tr.children).filter(x => x.tagName === 'TD').map(td => norm(td.textContent));
+            if(c.length >= 4) rows.push({quarter, course:c[0], title:c[1], credits:c[2], grade:c[3]});
+        });
+    });
+    return {rows};
+}
+
+function splitCourse(cell){
+    const t = norm(cell).split(' ');
+    if(t.length < 3) return null;
+    return {curric:t.slice(0, -2).join(' ').toUpperCase(), number:t[t.length - 2], section:t[t.length - 1]};
+}
+
+/* MyGrad's grid writes quarters as AUT, WTR, SPR, SUM, and a missing year as a single digit
+   (checked 18 Nov 2026). 'WTR' + '2027' -> 'WIN2027'; anything incomplete -> ''. */
+const MYGRAD_QTR = {AUT:'AUT', WTR:'WIN', WIN:'WIN', SPR:'SPR', SUM:'SUM'};
+function quarterFromGrid(q, y){
+    const code = MYGRAD_QTR[norm(q).toUpperCase()];
+    const year = norm(y);
+    return code && /^\d{4}$/.test(year) ? code + year : '';
+}
+
+function studentFields(d){
+    return {
+        email: norm(d.EmailUCS).toLowerCase(),
+        name: norm(d.StudentName),
+        preferredFirst: norm(d.StudentPreferredName).split(/\s+/)[0] || nameParts(d.StudentName).first,
+        program: norm(d.DegLevel) === "Master's" ? 'MA' : 'PHD',
+        entryQuarter: quarterFromGrid(d.GradAdmitQtr, d.GradAdmitYr),
+        gpa: d.GPA == null ? '' : String(d.GPA),
+        leaveEnds: quarterFromGrid(d.LeaveEndsQtr, d.LeaveEndsYr),
+        hasAdvisor: norm(d.HasAdvisor), hasDocComm: norm(d.HasDocComm), hasMastersComm: norm(d.HasMastersComm),
+        hasReadingComm: norm(d.HasReadingComm), uwDegrees: norm(String(d.UWDegrees || '').replace(/<BR\s*\/?>/gi, '; '))
+    };
+}
+
+/* Builds the data the app asked for. */
+async function collectForApp(config, onProgress){
+    const g = grid();
+    const data = Array.prototype.slice.call(g.dataSource.data());
+    const out = {type:'mygrad-data', mode:config.mode, quarter:config.quarter || '', students:[], registrations:[], failures:[]};
+    let done = 0, login = false;
+    await pool(data, CONCURRENCY, async d => {
+        if(login) return;
+        const s = studentFields(d);
+        const tr = await transcriptCourses(d);
+        if(tr.login){ login = true; return; }
+        if(tr.error){ out.failures.push({email:s.email, step:'transcript', error:tr.error}); }
+        else if(config.mode === 'registrations'){
+            tr.rows.filter(r => r.quarter === config.quarter).forEach(r => {
+                const c = splitCourse(r.course);
+                if(c) out.registrations.push({quarter:r.quarter, studentEmail:s.email, curric:c.curric, number:c.number,
+                                              section:c.section, withdrawn:/^W\d*$/.test(r.grade)});
+            });
+        } else {
+            const want = config.quarters || [];
+            s.courses = tr.rows.filter(r => want.indexOf(r.quarter) !== -1)
+                .map(r => ({quarter:r.quarter, course:r.course, title:r.title, grade:r.grade}));
+            /* Same rule as the ANTH 800 Credits column: every ANTH 800 row's credits count. */
+            s.anth800Credits = tr.rows.filter(r => RE_ANTH800_CRS.test(r.course))
+                .reduce((sum, r) => sum + (parseFloat(r.credits) || 0), 0);
+        }
+        out.students.push(s);
+        onProgress(++done, data.length);
+    });
+    if(login) return {login:true};
+    if(config.mode === 'prefill'){
+        /* The requests page keeps the student in server session state, so it is fetched one at a time. */
+        for(const d of data){
+            const s = out.students.find(x => x.email === norm(d.EmailUCS).toLowerCase());
+            if(!s) continue;
+            const rq = await requestsSignal(d);
+            if(rq.login) return {login:true};
+            if(rq.error){ out.failures.push({email:s.email, step:'requests', error:rq.error}); continue; }
+            s.candidacyDate = rq.candidacy === YES ? (rq.candDate || 'yes') : '';
+        }
+    }
+    return out;
+}
+
+function csvCell(v){
+    const t = String(v == null ? '' : v);
+    return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+
+function downloadCsv(name, header, rows){
+    const lines = [header.join(',')].concat(rows.map(r => header.map(h => csvCell(r[h])).join(',')));
+    const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+}
+
+function bridgeStatus(text){
+    const p = $id('uw-bridge-status');
+    if(p) p.textContent = text;
+}
+
+function buildBridgePanel(){
+    if($id('uw-bridge')) return;
+    const body = document.querySelector('#uw-controls .uw-body');
+    if(!body) return;
+    const box = document.createElement('div');
+    box.id = 'uw-bridge';
+    box.innerHTML = '<div class="sep"></div><div class="title">Graduate review app</div>' +
+        (window.opener
+            ? '<div class="progress" id="uw-bridge-status">Waiting for the app\'s request…</div>'
+            : '<button id="uw-csv-reg">Download registrations CSV</button><button id="uw-csv-pre">Download prefill CSV</button>' +
+              '<div class="progress" id="uw-bridge-status"></div>');
+    body.appendChild(box);
+    if(!window.opener){
+        $id('uw-csv-reg').onclick = async () => {
+            const q = (prompt('Quarter to export (for example AUT2026):') || '').trim().toUpperCase();
+            if(!/^(AUT|WIN|SPR|SUM)\d{4}$/.test(q)) return;
+            const res = await collectForApp({mode:'registrations', quarter:q}, (n, t) => bridgeStatus('Transcripts ' + n + ' / ' + t));
+            if(res.login){ bridgeStatus('Your MyGrad session has expired. Sign in again.'); return; }
+            downloadCsv('mygrad-registrations-' + q + '.csv', ['quarter', 'studentEmail', 'curric', 'number', 'section', 'withdrawn'], res.registrations);
+            bridgeStatus(res.registrations.length + ' registrations exported' + (res.failures.length ? '; ' + res.failures.length + ' failed' : ''));
+        };
+        $id('uw-csv-pre').onclick = async () => {
+            const qs = (prompt('Quarters for coursework, comma separated (for example SUM2026,AUT2026,WIN2027,SPR2027):') || '')
+                .toUpperCase().split(',').map(x => x.trim()).filter(x => /^(AUT|WIN|SPR|SUM)\d{4}$/.test(x));
+            const res = await collectForApp({mode:'prefill', quarters:qs}, (n, t) => bridgeStatus('Transcripts ' + n + ' / ' + t));
+            if(res.login){ bridgeStatus('Your MyGrad session has expired. Sign in again.'); return; }
+            const rows = res.students.map(s => Object.assign({}, s, {courses:JSON.stringify(s.courses || [])}));
+            downloadCsv('mygrad-prefill.csv', ['email', 'name', 'preferredFirst', 'program', 'entryQuarter', 'gpa', 'leaveEnds', 'hasAdvisor',
+                         'hasDocComm', 'hasMastersComm', 'hasReadingComm', 'uwDegrees', 'candidacyDate', 'anth800Credits', 'courses'], rows);
+            bridgeStatus(rows.length + ' students exported' + (res.failures.length ? '; ' + res.failures.length + ' failed' : ''));
+        };
+    }
+}
+
+function startAppBridge(){
+    buildBridgePanel();
+    if(!window.opener) return;
+    let busy = false;
+    window.addEventListener('message', async e => {
+        if(!APP_ORIGIN_RE.test(e.origin) || !e.data || e.data.type !== 'mygrad-config' || busy) return;
+        const config = e.data;
+        if(['registrations', 'prefill'].indexOf(config.mode) === -1) return;
+        busy = true;
+        bridgeStatus('Reading transcripts for the app…');
+        const res = await collectForApp(config, (n, t) => bridgeStatus('Transcripts ' + n + ' / ' + t));
+        busy = false;
+        if(res.login){
+            e.source.postMessage({type:'mygrad-error', error:'MyGrad session expired. Sign in to MyGrad and click the bookmark again.'}, e.origin);
+            bridgeStatus('Your MyGrad session has expired. Sign in again.');
+            return;
+        }
+        e.source.postMessage(res, e.origin);
+        bridgeStatus('Sent to the app: ' + res.students.length + ' students' +
+            (config.mode === 'registrations' ? ', ' + res.registrations.length + ' registrations' : '') +
+            (res.failures.length ? '; ' + res.failures.length + ' failed (listed in the app)' : '') + '. You can close this tab.');
+    });
+    window.opener.postMessage({type:'mygrad-ready', version:1}, '*');
+}
+
 /* ============================================================
    INIT
    ============================================================ */
@@ -910,6 +1119,7 @@ function updateCounts(g){
 injectStyle();
 buildPanel();
 loadCache();
+startAppBridge();
 
 (function init(){
     const g = gridReady();
