@@ -29,11 +29,11 @@ It is a sibling of [`ta-evaluation-workflow`](../ta-evaluation-workflow) and reu
 
 **Before Monday 7 December 2026:**
 
-1. Load the real students: on the Roster page, **Get MyGrad data** (setup step 9). On 18 Nov 2026 MyGrad refused connections from the deploying computer, so this is not done yet.
-2. Fill in `Advisor_Emails`, `Chair_Email` and `Subfield` in `Students`. Recusal needs them, because the GPC's own advisees and the students whose committee the GPC chairs go to the alternate reviewer. So does the advisor's option on instructor pages.
+1. **GPC:** load the real students: on the Roster page, **Get MyGrad data** (setup step 9). On 18 Nov 2026 MyGrad refused connections from the deploying computer, so this is not done yet.
+2. **GPC:** fill in `Advisor_Emails`, `Chair_Email` and `Subfield` in `Students` (the GPC maintains these columns; decided 18 Nov 2026). Recusal needs them, because the GPC's own advisees and the students whose committee the GPC chairs go to the alternate reviewer. So does the advisor's option on instructor pages.
 3. Import the Autumn 2026 roster and enter the email of every instructor the CEC catalog does not list (course feedback steps below).
 4. Test with a second UW account: an instructor who is not the administrator should open their own page and be refused another's.
-5. The GPC creates the triggers (setup step 10).
+5. **GPC:** create the triggers (setup step 10), after steps 1 and 2. MA check-ins then go out on Monday 7 December with the instructor pages (decided 18 Nov 2026), to every active MA student with an advisor listed, so fill in the MA students' advisors first.
 6. Monday 7 December: re-import, then **Launch course feedback** on the Roster page.
 
 **Built:** every server module and page in build-spec §2, both bookmarklet bridges, the 24 email templates (CF-1 to CF-11, AR-1 to AR-13), the daily trigger, and metrics.
@@ -68,7 +68,7 @@ It is a sibling of [`ta-evaluation-workflow`](../ta-evaluation-workflow) and reu
 
 **Live.** These three come from the deployed app on 18 Nov 2026, signed in as the owner, who was then also set as administrator. The data are invented: three students and the instructors in the Time Schedule test fixture, uploaded through the Roster page's CSV fallback.
 
-The Roster page after the CSV uploads and Preview for Winter 2027. This image was taken before the fix that makes the list under "Instructor pages this quarter" follow the quarter box, so the list still shows the Autumn 2026 sample pages.
+The Roster page after the CSV uploads and Preview for Winter 2027. This image was taken before the fix that makes the list under "Instructor pages this quarter" follow the chosen quarter, and before the quarter and year pickers replaced the text box, so the list still shows the Autumn 2026 sample pages.
 
 ![Live Roster page with a join preview](screenshots/live-roster-preview.png)
 
@@ -177,7 +177,7 @@ The administrator installs two bookmarklets from the main [readme](../readme.md)
 
 ### 9. Fill in the Students sheet
 
-On the Roster page, click **Get MyGrad data** and then the MyGrad bookmarklet in the tab that opens (see "Prepare the annual cycle" below). That adds every current student with the MyGrad fields. Then fill in the columns the administrator maintains, which the import never overwrites:
+On the Roster page, click **Get MyGrad data** and then the MyGrad bookmarklet in the tab that opens (see "Prepare the annual cycle" below). That adds every current student with the MyGrad fields. Then fill in the columns the GPC maintains, which the import never overwrites:
 
 | Column | What to put there |
 |------------------------------------|------------------------------------|
@@ -241,7 +241,7 @@ The calendar is in course-feedback plan §5.4. For Autumn 2026, the first quarte
 
 **Administrator, week 3 of the quarter.**
 
-1.  Open the Roster page and type the quarter, for example `WIN2027`.
+1.  Open the Roster page and choose the quarter (Autumn, Winter, Spring or Summer) and the year. Type the year, or click the calendar button beside it and pick from the grid. The page opens on the current quarter, and the list of instructor pages follows your choice.
 2.  Click **Get MyGrad registrations**. In the MyGrad tab that opens, click the MyGrad Table Audit bookmarklet. When the Roster page shows "MyGrad: … registrations", close the tab. Grades never leave MyGrad.
 3.  Click **Get Time Schedule sections**. In the Time Schedule tab, click the Time Schedule Sections bookmarklet, wait for "Time Schedule: … sections", and close the tab.
 4.  Click **Preview**. It writes nothing. Check the counts, the excluded rows and their reasons, and the list of instructor pages.

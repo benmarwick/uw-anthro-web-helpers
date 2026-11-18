@@ -8,8 +8,30 @@
   <div class="note">Each button opens a tab. In that tab, click the matching bookmarklet (MyGrad Table Audit on MyGrad; Time Schedule Sections on the Time Schedule). The data comes back here by itself, and you can close the tab. If that ever fails, each bookmarklet can download a CSV instead, which you upload below.</div>
 
   <h2>Quarter</h2>
-  <label for="quarter">Course feedback quarter</label>
-  <input type="text" id="quarter" placeholder="WIN2027">
+  <style>
+    .qpick { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+    .qpick > div { min-width: 160px; }
+    .yearbox { position: relative; display: flex; gap: 6px; }
+    .yearbox input { width: 7em; }
+    .yearbox > button { margin: 0; padding: 6px 10px; }
+    #yearGrid { position: absolute; top: 100%; left: 0; z-index: 5; margin-top: 4px; background: #fff; border: 1px solid #8a8a8a; border-radius: 6px; padding: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15); width: 240px; }
+    #yearGrid .yghead { display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+    #yearGrid .yghead button { margin: 0; padding: 2px 10px; }
+    #yearGrid .ygyears { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 6px; }
+    #yearGrid .ygyears button { margin: 0; padding: 6px 0; }
+    #yearGrid .ygyears button.sel { background: var(--uw); color: #fff; }
+  </style>
+  <p class="muted" id="quarterHelp">Course feedback quarter. Autumn 2026 is the Autumn quarter of the 2026 to 2027 academic year; Winter 2027 comes after it.</p>
+  <div class="qpick">
+    <div><label for="qterm">Quarter</label>
+      <select id="qterm" aria-describedby="quarterHelp"><option value="">Choose…</option><option value="AUT">Autumn</option><option value="WIN">Winter</option><option value="SPR">Spring</option><option value="SUM">Summer</option></select></div>
+    <div><label for="qyear">Year</label>
+      <div class="yearbox">
+        <input type="number" id="qyear" min="2020" max="2099" step="1" inputmode="numeric" placeholder="2026" aria-describedby="quarterHelp">
+        <button type="button" id="yearBtn" aria-label="Pick a year from a calendar" aria-expanded="false" aria-controls="yearGrid"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>
+        <div id="yearGrid" role="dialog" aria-label="Pick a year" hidden></div>
+      </div></div>
+  </div>
 
   <h2>Course feedback roster</h2>
   <button id="getReg" class="primary">Get MyGrad registrations</button>
@@ -39,7 +61,44 @@
   var MYGRAD = 'https://webappssecure.grad.uw.edu', TS = 'https://www.washington.edu';
   var CFG = null, REG = null, TSD = null, pending = { mygrad: null, ts: null };
 
-  function q() { return document.getElementById('quarter').value.trim().toUpperCase(); }
+  /* The quarter code, for example AUT2026, from the Quarter and Year fields; empty until both are set. */
+  function q() {
+    var t = document.getElementById('qterm').value, y = document.getElementById('qyear').value.trim();
+    return t && /^\d{4}$/.test(y) ? t + y : '';
+  }
+  function setQ(code) {
+    var m = /^(AUT|WIN|SPR|SUM)(\d{4})$/.exec(code || '');
+    if (!m) return;
+    document.getElementById('qterm').value = m[1];
+    document.getElementById('qyear').value = m[2];
+  }
+
+  /* Year picker: a grid of twelve years, like the year view of a calendar. */
+  var gridStart = null;
+  function drawYears() {
+    var cur = Number(document.getElementById('qyear').value) || new Date().getFullYear();
+    if (gridStart === null) gridStart = cur - 4;
+    var h = '<div class="yghead"><button type="button" data-yshift="-12" aria-label="Earlier years">&lsaquo;</button><span>' + gridStart + ' to ' + (gridStart + 11) +
+      '</span><button type="button" data-yshift="12" aria-label="Later years">&rsaquo;</button></div><div class="ygyears">';
+    for (var y = gridStart; y < gridStart + 12; y++) h += '<button type="button" data-year="' + y + '"' + (y === cur ? ' class="sel" aria-current="true"' : '') + '>' + y + '</button>';
+    document.getElementById('yearGrid').innerHTML = h + '</div>';
+  }
+  function showYears(open) {
+    var g = document.getElementById('yearGrid'), b = document.getElementById('yearBtn');
+    g.hidden = !open; b.setAttribute('aria-expanded', String(open));
+    if (open) { gridStart = null; drawYears(); var sel = g.querySelector('.sel') || g.querySelector('[data-year]'); if (sel) sel.focus(); }
+  }
+  document.getElementById('yearBtn').onclick = function () { showYears(document.getElementById('yearGrid').hidden); };
+  document.getElementById('yearGrid').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.hasAttribute('data-yshift')) { gridStart += Number(b.getAttribute('data-yshift')); drawYears(); return; }
+    document.getElementById('qyear').value = b.getAttribute('data-year');
+    showYears(false); document.getElementById('yearBtn').focus();
+    if (q()) loadPages();
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !document.getElementById('yearGrid').hidden) { showYears(false); document.getElementById('yearBtn').focus(); } });
+  /* Close on a click outside. drawYears replaces the arrow that was clicked, so skip targets no longer on the page. */
+  document.addEventListener('click', function (e) { if (e.target.isConnected && !e.target.closest('.yearbox')) showYears(false); });
 
   function yearQuarters(code) {
     var y = Number(code.slice(3)), t = code.slice(0, 3);
@@ -86,7 +145,7 @@
   }
 
   document.getElementById('getReg').onclick = function () {
-    if (!/^(AUT|WIN|SPR|SUM)\d{4}$/.test(q())) { say('Enter the quarter first, for example WIN2027.', 'bad'); return; }
+    if (!/^(AUT|WIN|SPR|SUM)\d{4}$/.test(q())) { say('Choose the quarter and year first.', 'bad'); return; }
     pending.mygrad = { type: 'mygrad-config', mode: 'registrations', quarter: q() };
     window.open(CFG.myGradUrl, '_blank');
     say('MyGrad opened. Click the MyGrad Table Audit bookmarklet in that tab.');
@@ -193,7 +252,7 @@
   function loadPages() {
     call('rosterPageData', q()).then(function (c) {
       CFG = c;
-      if (!document.getElementById('quarter').value) document.getElementById('quarter').value = c.quarter || '';
+      if (!q()) setQ(c.quarter);
       var rows = c.requests;
       var waiting = rows.filter(function (r) { return r.status === 'NOT_STARTED'; });
       /* The server lists, for each unsent page, the instructors who should be asked but have no email (the launch applies the same rule). */
@@ -217,7 +276,7 @@
     if (re) call('reissueRequest', re, document.getElementById('re_' + re).value).then(function () { say('Page re-sent.', 'ok'); loadPages(); }).catch(function (er) { say(er.message, 'bad'); });
   });
 
-  document.getElementById('quarter').addEventListener('change', loadPages);
+  ['qterm', 'qyear'].forEach(function (id) { document.getElementById(id).addEventListener('change', function () { if (q()) loadPages(); }); });
   loadPages();
 </script>
 </body>
