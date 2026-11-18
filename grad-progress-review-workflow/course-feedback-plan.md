@@ -160,7 +160,7 @@ Each row gives what the source reports, checked against its abstract or full tex
 6.  **Low-stakes points, one considered record.** Single comments are never averaged, ranked or used alone for any decision. Rating levels are read within one student's record and never compared across instructors or students: signed ratings that the student will read probably skew high, and instructors differ in how they use a scale (§2.3).
 7.  **Concerns do not wait for June.** An instructor can ask the GPC to follow up this quarter (§5.3).
 8.  **No fellow students.** Graduate students who are instructors of record, and quiz-section TAs, are never asked (Policy 3.7.2: "Fellow students should not be involved").
-9.  **One system.** This is a module of the annual review system, not a third app. It uses the same `Students` roster, legal basis, retention series, recusal rules and infrastructure.
+9.  **One system.** This is a module of the annual review system, not a third app. It uses the same `Students` roster, legal basis, retention series, recusal rules and infrastructure, and the GPC owns and maintains it (annual review plan principle 4).
 10. **Feedback reaches the student while the course is recent.** Each quarter's comments are released one to two weeks after the page closes (§6.2). The classroom evidence favours timely feedback (Kulik & Kulik 1988; Shute 2008, §2.3), and a once-a-year release would reach the student four to ten months after the course.
 
 ------------------------------------------------------------------------
@@ -191,7 +191,7 @@ We will get current student registration data from student transcripts in **MyGr
 | Instructor of record is a graduate student; quiz-section TAs | **Excluded** (principle 8). The `Instructors` sheet has an `Appointment` column. The R2 export fills it from the appointment the CEC lists, which the Time Schedule bookmarklet already reads. The administrator confirms it for new names, because the CEC lags by a year and does not list everyone. A quiz-section registration is matched to its lecture, so the quiz-section TA is never asked |
 | Individual and research credits (600, 700, 800 and equivalents elsewhere) | **Excluded.** The advisor covers this work in the annual review |
 | Instructor is the student's advisor | Asked, with a one-click option: "Covered in my annual review." Default: asked |
-| Co-taught course | One shared page. Any co-instructor can draft it, one submits, and every name is recorded (the same pattern as co-advisors) |
+| Co-taught course | One shared page. Whoever opens the draft holds a 30-minute editing lock; the others see it read-only, with the holder's name. Any co-instructor can submit, every name is recorded, and any of them can edit until the page closes (the same pattern as co-advisors) |
 | Joint-listed offering (e.g., ANTH 322 / RELIG 320) | Merged into one page |
 | Student dropped the course before the end of the quarter | Excluded at the finals-week refresh |
 | Student on leave or graduated | No requests |
@@ -217,6 +217,8 @@ The app cannot fetch either source by itself. Apps Script cannot sign in to MyGr
 
 **Checked and unchecked.** Neither MyGrad nor the Time Schedule sends a `Cross-Origin-Opener-Policy` header (checked 17 Nov 2026), so the opened tab keeps its link to the app tab. Google serves an Apps Script page inside a sandboxed frame, and it is not yet known whether that frame receives messages from a tab it opened. Task R3 tests this before the build.
 
+The annual review uses the same page and the same MyGrad bookmarklet to prefill milestones, leave, GPA and coursework (annual review plan §9.3).
+
 A Chrome extension could read both sites without bookmarklet clicks. It would need installing and maintaining on each administrator's machine, and UW may restrict extensions on managed computers, so the plan does not use one.
 
 ------------------------------------------------------------------------
@@ -230,6 +232,8 @@ The email is short and holds one link and no student content. Following Registra
 > *Subject: Brief feedback on graduate students in ANTH 512 (Winter 2027)* You had 3 Anthropology graduate students in ANTH 512 this quarter. One page, 3–4 minutes for each student you can comment on. Students will read your comments with your name on them; they use them to plan their next steps. [Open the page]. Due Friday 2 April. Not your course? [Tell us].
 
 The link opens a NetID-authenticated page and uses the same tokenized, identity-checked link as the TA system.
+
+**"Not my course."** The link opens a short form where the instructor may name who did teach the course. The page's status becomes `NOT_MY_COURSE`, and the administrator gets an alert. The administrator corrects the `Instructors` sheet or the section's instructor and sends a new page to the right person, with the same due date.
 
 ### 5.2 Fields (per student, repeated down one page)
 
@@ -260,7 +264,7 @@ Once per page, the instructor gives a typed name as signature and an optional "H
 
 - The note prompt asks "What did you observe, and when?" (for example, missed submissions, or a pattern across the written work). Supervisors who judged a trainee unsatisfactory often did not report it, partly from "lack of knowledge of what to specifically document" (Dudek, Marks & Regehr 2005, §2.3).
 - The GPC and the advisor get a content-free email the next day, with a link to the note.
-- The GPC, or the advisor if the GPC delegates, **talks with the student within three weeks** and shares the note. The student hears about the concern then, not at the next quarterly release.
+- The GPC, or the advisor if the GPC delegates, **talks with the student within three weeks** and shares the note. The student hears about the concern then, not at the next quarterly release. A Followups screen lists open flags with the days remaining; the handler gets a reminder at two weeks, and an overdue flag shows in red on the GPC's dashboard.
 - The GPC records the outcome: "Discussed," "Support arranged," or "Raised as an interim check-in." Choosing an interim check-in creates an `INTERIM` row in the annual review system. A person makes that choice; the flag never creates the row by itself (principle 2 of the annual review plan).
 - The note and its outcome appear in the year's record.
 - When the GPC is the student's advisor, the alternate reviewer handles the flag (recusal).
@@ -327,7 +331,7 @@ For the GPC's own advisees, the alternate reviewer (by default the department ch
 
 Every student gets their feedback, whether or not they have a spring review.
 
-- **MA (Archaeological Heritage) students.** They see each quarter's comments with the quarterly release, like everyone else, and the comments are also shown at their autumn or winter `INTERIM` check-in (annual review plan §4.4). Their programme is 3–4 quarters, so a yearly record would arrive too late.
+- **MA (Archaeological Heritage) students.** They see each quarter's comments with the quarterly release, like everyone else, and the comments are also shown at their quarterly `INTERIM` check-in (annual review plan §4.4). Their programme is 3–4 quarters, so a yearly record would arrive too late.
 - **Students marked `ON_LEAVE` or `EXEMPT` for the spring review** who had courses in the feedback year. The record is released on its own, in the app and as a PDF, on the same day as everyone else's.
 - **Students leaving the program** through graduation, withdrawal or transfer. A **closing record** compiles every quarter since the last yearly record, including a final quarter whose comments were already released. It is released when the administrator marks the student as leaving in `Students`.
 
@@ -361,6 +365,8 @@ These are new tabs in the annual review spreadsheet. They reuse its `Students` r
 | `Followups` | Flag | `Feedback_ID`, `Handled_By`, `Contact_Date`, `Outcome`, `Interim_Review_ID` |
 | `Feedback_Records` | Student × feedback year | `Feedback_Year` (e.g., `SPR2026–WIN2027`), `Coverage`, `GPC_Synthesis`, `Released_At`, `Released_By`, `PDF_File_ID` |
 
+States and transitions, the page list, every email text and the acceptance tests are in [`build-spec.md`](build-spec.md).
+
 **Code:**
 
 - **New files:**
@@ -368,13 +374,15 @@ These are new tabs in the annual review spreadsheet. They reuse its `Students` r
   - `RosterPage.html`: the Roster page in §4.5, with its buttons, message listener, preview and CSV upload fallback.
   - `CourseFeedback.gs`: launch, merge, the exclusion rules, quarterly release and assembly of the record.
   - `FeedbackForm.html`: the one-page batch form, accessible to WCAG 2.1 AA, with server-side drafts.
-  - `ReviewRelease.html`: the GPC's batch view (§6.2), with the four-item check, return for revision, quarterly release, the yearly synthesis and release of the record.
+  - `ReviewRelease.html`: the GPC's batch view (§6.2), with the four-item check, return for revision, quarterly release, the yearly synthesis and release of the record, and the Followups screen (§5.3).
 - **Reused:** tokens, identity checks, the audit log, the dead-letter queue, reminders and the PDF engine.
 - **Menu items added:** **Import Registrations** (opens the Roster page), **Launch Course Feedback**, **Review and Release** (opens `ReviewRelease.html`), **Build Feedback Records**.
 
 ------------------------------------------------------------------------
 
 ## 8. Changes needed in the annual review plan
+
+These were applied to the annual review plan on 17 November 2026.
 
 - **§4.4 calendar:** feedback records are released at the end of spring week 2, so the student report moves from week 3 to the **end of week 4**. The advisor stage keeps its week-6 deadline, though this gives the advisor one week less. The alternative is to move the advisor deadline to week 7 and calibration to week 8.
 - **§5.1 student self-report:** add the field "Which one or two next steps from your course feedback will you act on this year, and how?", optional, shown with the record.
@@ -399,7 +407,7 @@ These are new tabs in the annual review spreadsheet. They reuse its `Students` r
 
 | When | What |
 |------------------------------------|------------------------------------|
-| Dec 2026 | Graduate committee settles decisions 1–11. **R1:** add the "Send registrations to the app" step, with its CSV download fallback, to the MyGrad Table Audit bookmarklet and test it on Autumn 2026. Check how the transcript shows a quiz section and a dropped course. Optionally run the BI Portal report "[Current Student Registration Courses](https://biportal.uw.edu/details/2B7F3DF0-32AB-49F3-89A4-4F5E86C73D13)" for the same quarter as a cross-check |
+| Dec 2026 | Decisions 1–11 were settled on 17 November 2026; the graduate committee reviews them. **R1:** add the "Send registrations to the app" step, with its CSV download fallback, to the MyGrad Table Audit bookmarklet and test it on Autumn 2026. Check how the transcript shows a quiz section and a dropped course. Optionally run the BI Portal report "[Current Student Registration Courses](https://biportal.uw.edu/details/2B7F3DF0-32AB-49F3-89A4-4F5E86C73D13)" for the same quarter as a cross-check |
 | Jan 2027 | **R3:** before building the Roster page, publish a test Apps Script page that opens a MyGrad tab and a Time Schedule tab, and check that it receives a `postMessage` from each. If it does not, build the CSV upload fallback (§4.5) instead. **R2:** add the "Send sections to the app" step, with its CSV download fallback, to the Time Schedule bookmarklet. Build the `Instructors` sheet. Build the module alongside the annual review build (§12 of that plan) |
 | Early Mar 2027 | Test run with one account playing instructor, student and GPC |
 | **Winter 2027** (opens 15 Mar) | **Pilot:** ANTH, ARCHY and BIO A courses only. The first records cover Winter 2027 alone. Say so on the record ("first year: one quarter") |
@@ -409,7 +417,9 @@ These are new tabs in the annual review spreadsheet. They reuse its `Students` r
 
 ------------------------------------------------------------------------
 
-## 11. Open decisions (each with a recommended default)
+## 11. Decisions
+
+Settled on 17 November 2026, each at its recommended default. For decision 8, the pilot uses the labels alone, and the level descriptions are revisited after the pilot debrief. The graduate committee can revisit any decision.
 
 | \# | Decision | Recommended default |
 |------------------------|------------------------|------------------------|
@@ -438,5 +448,7 @@ These are new tabs in the annual review spreadsheet. They reuse its `Students` r
 - **Bland or hedged comments.** Expected in year 1 (Ginsburg). The fixed strength and next-step prompts and the follow-up route are the main remedies. The GPC's "return for revision" route is for comments the student could not act on, including faint praise and hedging (§6.2), not for style.
 
 - **Ratings shown beside comments.** In two studies, grades given with comments undermined the comments' effect (Lipnevich & Smith 2009; Butler 1988). The three stage-relative ratings resemble grades, and the student sees them with the comments. No cited study tests whether showing the comments first, or hiding the ratings from the student, would help, and FERPA gives the student access to the ratings anyway (§9). The pilot debrief asks students whether the ratings or the comments shaped what they did next.
+
+- **Build capacity.** This module and the annual review are both built in Jan–Feb 2027 (annual review plan §14). The department chose on 17 November 2026 to keep both on schedule. If the build slips, this module's pilot moves first, to Spring 2027 courses (pages open 7 June), and its first record then covers Spring alone.
 
 - **Over-reading one comment.** The design has no averages. The thin-record wording and the calibration view showing no free text by default guard against it.
