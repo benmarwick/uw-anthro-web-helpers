@@ -12,11 +12,9 @@ function launchCourseFeedback_(quarter, actor) {
   if (C_().CF_QUARTERS_ON[quarter] === false) throw new Error(quarterLabel_(quarter) + ' is switched off in Config.gs (CF_QUARTERS_ON).');
   const w = courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS);
   const pending = readTable_(S.REQUESTS).filter(function(r) { return r.Quarter === quarter && r.Status === 'NOT_STARTED'; });
-  /* Every instructor named on a page needs an email (course-feedback plan §4.5); a co-instructor added by hand only adds one. */
-  const noEmail = pending.filter(function(r) {
-    const names = String(r.Instructor_Names || '').split(/\s*\/\s*/).filter(Boolean).length;
-    return splitList_(r.Instructor_Emails).length < Math.max(1, names);
-  });
+  /* Every instructor who should be asked needs an email (course-feedback plan §4.5); see pageMissingInstructors_. */
+  const inst = instructorsMap_();
+  const noEmail = pending.filter(function(r) { return pageMissingInstructors_(r, inst).length > 0 || !splitList_(r.Instructor_Emails).length; });
   if (noEmail.length) throw new Error(noEmail.length + ' page(s) are missing an instructor email. Add the missing emails on the Roster page first.');
   let sent = 0;
   pending.forEach(function(r) {

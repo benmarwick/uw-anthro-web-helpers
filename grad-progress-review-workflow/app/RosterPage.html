@@ -196,12 +196,11 @@
       if (!document.getElementById('quarter').value) document.getElementById('quarter').value = c.quarter || '';
       var rows = c.requests;
       var waiting = rows.filter(function (r) { return r.status === 'NOT_STARTED'; });
-      /* A page is missing someone when it lists fewer emails than instructor names (the server applies the same rule). */
-      var count = function (v, sep) { return String(v || '').split(sep).map(function (x) { return x.trim(); }).filter(Boolean).length; };
-      var noEmail = waiting.filter(function (r) { return count(r.emails, ',') < Math.max(1, count(r.instructors, '/')); });
+      /* The server lists, for each unsent page, the instructors who should be asked but have no email (the launch applies the same rule). */
+      var noEmail = waiting.filter(function (r) { return (r.missing || []).length > 0 || !String(r.emails || '').trim(); });
       document.getElementById('launch').disabled = !waiting.length || noEmail.length > 0;
       document.getElementById('launchNote').textContent = !waiting.length ? 'No pages waiting to be sent for ' + c.quarterLabel + '.'
-        : noEmail.length ? 'Launch is disabled: ' + noEmail.length + ' page(s) are missing an instructor email. Add the emails above; they apply at once.'
+        : noEmail.length ? 'Launch is disabled: ' + noEmail.length + ' page(s) are missing an instructor email (' + noEmail.map(function (r) { return r.missing.join(', '); }).filter(Boolean).join('; ') + '). Add the emails above; they apply at once.'
         : waiting.length + ' page(s) ready to send for ' + c.quarterLabel + '.';
       document.getElementById('pages').innerHTML = rows.length ? '<table class="rows"><thead><tr><th>Offering</th><th>Instructors</th><th>Status</th><th>Action</th></tr></thead><tbody>' +
         rows.map(function (r) {

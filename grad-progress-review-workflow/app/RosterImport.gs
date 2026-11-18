@@ -16,9 +16,13 @@ function rosterPageData(quarter) {
     curriculaFilter: C_().CF_ALL_DEPARTMENTS ? null : C_().CF_CURRICULA_PHASE1,
     window: q ? courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS) : null,
     missingEmails: readTable_(C_().SHEETS.INSTRUCTORS).filter(function(r) { return !r.Email; }).map(function(r) { return r.TS_Name; }),
-    requests: readTable_(C_().SHEETS.REQUESTS).filter(function(r) { return r.Quarter === q; }).map(function(r) {
-      return { requestId: r.Request_ID, offering: r.Offering, instructors: r.Instructor_Names, emails: r.Instructor_Emails, status: r.Status };
-    }),
+    requests: (function() {
+      const inst = instructorsMap_();
+      return readTable_(C_().SHEETS.REQUESTS).filter(function(r) { return r.Quarter === q; }).map(function(r) {
+        return { requestId: r.Request_ID, offering: r.Offering, instructors: r.Instructor_Names, emails: r.Instructor_Emails, status: r.Status,
+                 missing: r.Status === 'NOT_STARTED' ? pageMissingInstructors_(r, inst) : [] };
+      });
+    })(),
     myGradUrl: 'https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist?orgid=14',
     timeScheduleUrl: q ? 'https://www.washington.edu/students/timeschd/' + q + '/' : ''
   };
@@ -74,6 +78,17 @@ function studentsMap_() {
     map[normEmail_(r.Email)] = { status: r.Status || 'ACTIVE', program: r.Program, advisorEmails: splitList_(r.Advisor_Emails) };
   });
   return map;
+}
+
+/* The instructors named on a page who should be asked but have no email yet. A graduate-student instructor is
+   never asked (principle 8), so a page they co-teach needs emails only for the others (course-feedback plan §4.5). */
+function pageMissingInstructors_(req, instructors) {
+  return String(req.Instructor_Names || '').split(/\s*\/\s*/).filter(Boolean).filter(function(n) {
+    if (isPlaceholderInstructor_(n)) return false;
+    const rec = instructors[normalizeInstructorName_(n)];
+    if (rec && String(rec.appointment).toLowerCase() === 'graduate student') return false;
+    return !(rec && rec.email);
+  });
 }
 
 function instructorsMap_() {

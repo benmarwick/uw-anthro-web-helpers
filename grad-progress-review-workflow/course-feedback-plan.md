@@ -433,7 +433,7 @@ Settled on 17 November 2026, each at its recommended default. For decision 8, th
 | 6 | Append the record to the annual review PDF? | **Yes**, so the committee chair sees it |
 | 7 | Show free-text comments at subfield calibration? | **No.** Coverage, grid and flags only; the GPC can open more for a specific student |
 | 8 | Scale wording | **Below what I'd expect at this stage / Approaching / Meeting / Beyond / Not observed.** Option, untested here: a one-line description of each level for each of the three dimensions, shown on the form. It would bring the scale closer to the independence-anchored scales that reduced rater disagreement (Crossley et al. 2011), but someone has to draft nine descriptions |
-| 9 | Run course feedback for Autumn 2026 (opens 14 Dec)? | **Yes, in the app** (changed 18 Nov 2026, when the app was ready). Autumn 2026 is the first quarter run; its comments are released Fri 15 Jan 2027 |
+| 9 | Run course feedback for Autumn 2026 (opens 14 Dec)? | **Yes, in the app** (changed by the GPC on 18 Nov 2026, when the app was ready; the graduate committee reviews it in December). Autumn 2026 is the first quarter run; its comments are released Fri 15 Jan 2027 |
 | 10 | Allow instructors to edit after submitting? | **Yes, until the page closes.** After that, only through the GPC's "return for revision" route |
 | 11 | Should Sociocultural's first-year evaluation use these records? | **Yes**, as an input to its existing portfolio review |
 

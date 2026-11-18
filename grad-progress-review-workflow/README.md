@@ -49,14 +49,16 @@ It is a sibling of [`ta-evaluation-workflow`](../ta-evaluation-workflow) and reu
 
 **Run live (18 Nov 2026, invented sample data, since deleted):** the Roster page's CSV uploads, Preview and Import; saving instructor emails; Launch, which sent three CF-1 emails (all to the owner's address); the instructor page opened from the CF-1 link and submitted; and the GPC's Review and Release page. The `Students` and `Enrollments` sheets matched acceptance test 7 for the fields the sample filled. These fixes were then checked live on the sample rows:
 
-- **Launch** is disabled, with the reason shown, while any unsent page lists fewer instructor emails than instructor names.
+- **Launch** is disabled, with the reason shown, while any unsent page is missing an instructor's email. (The rule was then narrowed so a graduate-student co-instructor, who is never asked, does not count; that version is not yet seen live.)
 - Saving an instructor's email adds it at once to that instructor's unsent pages, so no second Import is needed. Pages already sent are left alone.
 - The page list follows the quarter typed in the box.
 - The instructor page reloads the saved "How long did this take?" answer. The option "5-15" became "5 to 15", because Google Sheets stored "5-15" as a date.
 
 **Not yet verified:** acceptance tests 9, 12, 14, 15, 17, 18 and 23, and the annual review pages, which need a launched cycle and student or advisor accounts. Releasing comments has not been run, because it emails the students.
 
-**Fixed in the code but not yet seen live:** a clear error ("run Graduate review → Initialize") on a spreadsheet without header rows; quarter names such as "Autumn 2026" instead of `AUT2026` in Course Feedback Records, which now list courses in date order; and an "On file" note on the student's report showing the program, subfield, advisors and chair that its first box asks the student to check.
+**Seen live after the role change:** the GPC ran Run Daily Tasks Now and Process Dead Letter Queue Now from the menu on 18 Nov 2026, and `Logs` showed no errors.
+
+**Fixed in the code but not yet seen live:** only the GPC can create triggers, and a trigger that reports the owner as its user is accepted (check `Logs` the morning after creating the triggers); system alerts going to `ALERT_EMAIL`; the Launch rule's exemption for graduate-student co-instructors; a clear error ("run Graduate review → Initialize") on a spreadsheet without header rows; quarter names such as "Autumn 2026" instead of `AUT2026` in Course Feedback Records, which now list courses in date order; and an "On file" note on the student's report showing the program, subfield, advisors and chair that its first box asks the student to check.
 
 **Known issue:** once, right after Import, the page list showed blank instructor emails until the page was reloaded. Import now commits its writes before it returns, and the problem did not recur, but the cause is not confirmed.
 
@@ -98,7 +100,7 @@ The system described here was set up on 18 Nov 2026 and runs. These are the step
 
 ### 1. Accounts
 
-The GPC's own UW account owns the script, both spreadsheets, the archive folder and the triggers. The department chose this on 18 Nov 2026 in place of a department account (annual review plan, decision 11). The owner's account matters because the web app runs as the owner, and every email the web app and the triggers send goes out from the owner's Gmail.
+The GPC's own UW account owns the script, both spreadsheets, the archive folder and the triggers. The GPC chose this on 18 Nov 2026 in place of a department account (annual review plan, decision 11); the graduate committee reviews the decisions in December. The owner's account matters because the web app runs as the owner, and every email the web app and the triggers send goes out from the owner's Gmail.
 
 The spreadsheet menu is different: a menu item runs as, and sends email from, whoever clicks it. So the GPC runs the menu items that send email (Launch Annual Cycle, Launch MA Check-ins, Build Feedback Records), and the Graduate Student Administrator launches course feedback from the Roster page, which runs as the owner. To hand the system to a new owner, repeat steps 2 to 10 under that account.
 
@@ -333,7 +335,7 @@ The `Core*.gs` files contain the plans' rules as pure functions with no Google s
 
 **Who sees what in the app.**
 
-- The **student** sees everything written about them, except the GPC's calibration notes, which the student can request.
+- The **student** sees, in the app: their own report and check-ins; the advisor's whole evaluation; the final rating and the letter; and each released course feedback comment, with its ratings and the outcome of any follow-up. Some notes about the student are not shown in the app: an instructor's follow-up note to the GPC, the GPC's reason for returning a comment to an instructor, the GPC's calibration notes, the reason for a final rating that differs from the advisor's, and any status action or time-limit decision. The student can ask to see these, as with any education record.
 - **Advisors** see their advisees' reviews and released course feedback. The **committee chair** receives the final review PDF.
 - **Instructors** see their own course page, which co-instructors of the same course share. Beside each student's name the page shows only the program, subfield and year in the program. Instructors do not see other instructors' pages or anything else about the student.
 - The **GPC** reads every comment and review. For the GPC's own advisees, and students whose committee the GPC chairs, the alternate reviewer does this work instead.
