@@ -2,7 +2,7 @@
 <html lang="en">
 <head><base target="_top"><meta charset="utf-8"><?!= include_('Styles') ?></head>
 <body>
-<header class="top"><h1>Roster</h1><p>MyGrad registrations and Time Schedule sections for course feedback; MyGrad data for the annual review.</p></header>
+<header class="top"><h1>Roster</h1><p>MyGrad registrations and Time Schedule sections for course feedback; MyGrad data for the annual review.</p><p id="sheetLinks" class="muted"></p></header>
 <main>
   <div id="msg" role="status" aria-live="polite"></div>
   <div class="note">Each button opens a tab. In that tab, click the matching bookmarklet (<a href="https://github.com/benmarwick/uw-anthro-web-helpers#mygrad-table-audit-bookmarklet" target="_blank" rel="noopener">MyGrad Table Audit</a> on MyGrad; <a href="https://github.com/benmarwick/uw-anthro-web-helpers#time-schedule-sections-bookmarklet" target="_blank" rel="noopener">Time Schedule Sections</a> on the Time Schedule). Not installed yet? Click its name to open the install instructions in a new tab. The data comes back here by itself, and you can close the tab. If that ever fails, each bookmarklet can download a CSV instead, which you upload below.</div>
@@ -321,7 +321,9 @@
       .then(function (res) {
         e.target.textContent = 'Saved';
         e.target.disabled = true;
+        // Always replace the message line, so an earlier error (such as a mistyped address) does not linger.
         if (res && res.gradStudent) say('Saved as a graduate student, who is never asked. Click Import again to update the pages.', 'ok');
+        else say('Saved ' + e.target.getAttribute('data-name') + '.', 'ok');
         loadPages();
       }).catch(function (er) { say(er.message, 'bad'); });
   });
@@ -343,6 +345,12 @@
     call('rosterPageData', q()).then(function (c) {
       CFG = c;
       if (!q()) setQ(c.quarter);
+      // Where the saved data lives: the app's spreadsheet and the two tabs this page fills.
+      if (c.sheetLinks) {
+        var link = function (url, text) { return '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + text + '</a>'; };
+        document.getElementById('sheetLinks').innerHTML = 'Saved data: ' + link(c.sheetLinks.spreadsheet, 'the app\'s spreadsheet') +
+          ', with its ' + link(c.sheetLinks.students, 'Students') + ' and ' + link(c.sheetLinks.instructors, 'Instructors') + ' tabs.';
+      }
       var rows = c.requests;
       var waiting = rows.filter(function (r) { return r.status === 'NOT_STARTED'; });
       /* The server lists, for each unsent page, the instructors who should be asked but have no email (the launch applies the same rule). */

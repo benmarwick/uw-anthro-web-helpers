@@ -83,7 +83,7 @@ Every page checks the signed-in UW account against the row, applies recusal befo
 >
 > Dear {first_name},
 >
-> Thank you for teaching {course} this quarter. {n} Anthropology graduate {student_or_students} took it, and we would be grateful for a short note on each.
+> Thank you for teaching {course} this quarter. {n_as_word, e.g. Two} Anthropology graduate {student_or_students} took it, and we would be grateful for a short note on each.
 >
 > For each student, you'll first say whether you saw enough of their work to comment. "Not enough contact" is a perfectly good answer for someone you barely got to know. If you did see their work, you'll give three quick ratings, one thing they did well, and the one thing that would most strengthen their work next. It takes about 3 to 4 minutes for each student you comment on.
 >
@@ -283,7 +283,7 @@ Every page checks the signed-in UW account against the row, applies recusal befo
 
 > **Subject:** Reviews ready for calibration: {subfield}
 >
-> {n_ready} of {n_total} reviews in {subfield} are ready for the calibration meeting. [Open the calibration view]. {n_waiting} are still waiting on a student or advisor.
+> {n_ready_as_word} of {n_total} reviews in {subfield} are ready for the calibration meeting. [Open the calibration view]. {n_waiting_as_word} {is_or_are} still waiting on a student or advisor.
 
 **AR-6. Return for revision** (to the advisor, after the narrative check)
 

@@ -10,13 +10,27 @@
 
 function plural_(n, one, many) { return Number(n) === 1 ? one : many; }
 
+/* A number written as a capitalised word, for the start of a sentence: 2 -> 'Two', 21 -> 'Twenty-one'.
+   A sentence should not begin with a numeral. From 100 up (never expected) it falls back to 'A total of 120'. */
+function sentenceNumber_(n) {
+  var num = Number(n);
+  var ones = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+              'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  var tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+  var word;
+  if (!isFinite(num) || num < 0 || num !== Math.floor(num) || num >= 100) return 'A total of ' + n;
+  if (num < 20) word = ones[num];
+  else word = tens[Math.floor(num / 10)] + (num % 10 ? '-' + ones[num % 10] : '');
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
 var EMAIL_TEMPLATES_ = {
   /* ---------- Course feedback ---------- */
   'CF-1': function(p) {
     return {
       subject: 'A few minutes on your graduate students in ' + p.course + ' (' + p.quarter + ')',
       body: [
-        'Thank you for teaching ' + p.course + ' this quarter. ' + p.n + ' Anthropology graduate ' + plural_(p.n, 'student', 'students') + ' took it, and we would be grateful for a short note on each.',
+        'Thank you for teaching ' + p.course + ' this quarter. ' + sentenceNumber_(p.n) + ' Anthropology graduate ' + plural_(p.n, 'student', 'students') + ' took it, and we would be grateful for a short note on each.',
         "For each student, you'll first say whether you saw enough of their work to comment. \"Not enough contact\" is a perfectly good answer for someone you barely got to know. If you did see their work, you'll give three quick ratings, one thing they did well, and the one thing that would most strengthen their work next. It takes about 3 to 4 minutes for each student you comment on.",
         "Students read these notes with your name on them and use them to plan their next steps. They become part of the student's education record, so please describe the work rather than the person.",
         "[Open your page](" + p.url + "). It's due " + p.dueLong + '.',
@@ -179,7 +193,7 @@ var EMAIL_TEMPLATES_ = {
     return {
       subject: 'Reviews ready for calibration: ' + p.subfield,
       greet: false,
-      body: [p.nReady + ' of ' + p.nTotal + ' reviews in ' + p.subfield + ' are ready for the calibration meeting. [Open the calibration view](' + p.url + '). ' + p.nWaiting + ' are still waiting on a student or advisor.'],
+      body: [sentenceNumber_(p.nReady) + ' of ' + p.nTotal + ' reviews in ' + p.subfield + ' are ready for the calibration meeting. [Open the calibration view](' + p.url + '). ' + sentenceNumber_(p.nWaiting) + ' ' + plural_(p.nWaiting, 'is', 'are') + ' still waiting on a student or advisor.'],
       signoff: []
     };
   },

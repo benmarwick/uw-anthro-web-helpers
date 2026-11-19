@@ -14,6 +14,7 @@ function rosterPageData(quarter) {
     quarter: q,
     quarterLabel: quarterLabel_(q),
     studentCount: readTable_(C_().SHEETS.STUDENTS).length,
+    sheetLinks: rosterSheetLinks_(),
     curriculaFilter: C_().CF_ALL_DEPARTMENTS ? null : C_().CF_CURRICULA_PHASE1,
     window: q ? courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES) : null,
     missingEmails: readTable_(C_().SHEETS.INSTRUCTORS).filter(function(r) { return !r.Email && !isGradStudentAppointment_(r.Appointment); }).map(function(r) { return r.TS_Name; }),
@@ -29,6 +30,13 @@ function rosterPageData(quarter) {
     myGradUrl: 'https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist?orgid=14',
     timeScheduleUrl: q ? 'https://www.washington.edu/students/timeschd/' + q + '/' : ''
   };
+}
+
+/* Links to the app's spreadsheet and to the tabs the Roster page fills (Students, Instructors). */
+function rosterSheetLinks_() {
+  const base = 'https://docs.google.com/spreadsheets/d/' + C_().SPREADSHEET_ID + '/edit';
+  const tab = function(name) { return base + '#gid=' + getSheetCached_(name).getSheetId(); };
+  return { spreadsheet: base, students: tab(C_().SHEETS.STUDENTS), instructors: tab(C_().SHEETS.INSTRUCTORS) };
 }
 
 /* ---------- Check before launch ---------- */

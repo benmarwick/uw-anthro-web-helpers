@@ -130,3 +130,62 @@ test('the Roster page fills the boxes from the suggestions and keeps what was ty
   ctx.showSuggestions({ error: 'The department directory answered 500.', suggestions: {} });
   assert.match(ctx.said[1][0], /answered 500.*UW Directory/);
 });
+
+test('a successful Save replaces an earlier error message', async () => {
+  const html = fs.readFileSync(path.join(APP, 'RosterPage.html'), 'utf8');
+  const start = html.indexOf("document.getElementById('previewOut').addEventListener('click'");
+  const end = html.indexOf('\n  });', start) + 6;
+  let handler = null;
+  const said = [];
+  const els = { em0: { value: 'ok@uw.edu' }, ap0: { value: '' }, previewOut: { addEventListener: (t, f) => { handler = f; } } };
+  const ctx = {
+    document: { getElementById: id => els[id] },
+    say: (t, c) => said.push([t, c]),
+    loadPages: () => {},
+    MISSING: [],
+    call: () => Promise.resolve({ gradStudent: false })
+  };
+  vm.createContext(ctx);
+  vm.runInContext(html.slice(start, end), ctx);
+  said.push(['Enter a @uw.edu address.', 'bad']);
+  const button = { textContent: 'Save', disabled: false, getAttribute: a => ({ 'data-suggest': null, 'data-save': '0', 'data-name': 'Grant,Jenna M' })[a] };
+  handler({ target: button });
+  await new Promise(r => setImmediate(r));
+  assert.equal(button.textContent, 'Saved');
+  assert.deepEqual(said[said.length - 1], ['Saved Grant,Jenna M.', 'ok']);
+});
+
+test('the Roster page links to the spreadsheet and its Students and Instructors tabs', () => {
+  const ctx = { console };
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(APP, 'RosterImport.gs'), 'utf8'), ctx);
+  ctx.C_ = () => ({ SPREADSHEET_ID: 'SHEET123', SHEETS: { STUDENTS: 'Students', INSTRUCTORS: 'Instructors' } });
+  ctx.getSheetCached_ = name => ({ getSheetId: () => (name === 'Students' ? 11 : 22) });
+  assert.deepEqual(plain(ctx.rosterSheetLinks_()), {
+    spreadsheet: 'https://docs.google.com/spreadsheets/d/SHEET123/edit',
+    students: 'https://docs.google.com/spreadsheets/d/SHEET123/edit#gid=11',
+    instructors: 'https://docs.google.com/spreadsheets/d/SHEET123/edit#gid=22'
+  });
+  const html = fs.readFileSync(path.join(APP, 'RosterPage.html'), 'utf8');
+  assert.match(html, /<p id="sheetLinks"/);
+  assert.match(html, /link\(c\.sheetLinks\.instructors, 'Instructors'\)/);
+});
+
+test('email sentences start with a word, not a numeral', () => {
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(APP, 'CoreEmail.gs'), 'utf8'), ctx);
+  assert.equal(ctx.sentenceNumber_(1), 'One');
+  assert.equal(ctx.sentenceNumber_(2), 'Two');
+  assert.equal(ctx.sentenceNumber_('12'), 'Twelve');
+  assert.equal(ctx.sentenceNumber_(20), 'Twenty');
+  assert.equal(ctx.sentenceNumber_(47), 'Forty-seven');
+  assert.equal(ctx.sentenceNumber_(120), 'A total of 120');
+  const cf1 = ctx.EMAIL_TEMPLATES_['CF-1']({ course: 'ANTH 503', quarter: 'Autumn 2026', n: 2, url: 'u', dueLong: 'd', notMineUrl: 'm', gpcName: 'G' });
+  assert.match(cf1.body[0], /this quarter\. Two Anthropology graduate students took it/);
+  const one = ctx.EMAIL_TEMPLATES_['CF-1']({ course: 'ANTH 503', quarter: 'Autumn 2026', n: 1, url: 'u', dueLong: 'd', notMineUrl: 'm', gpcName: 'G' });
+  assert.match(one.body[0], /One Anthropology graduate student took it/);
+  const ar5 = ctx.EMAIL_TEMPLATES_['AR-5']({ nReady: 3, nTotal: 5, subfield: 'Archaeology', url: 'u', nWaiting: 1 });
+  assert.match(ar5.body[0], /^Three of 5 reviews in Archaeology/);
+  assert.match(ar5.body[0], /\. One is still waiting/);
+});
