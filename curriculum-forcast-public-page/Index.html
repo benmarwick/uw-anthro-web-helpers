@@ -93,9 +93,27 @@
       window.onload = () => {
         let settings = null, courses = null;
         const ready = () => { if (settings && courses) initDashboard(courses); };
-        google.script.run.withSuccessHandler(s => { settings = s; applySettings(s); ready(); }).getPageSettings();
-        google.script.run.withSuccessHandler(c => { courses = c; ready(); }).getCourseData();
+        google.script.run.withSuccessHandler(s => { settings = s; applySettings(s); ready(); }).withFailureHandler(showLoadError).getPageSettings();
+        google.script.run.withSuccessHandler(c => { courses = c; ready(); }).withFailureHandler(showLoadError).getCourseData();
       };
+
+      // If either request fails, say so and offer a retry instead of "Syncing..." forever.
+      function showLoadError() {
+        const box = document.getElementById('loading');
+        box.innerHTML = 'The course list could not be loaded. <button type="button" onclick="location.reload()">Try again</button>';
+      }
+
+      // Text from the planning sheets goes into the page as text, never as HTML.
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+
+      // Catalog descriptions arrive with HTML entities (&amp;): decode them, then escape the result.
+      function decodeThenEsc(s) {
+        const box = document.createElement('textarea');
+        box.innerHTML = String(s == null ? '' : s);
+        return esc(box.value);
+      }
 
       function applySettings(s) {
         catalogLinks = s.catalogLinks || {};
@@ -121,7 +139,9 @@
         
         let html = '<div class="filter-group"><h3>Prefix</h3>';
         prefixes.forEach(p => {
-          html += `<label class="filter-item"><input type="checkbox" value="${p}" class="filter-cb" data-category="prefix" onchange="applyFilters()"> <a href="${catalogLinks[p]}" target="_blank">${p}</a></label>`;
+          // A prefix with no catalog page on the Settings tab is shown without a link.
+          const label = catalogLinks[p] ? `<a href="${esc(catalogLinks[p])}" target="_blank">${esc(p)}</a>` : esc(p);
+          html += `<label class="filter-item"><input type="checkbox" value="${esc(p)}" class="filter-cb" data-category="prefix" onchange="applyFilters()"> ${label}</label>`;
         });
         html += '</div>';
 
@@ -131,7 +151,7 @@
         
         html += `<div class="filter-group"><h3>Options</h3>`;
         Object.keys(optionLinks).forEach(opt => {
-          html += `<label class="filter-item"><input type="checkbox" value="${opt}" class="filter-cb" data-category="option" onchange="applyFilters()"> <a href="${optionLinks[opt]}" target="_blank">${opt}</a></label>`;
+          html += `<label class="filter-item"><input type="checkbox" value="${esc(opt)}" class="filter-cb" data-category="option" onchange="applyFilters()"> <a href="${esc(optionLinks[opt])}" target="_blank">${esc(opt)}</a></label>`;
         });
         html += `</div>`;
         
@@ -142,7 +162,7 @@
       function createCheckboxGroup(title, items, category) {
         let html = `<div class="filter-group"><h3>${title}</h3>`;
         items.forEach(item => {
-          html += `<label class="filter-item"><input type="checkbox" value="${item}" class="filter-cb" data-category="${category}" onchange="applyFilters()"> ${item}</label>`;
+          html += `<label class="filter-item"><input type="checkbox" value="${esc(item)}" class="filter-cb" data-category="${category}" onchange="applyFilters()"> ${esc(item)}</label>`;
         });
         return html + `</div>`;
       }
@@ -176,25 +196,26 @@
         noResults.style.display = "none";
 
         tbody.innerHTML = courses.map((c, i) => {
-          const myPlan = `https://myplan.uw.edu/course/#/courses/${c.prefix.replace(/\s/g,'')}${c.courseNum}`;
-          const genEdDisplay = c.genEd || "";
-          
+          const myPlan = `https://myplan.uw.edu/course/#/courses/${encodeURIComponent(c.prefix.replace(/\s/g,''))}${encodeURIComponent(c.courseNum)}`;
+          const genEdDisplay = esc(c.genEd);
+
           // Generate clickable Option tags
           const opts = c.options.map(o => {
             const url = optionLinks[o.name] || "#";
-            return `<a href="${url}" target="_blank" class="opt-tag">${o.isBold ? '<b>' + o.label + '</b>' : o.label}</a>`;
+            const label = esc(o.label);
+            return `<a href="${esc(url)}" target="_blank" class="opt-tag">${o.isBold ? '<b>' + label + '</b>' : label}</a>`;
           }).join("");
 
           return `<tr>
-            <td class="nowrap">${c.quarter} ${c.year}</td>
-            <td class="nowrap"><a href="${myPlan}" target="_blank"><b>${c.prefix} ${c.courseNum}</b></a></td>
+            <td class="nowrap">${esc(c.quarter)} ${esc(c.year)}</td>
+            <td class="nowrap"><a href="${myPlan}" target="_blank"><b>${esc(c.prefix)} ${esc(c.courseNum)}</b></a></td>
             <td>
-              <div class="course-title" onclick="toggleDescription(${i})">${c.title}</div>
-              <div id="desc-${i}" class="course-desc">${c.description}</div>
+              <div class="course-title" onclick="toggleDescription(${i})">${esc(c.title)}</div>
+              <div id="desc-${i}" class="course-desc">${decodeThenEsc(c.description)}</div>
             </td>
             <td class="nowrap">${genEdDisplay}</td>
             <td>${opts}</td>
-            <td>${c.instructor}</td>
+            <td>${esc(c.instructor)}</td>
           </tr>`;
         }).join("");
       }

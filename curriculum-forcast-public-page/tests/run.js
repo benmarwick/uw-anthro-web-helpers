@@ -246,3 +246,108 @@ ctx.console = console;
 assert.deepStrictEqual(opts.failures, ['Option HEB page could not be read (Error: 404)'], 'only the unreadable option page blocks');
 assert.deepStrictEqual(opts.rows.map(r => r[0] + ' ' + r[1]), ['ANTH 203 MAGH', 'ARCHY 205 MAGH']);
 console.log('Scraper (Set up and option pages): 4 checks pass');
+
+// ---------- Items 5 to 12 (review of Nov 2026) ----------
+// 5. Set up on a Shared Drive: no owner, so whoever runs it from the spreadsheet may run Set up.
+const ownerOf = (me, owner) => {
+  ctx.Session = { getActiveUser: () => ({ getEmail: () => me }) };
+  return plain(S('ownerStatus_')({ getOwner: () => owner ? { getEmail: () => owner } : null }));
+};
+assert(ownerOf('owner@uw.edu', 'owner@uw.edu').isOwner, 'the owner may run Set up');
+assert(!ownerOf('editor@uw.edu', 'owner@uw.edu').isOwner, 'an editor may not, when the file has an owner');
+const shared = ownerOf('editor@uw.edu', null);
+assert(shared.isOwner && shared.sharedDrive, 'on a Shared Drive (no owner) the person running it may');
+assert(!ownerOf('', null).isOwner, 'but not someone whose address is hidden');
+console.log('Set up on a Shared Drive: 4 checks pass');
+
+// 9. Data Check reads every row of a planning tab, not only the first 200.
+assert(!/Math\.min\(last, 200\)/.test(fs.readFileSync(path.join(DIR, 'DataCheck.gs'), 'utf8')), 'Data Check has no 200-row cap');
+
+// 10. Conflict report: sections of one course and joint/withered partners meet together on purpose.
+const together = (a, b) => S('meetTogether_')(a, b);
+assert(together({ fullName: 'ANTH 469', joint: '' }, { fullName: 'ANTH 469', joint: '' }), 'two sections of one course');
+assert(together({ fullName: 'ANTH 469', joint: 'ARCHY 469' }, { fullName: 'ARCHY 469', joint: '' }), 'partner named on the first row');
+assert(together({ fullName: 'ARCHY 469', joint: '' }, { fullName: 'ANTH 469', joint: 'archy  469' }), 'partner named on the second row, any case and spacing');
+assert(!together({ fullName: 'ANTH 469', joint: '' }, { fullName: 'ANTH 470', joint: '' }), 'two different courses still count');
+assert(!together({ fullName: 'ANTH 469', joint: 'LING 469' }, { fullName: 'ARCHY 469', joint: '' }), 'a partner elsewhere does not excuse an unrelated course');
+console.log('Conflict report partners: 5 checks pass');
+
+// 12. Option tagging ignores the site menu, header and footer.
+const menuPage = '<header>Choose from many programs</header><nav><a>Core Coursework</a><a>Approved Electives</a></nav>' +
+  '<main><h2>Core Coursework</h2> ANTH 203 <h2>Approved Electives</h2> ARCHY 205</main><footer>ANTH 999</footer>';
+const body = S('mainContent_')(menuPage);
+assert(!/Choose from many/.test(body) && !/ANTH 999/.test(body) && /ANTH 203/.test(body), 'only the main content is kept');
+assert.strictEqual(S('mainContent_')('<p>no main here</p>'), '<p>no main here</p>', 'a page with no <main> is used whole');
+ctx.console = quiet;
+ctx.UrlFetchApp = { fetch: url => ({ getContentText: () => /MAGH/.test(url) ? menuPage : 'nothing here' }) };
+const tagged = plain(S('scrapeMasterOptions_')());
+ctx.console = console;
+const magh = tagged.rows.filter(r => r[1] === 'MAGH');
+assert.deepStrictEqual(magh.map(r => r[0]), ['ANTH 203', 'ARCHY 205'], 'the footer course is not tagged');
+assert.deepStrictEqual(magh.map(r => [r[2], r[4]]), [[true, false], [false, true]], 'core and approved come from the page body, not the menu');
+console.log('Option tagging: 4 checks pass');
+
+// Pages: run the page scripts in a small fake browser.
+const pageScript = file => [...fs.readFileSync(path.join(DIR, file), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n');
+
+// 6, 7, 8. Student page: a failed request shows a retry; sheet text is escaped; no link to "undefined".
+const els = {};
+const el = id => els[id] || (els[id] = { id, innerHTML: '', style: {}, textContent: '' });
+let failWith = null;
+const runner = () => {
+  const r = { ok: null, fail: null };
+  const chain = new Proxy({}, { get: (t, k) => {
+    if (k === 'withSuccessHandler') return f => { r.ok = f; return chain; };
+    if (k === 'withFailureHandler') return f => { r.fail = f; return chain; };
+    return () => {
+      if (failWith && r.fail) return r.fail(new Error(failWith));
+      if (k === 'getPageSettings') r.ok({ catalogLinks: { ANTH: 'https://cat/anth' }, optionLinks: {}, genEd: ['A&H'], department: 'Anth' });
+      if (k === 'getCourseData') r.ok([
+        { quarter: 'AU', year: '2026', prefix: 'ANTH', courseNum: '101', title: 'Sex & <b>Gender</b>', instructor: 'O\'Neil', genEd: 'A&H', description: 'Kinship &amp; family', options: [] },
+        { quarter: 'AU', year: '2026', prefix: 'BIO A', courseNum: '201', title: 'Bones', instructor: 'Lee', genEd: '', description: '', options: [] }
+      ]);
+    };
+  } });
+  return chain;
+};
+const textarea = () => { const o = { _v: '' }; Object.defineProperty(o, 'innerHTML', { set(v) { o._v = v.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'); } }); Object.defineProperty(o, 'value', { get() { return o._v; } }); return o; };
+const pageCtx = { console, location: { reload() {} }, document: { getElementById: el, querySelectorAll: () => [], createElement: textarea } };
+pageCtx.window = pageCtx;
+pageCtx.google = { script: { get run() { return runner(); } } };
+vm.createContext(pageCtx);
+vm.runInContext(pageScript('Index.html'), pageCtx);
+pageCtx.window.onload();
+const rowsHtml = els['course-body'].innerHTML;
+assert(rowsHtml.includes('Sex &amp; &lt;b&gt;Gender&lt;/b&gt;') && !rowsHtml.includes('<b>Gender'), 'a title is shown as text');
+assert(rowsHtml.includes('O&#39;Neil'), 'an instructor is escaped');
+assert(rowsHtml.includes('Kinship &amp; family') && !rowsHtml.includes('&amp;amp;'), 'a catalog description is decoded once and escaped once');
+const sidebar = els['sidebar-filters'].innerHTML;
+assert(sidebar.includes('href="https://cat/anth"') && !sidebar.includes('undefined'), 'a prefix with no catalog page has no link');
+failWith = 'boom';
+els.loading.innerHTML = '';
+pageCtx.window.onload();
+assert(/could not be loaded/.test(els.loading.innerHTML) && /Try again/.test(els.loading.innerHTML), 'a failed request offers a retry');
+console.log('Student page: 5 checks pass');
+
+// 11. Schedule dashboard: time axis fits evening classes, pathway stays in the quarter, unreadable times are named.
+let plotted = null;
+const vals = { '#quarterFilter': 'AU', '#prefixFilter': 'ALL', '#courseSelect': [] };
+const $ = sel => typeof sel === 'function' ? null : ({ ready() {}, val: () => vals[sel], text() {}, hide() {}, show() {}, append() {}, select2() {}, on() {} });
+const dashCtx = { console, document: {}, $, Plotly: { newPlot: (id, data, layout) => { plotted = { data, layout }; } }, google: { script: { run: {} } } };
+vm.createContext(dashCtx);
+vm.runInContext(pageScript('ScheduleDashboard.html'), dashCtx);
+const parse = s => { const r = dashCtx.parseTimeData(s); return r && r.plotStr; };
+assert.strictEqual(parse('10:30 AM'), '1970-01-01 10:30:00');
+assert.strictEqual(parse('12:20 PM'), '1970-01-01 12:20:00');
+assert.strictEqual(parse('18:30:00'), '1970-01-01 18:30:00', 'a 24-hour clock time');
+assert.strictEqual(parse('TBA'), null, 'text that is not a time');
+const course = (code, q, start, end) => ({ fullCode: code, quarter: q, prefix: code.split(' ')[0], level: '300', title: 'T', instructor: 'I', days: ['Mon'], start, end });
+dashCtx.rawData = [course('ANTH 301', 'AU', '6:30 PM', '9:20 PM'), course('ANTH 301', 'WI', '10:30 AM', '11:20 AM'), course('ANTH 302', 'AU', 'TBA', 'TBA')];
+vm.runInContext('rawData = this.rawData', dashCtx);
+dashCtx.drawChart();
+assert.deepStrictEqual(plain(plotted.layout.xaxis.range), ['1970-01-01 08:00:00', '1970-01-01 22:00:00'], 'the axis stretches to a 9:20 PM end');
+assert(/ANTH 302/.test(plotted.layout.title), 'a course with an unreadable time is named');
+vals['#courseSelect'] = ['ANTH 301'];
+dashCtx.drawChart();
+assert.strictEqual(plotted.data[0].base.length, 1, 'the pathway check shows only the chosen quarter');
+console.log('Schedule dashboard: 7 checks pass');

@@ -211,6 +211,7 @@
     $('webAppUrl').value = s.webAppUrl || '';
     if (s.webAppUrl) { $('openUrl').href = s.webAppUrl; $('openUrl').style.display = ''; }
     var b = '';
+    if (st.owner.sharedDrive && st.owner.isOwner) b += '<div class="banner">This spreadsheet is on a Shared Drive, so it has no owner. If you run Set up, the monthly update will run as you (' + esc(st.owner.me) + ').</div>';
     if (!st.owner.isOwner) b += '<div class="banner">Only the spreadsheet\'s owner (' + esc(st.owner.owner || 'unknown') + ') can run Set up, because the monthly update belongs to whoever runs it. You are signed in as ' + esc(st.owner.me || 'unknown') + '.</div>';
     if (!st.settings.prefixes.length) b += '<div class="banner">First setup: fill in your department and prefixes, click Check, then Set up.</div>';
     b += '<p class="hint">Dashboard years: ' + esc(st.years.join(', ') || 'none') + '. Each planning sheet needs a tab named for each of these years.</p>';

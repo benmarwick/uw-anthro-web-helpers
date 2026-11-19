@@ -172,7 +172,10 @@ function dashboardYears_(ss) {
 function ownerStatus_(ss) {
   const me = Session.getActiveUser().getEmail();
   const owner = ss.getOwner() ? ss.getOwner().getEmail() : '';
-  return { me: me, owner: owner, isOwner: !!me && !!owner && me.toLowerCase() === owner.toLowerCase() };
+  // A Shared Drive file has no owner: then whoever runs Set up (an editor, since it runs from the spreadsheet) owns the monthly update.
+  const sharedDrive = !owner;
+  const isOwner = !!me && (sharedDrive || me.toLowerCase() === owner.toLowerCase());
+  return { me: me, owner: owner, sharedDrive: sharedDrive, isOwner: isOwner };
 }
 
 /* What the form shows when it opens. */

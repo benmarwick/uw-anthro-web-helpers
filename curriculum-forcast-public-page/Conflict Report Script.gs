@@ -41,7 +41,8 @@ function runScheduleChecks() {
       thu: headers.findIndex(h => h === "thu"),
       fri: headers.findIndex(h => h === "fri"),
       start: headers.findIndex(h => h.includes("time start")),
-      end: headers.findIndex(h => h.includes("time end"))
+      end: headers.findIndex(h => h.includes("time end")),
+      joint: headers.findIndex(h => h.includes("joint"))
     };
 
     for (let i = 1; i < data.length; i++) {
@@ -59,7 +60,8 @@ function runScheduleChecks() {
         days: [row[colIdx.mon], row[colIdx.tue], row[colIdx.wed], row[colIdx.thu], row[colIdx.fri]],
         startTime: getMinutesFromMidnight(row[colIdx.start]),
         endTime: getMinutesFromMidnight(row[colIdx.end]),
-        fullName: `${row[colIdx.prefix]} ${courseNum}`
+        fullName: `${row[colIdx.prefix]} ${courseNum}`,
+        joint: colIdx.joint > -1 ? String(row[colIdx.joint] || "") : ""
       });
     }
   });
@@ -127,6 +129,9 @@ function runScheduleChecks() {
       for (let j = i + 1; j < qCourses.length; j++) {
         let c1 = qCourses[i];
         let c2 = qCourses[j];
+
+        // Sections of one course, and joint/withered partners, meet together on purpose
+        if (meetTogether_(c1, c2)) continue;
 
         // Check if they overlap in days AND times
         if (daysOverlap(c1.days, c2.days) && timesOverlap(c1.startTime, c1.endTime, c2.startTime, c2.endTime)) {
@@ -219,4 +224,19 @@ function onOpen() {
     .createMenu('Forecast setup')
     .addItem('Set up or change settings', 'openSetupForm')
     .addToUi();
+}
+
+/* True when two rows are meant to meet at the same time: two sections of the same course
+   (ANTH 203 A and ANTH 203 B), or a joint/withered pair where either row names the other in
+   its Joint/Withered column (for example ANTH 203 with LING 203). */
+function meetTogether_(c1, c2) {
+  const norm = function(s) { return String(s || "").toUpperCase().replace(/\s+/g, " ").trim(); };
+  const name1 = norm(c1.fullName);
+  const name2 = norm(c2.fullName);
+  if (name1 === name2) return true;
+  const joint1 = norm(c1.joint);
+  const joint2 = norm(c2.joint);
+  if (joint1 && joint1.indexOf(name2) > -1) return true;
+  if (joint2 && joint2.indexOf(name1) > -1) return true;
+  return false;
 }

@@ -87,7 +87,7 @@ The setup form was planned, built and tested in November 2026; the plan and its 
 | Scheduling staff | Staff who build the UW Time Schedule | Build the Time Schedule from the planning sheets, ask questions in comments, record what they submitted, resolve threads. |
 | Faculty | All instructors | Read the planning sheets; some comment. |
 
-The web page and the monthly update both stop working if the owner loses access to the spreadsheets or leaves UW. If your department has an account that outlasts any one person, make it the owner. Only the owner can run **Set up**, because the monthly update belongs to whoever runs it.
+The web page and the monthly update both stop working if the owner loses access to the spreadsheets or leaves UW. If your department has an account that outlasts any one person, make it the owner. Only the owner can run **Set up**, because the monthly update belongs to whoever runs it. A spreadsheet on a Shared Drive has no owner; there any editor can run **Set up**, and the monthly update then runs as that person.
 
 ### What You Need
 
@@ -283,7 +283,7 @@ Use the address saved in the form (or **Deploy \> Manage deployments**) so that 
 
 Other lengths are not checked. The times are in lines 83 to 101 of `Conflict Report Script.gs`; check them against the current UW classroom scheduling policy.
 
-**Overlaps.** Within each quarter, it reports two classes that share a day and overlap in time when both are 200-level with different prefixes ("200-Level Conflict"), or both are 300- or 400-level of any prefix ("Upper-Level Overlap"). It counts a day only when the cell contains `X`, and skips courses whose start time is stored as text. The rules are in lines 133 to 141.
+**Overlaps.** Within each quarter, it reports two classes that share a day and overlap in time when both are 200-level with different prefixes ("200-Level Conflict"), or both are 300- or 400-level of any prefix ("Upper-Level Overlap"). It counts a day only when the cell contains `X`, and skips courses whose start time is stored as text. It does not report two sections of the same course, or two courses where one names the other in column J (joint/withered), because those meet together on purpose. The rules are in lines 128 to 147 (and `meetTogether_` at the end of the file).
 
 ### Entry Rules
 
@@ -324,7 +324,7 @@ Highlights: red for a course number with no title, times with no days, days with
 |------------------------------------|------------------------------------|
 | `#REF!` in a forecast tab | The import has not been allowed: click the cell and **Allow access** (every UW-only planning sheet needs this once). Or a Dashboard year does not match a tab name in a planning sheet; **Check** in the setup form says which. |
 | **Set up** stopped with a list of problems | It changed nothing. Fix each problem (for example a missing year tab, or a "Use this sheet" row with no address) and click **Set up** again. |
-| **Set up** says only the owner can run it | Sign in as the spreadsheet's owner. The monthly update belongs to whoever runs Set up. |
+| **Set up** says only the owner can run it | Sign in as the spreadsheet's owner. The monthly update belongs to whoever runs Set up. (On a Shared Drive any editor can run it.) |
 | The form does not open, or the monthly update never runs | A box was left unticked on Google's permission screen. Go to your Google Account's third-party access page, remove "Conflict Report Script", and choose **Forecast setup** again, ticking **Select all**. |
 | A course is missing from the web page | Check that the row has a prefix and a course number or title, that column B is exactly `AU`, `WI` or `SP`, that its quarter has an `x` on the Dashboard, and that the row is within the first 200. |
 | A course is in the wrong quarter or year | Column B or column C is wrong in the planning sheet (column A fills itself from column B). |

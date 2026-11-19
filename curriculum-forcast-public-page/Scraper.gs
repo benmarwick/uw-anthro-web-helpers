@@ -133,7 +133,8 @@ function scrapeMasterOptions_() {
   optionsMap.forEach(opt => {
     if (!opt.url) { console.warn('Option ' + opt.name + ' has no page address on the Settings tab; skipped.'); return; }
     try {
-      const html = UrlFetchApp.fetch(opt.url).getContentText();
+      // Only the page body counts: a phrase or course in the site menu or footer must not decide the tags.
+      const html = mainContent_(UrlFetchApp.fetch(opt.url).getContentText());
       let courseStatusMap = {}; 
       const coreStart = html.search(coreKeywords);
       const reqdStart = html.search(reqdKeywords);
@@ -193,4 +194,16 @@ function updateReferenceTab_(sheet, headers, data, failures, allowShrink) {
   sheet.getRange(2, 1, data.length, data[0].length).setValues(data);
   SpreadsheetApp.flush();
   return '';
+}
+
+/* The part of a web page that holds its own content: the <main> element (or role="main") when there is one,
+   otherwise the whole page; either way without <nav>, <header> and <footer> blocks, which hold site menus. */
+function mainContent_(html) {
+  let page = String(html || "");
+  page = page.replace(/<(nav|header|footer)\b[\s\S]*?<\/\1>/gi, " ");
+  const start = page.search(/<main\b|role=["']main["']/i);
+  if (start === -1) return page;
+  const body = page.slice(start);
+  const end = body.search(/<\/main>/i);
+  return end === -1 ? body : body.slice(0, end);
 }

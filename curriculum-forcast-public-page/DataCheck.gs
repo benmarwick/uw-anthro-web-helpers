@@ -27,7 +27,8 @@ function runDataCheck() {
       if (!tab) { notes.push(s.label + ': no tab named ' + year + '.'); return; }
       const last = tab.getLastRow();
       if (last < 2) return;
-      const rows = tab.getRange(2, 1, Math.min(last, 200) - 1, 19).getValues().map(function(v, i) {
+      if (last > 200) notes.push(s.label + ' ' + year + ': ' + (last - 1) + ' rows. All are checked here, but the forecast reads only rows 1 to 200, so later rows are not on the web page.');
+      const rows = tab.getRange(2, 1, last - 1, 19).getValues().map(function(v, i) {
         return { values: v, rowNum: i + 2, sheet: s.label, tab: year, url: file.getUrl().replace(/\/edit.*$/, '') + '/edit#gid=' + tab.getSheetId() + '&range=A' + (i + 2) };
       });
       all.push({ y0: Number(year.slice(0, 4)), rows: rows });

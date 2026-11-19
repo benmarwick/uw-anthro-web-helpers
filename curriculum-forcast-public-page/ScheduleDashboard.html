@@ -70,8 +70,12 @@
       const ready = function() { if (settings && data) initDashboard(data); };
       google.script.run.withSuccessHandler(function(s) {
         settings = s;
-        (s.prefixes || []).forEach(function(p, i) { $('#prefixFilter').append(new Option(p, p, false, i === 0)); });
+        // The filter opens on "All Departments"; the prefixes are added after it, none selected.
+        (s.prefixes || []).forEach(function(p) { $('#prefixFilter').append(new Option(p, p, false, false)); });
         ready();
+      }).withFailureHandler(function(err) {
+        console.error("Error fetching settings:", err);
+        $('#loading').text("Error loading data. Reload the page to try again.");
       }).getPageSettings();
       google.script.run.withSuccessHandler(function(d) { data = d || []; ready(); }).withFailureHandler(function(err){
         console.error("Error fetching data:", err);
@@ -99,16 +103,24 @@
       drawChart();
     }
 
+    // Text from the sheets goes into the chart's labels as text, never as HTML.
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Reads "10:30 AM" or, from a cell shown on a 24-hour clock, "13:30" or "13:30:00".
+    // Returns null when the text is not a time, so the course can be listed instead of drawn at midnight.
     function parseTimeData(timeStr) {
-      let match = timeStr.match(/(\d+):(\d+).*?(AM|PM)/i);
-      if (!match) return { jsDate: new Date(1970, 0, 1, 0, 0, 0), plotStr: '1970-01-01 00:00:00' };
+      let match = String(timeStr || '').match(/^\s*(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?\s*$/i);
+      if (!match) return null;
 
       let hours = parseInt(match[1], 10);
-      let mins = match[2]; 
-      let ampm = match[3].toUpperCase();
+      let mins = match[2];
+      let ampm = match[3] ? match[3].toUpperCase() : '';
 
       if (ampm === 'PM' && hours < 12) hours += 12;
       if (ampm === 'AM' && hours === 12) hours = 0;
+      if (hours > 23 || parseInt(mins, 10) > 59) return null;
 
       let hoursStr = hours.toString().padStart(2, '0');
       let plotStr = `1970-01-01 ${hoursStr}:${mins}:00`;
@@ -124,18 +136,28 @@
       const selectedPrefix = $('#prefixFilter').val();
       const pathwayCourses = $('#courseSelect').val() ||[];
 
+      // The pathway check also stays within the chosen quarter, so AU, WI and SP courses are not mixed.
       let filteredData = rawData.filter(d => {
+        if (d.quarter !== selectedQuarter) return false;
         if (pathwayCourses.length > 0) return pathwayCourses.includes(d.fullCode);
-        return (d.quarter === selectedQuarter) && (selectedPrefix === 'ALL' || d.prefix === selectedPrefix);
+        return selectedPrefix === 'ALL' || d.prefix === selectedPrefix;
       });
 
       let traces = {};
       const dayOrder =['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+      const unreadable = [];
+      let earliestHour = 8;
+      let latestHour = 17;
 
       filteredData.forEach(course => {
         let startData = parseTimeData(course.start);
         let endData = parseTimeData(course.end);
-        let durationMs = endData.jsDate.getTime() - startData.jsDate.getTime(); 
+        if (!startData || !endData) { unreadable.push(course.fullCode); return; }
+        let durationMs = endData.jsDate.getTime() - startData.jsDate.getTime();
+
+        // Widen the time axis to fit early and evening classes.
+        earliestHour = Math.min(earliestHour, startData.jsDate.getHours());
+        latestHour = Math.max(latestHour, endData.jsDate.getHours() + (endData.jsDate.getMinutes() > 0 ? 1 : 0));
 
         let levelStr = course.level + '-level';
         
@@ -165,18 +187,25 @@
           traces[levelStr].x.push(durationMs);
           
           // Show ONLY the bolded course code on the physical bar
-          traces[levelStr].text.push(`<b>${course.fullCode}</b>`);
-          
+          traces[levelStr].text.push(`<b>${esc(course.fullCode)}</b>`);
+
           // Keep all the rich details in the tooltip
-          let hoverHTML = `<b>${course.fullCode}</b><br>${course.title}<br>Instructor: ${course.instructor}<br>Time: ${course.start} - ${course.end}`;
+          let hoverHTML = `<b>${esc(course.fullCode)}</b><br>${esc(course.title)}<br>Instructor: ${esc(course.instructor)}<br>Time: ${esc(course.start)} - ${esc(course.end)}`;
           traces[levelStr].hovertext.push(hoverHTML);
         });
       });
 
       let plotData = Object.values(traces);
+      const hourText = h => '1970-01-01 ' + String(h).padStart(2, '0') + ':00:00';
+
+      // Courses whose times could not be read are named under the title instead of drawn at midnight.
+      let chartTitle = pathwayCourses.length > 0 ? `Degree Pathway Schedule Check (${selectedQuarter})` : `${selectedQuarter} Schedule`;
+      if (unreadable.length > 0) {
+        chartTitle += `<br><span style="font-size:12px">Not shown, time not readable: ${esc([...new Set(unreadable)].join(', '))}</span>`;
+      }
 
       let layout = {
-        title: pathwayCourses.length > 0 ? 'Degree Pathway Schedule Check' : `${selectedQuarter} Schedule`,
+        title: chartTitle,
         barmode: 'group',
         yaxis: { 
           categoryorder: 'array', 
@@ -188,7 +217,7 @@
           type: 'date', 
           tickformat: '%I:%M %p', 
           title: 'Time of Day', 
-          range:['1970-01-01 08:00:00', '1970-01-01 17:00:00'] 
+          range: [hourText(earliestHour), hourText(Math.min(latestHour, 23))]
         },
         margin: { l: 60, r: 20, t: 50, b: 50 }, 
         hovermode: 'closest',
