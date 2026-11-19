@@ -1,6 +1,6 @@
 # Plan: One-Form Setup for the Curriculum Forecast
 
-Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). The Settings tab and the form are not built yet.
+Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). The Settings tab and the form are not built yet.
 
 Goal: a department that copies the forecast template sets the whole system up by filling in one form inside the spreadsheet. Nobody edits a script or a formula. The form replaces Part 4 of the README ("Adapting the Scripts"), the "More or Fewer Than Three Prefixes" section, and most of Parts 1 and 3.
 
@@ -12,7 +12,7 @@ Each claim below is marked **observed** (seen in our files or in a test this ses
 2.  In the copy, choose **Forecast setup \> Set up or change settings**. Approve Google's permission screen once.
 3.  Fill in the form: department name, contact email, and one row per prefix (either "make a planning sheet for me" or the URL of an existing one). Optionally add major options, each with a short code and the page that lists its courses.
 4.  Click **Check**, fix anything it flags, then click **Set up**.
-5.  If the result screen says so, click **Allow access** on the tabs it names (see Phase 0, test 1).
+5.  If a planning sheet belongs to someone else, click **Allow access** on the tabs the result screen names. (Not needed when the same person owns both files; see Phase 0, test 1.)
 6.  Follow the five deployment clicks the result screen lists, paste the `/exec` address back into the form, and the form tests it.
 7.  Link that address from the department website.
 
@@ -38,9 +38,12 @@ Adding a prefix later means opening the same form, adding a row and clicking **S
 | Summaries R7 in the live sheet reads `forAdminBIOA!$C3` instead of `$C2`, so it skips the first BIO A row. Generated formulas fix this. | observed | same export |
 | Named ranges `ANTHkey`, `BIOAkey`, `ARCHYkey` point at Dashboard B14 to B16; `MAGH_sheetrange` and `MAGH_Y_N_col` are broken (`#REF!`). | observed | same export |
 | A script can create a time-driven trigger (`ScriptApp.newTrigger`). | documented | Apps Script reference |
-| Copying a planning template file from a script needs Drive access (`DriveApp.makeCopy`), a wider permission than Sheets alone. | documented (scope), untested (whether a narrower scope works) | Phase 0, test 3 |
+| A planning sheet can be made from the template with Sheets permission alone: `SpreadsheetApp.create` plus `Sheet.copyTo` keeps every validation, highlight rule, header note, the frozen row and the formulas; only range protections are lost (the entry rules add theirs back). `DriveApp.makeCopy` and its Drive permission are not needed. | observed | Phase 0, test 3 |
 | A script cannot publish a web app without the Apps Script API and a Cloud project; we will not attempt it. | documented | Apps Script API reference |
-| Whether a copied spreadsheet owned by the same person still needs **Allow access** for `IMPORTRANGE`, and whether a script can grant it. | untested | Phase 0, test 1 |
+| A fresh copy of the forecast template imports a planning sheet owned by the same person with no **Allow access** step (data arrived within 15 seconds). A planning sheet owned by someone else is untested and may still need it. | observed (same owner), untested (other owner) | Phase 0, test 1 |
+| A new user's first menu click shows "Authorization required", then a plain permission screen (no unverified-app warning inside the UW domain); after approval the chosen menu item runs without a second click. | observed | Phase 0, test 2 |
+| Apps Script can read the catalog index and map prefixes to pages (348 prefixes). Take the last parenthesised group in each link, because some names have their own brackets ("International Studies (Area Studies) (JSIS A)"). Bothell and Tacoma prefixes are not in the Seattle index. | observed | Phase 0, test 5 |
+| The live project has one trigger: `runFullUpdate`, time-based, on Head, owned by bmarwick@uw.edu. Its "Last run" column was empty on 18 November. | observed | Phase 0, test 4 |
 | Running a function in a copied spreadsheet's project for the first time shows Google's "Authorization required" screen; each new copy asks again. | observed | template cleanup and scratch-copy runs, 18 Nov 2026 |
 | Google's list rule (dropdown) is case-sensitive: a list of `X, Q` marks a typed `x` invalid. | observed | entry rules on the ANTH sheet, 18 Nov 2026 |
 | In a rule or highlight formula, Sheets evaluates every argument of `AND` and `OR`, and one error (for example `INT("20/20")`) makes the whole formula fail even when another argument is true. Number tests must sit inside `IF(ISNUMBER(...))`. | observed | Enrollment rule on the ARCHY sheet, 18 Nov 2026 |
@@ -158,6 +161,16 @@ Each test has a fallback, so a failure changes the form, not the plan.
 
 Stop point: you see the results table and choose the fallbacks.
 
+#### Phase 0 Results (18 November 2026)
+
+| # | Result | Consequence |
+|---|--------|-------------|
+| 1 | Passed for the same owner: a fresh template copy imported the ARCHY planning sheet with no **Allow access** step. | The result screen mentions **Allow access** only for a planning sheet owned by someone else. |
+| 2 | Plain permission screen, no warnings; the menu item ran right after approval. A Data Check with no planning sheets said only "0 to fix, 0 to check". | No extra instructions needed. Phase 1: the Data Check says "No planning sheets on the Dashboard yet" when there are none, and its summary text gets a wider column. |
+| 3 | Passed with Sheets permission only (`SpreadsheetApp.create` plus `Sheet.copyTo`). | "Make a planning sheet for me" needs no Drive permission, so it is offered unconditionally (decision 2). The new file has no empty Apps Script project attached. |
+| 4 | One trigger, `runFullUpdate`, owned by bmarwick@uw.edu; "Last run" empty. | Phase 5 step 7 keeps it as the one trigger. Check the Executions page before cutover to confirm it runs monthly. |
+| 5 | ANTH, ARCHY, BIO A, GEOG, CL AR and JSIS A found once the pattern takes the last bracketed group; B BIO (Bothell) not in the index. | The form finds catalog pages for Seattle prefixes and asks for the URL by hand otherwise. |
+
 ### Phase 1: Settings Tab and Script Refactor (about one day)
 
 - Add `settings_()` with the fallback, and change the files as in the table above.
@@ -176,7 +189,7 @@ Stop point: you review the generated formulas against the live ones.
 
 ### Phase 3: The Form (about one day)
 
-- `SetupForm.html` with **Check** and **Set up**, the owner check, planning sheet creation (if test 3 passed), the overlap checker years, trigger creation, first update, result screen and `/exec` test.
+- `SetupForm.html` with **Check** and **Set up**, the owner check, planning sheet creation (`SpreadsheetApp.create` plus `Sheet.copyTo`, per Phase 0 test 3), the overlap checker years, trigger creation, first update, result screen and `/exec` test.
 - Menu item in `onOpen`.
 
 Stop point: you click through the form in a scratch copy.
@@ -211,8 +224,8 @@ If step 6 fails: redeploy version 39 (the page returns at once), restore the nam
 
 ## Steps Only You Can Do
 
-- Approve Google's permission screens (Phase 0 tests, Phase 5 step 3).
-- Choose the Phase 0 fallbacks and approve each stop point.
+- Approve Google's permission screens (Phase 5 step 3, and scratch copies during testing).
+- Approve each stop point.
 - Find the dry-run tester.
 - Be present for the live cutover and approve **Set up** on the live spreadsheet.
 - Deploy new web app versions on the live project, or watch me do it.
@@ -231,7 +244,7 @@ If step 6 fails: redeploy version 39 (the page returns at once), restore the nam
 | Risk | Mitigation |
 |------|------------|
 | The live trigger or a menu item runs new code before the Settings tab exists. | Fallback in `settings_()`; Settings tab added before the push. |
-| Wider permissions (Drive) worry users at the consent screen. | Phase 0 test 3; keep "make a planning sheet" optional. |
+| Wider permissions worry users at the consent screen. | Phase 0 test 3 removed the need for Drive permission; the form asks only for Sheets, web fetching (catalog pages) and triggers. |
 | A stale file survives in a project after a rename. | Delete in the editor and confirm with a fresh `clasp clone`, as on 18 November. |
 | Option-page phrases do not fit another department's pages. | Result screen shows per-option counts; phrases are editable in the form. |
 | Removing a prefix deletes a forAdmin tab someone customised. | Confirmation step; row 1 headings are regenerated, so nothing else is lost. |
@@ -241,7 +254,7 @@ If step 6 fails: redeploy version 39 (the page returns at once), restore the nam
 ## Decisions (18 November 2026)
 
 1.  **Dashboard key cells:** retired. Planning sheet IDs live only in Settings and go into the generated formulas as text; `ANTHkey`, `BIOAkey`, `ARCHYkey` and Dashboard rows 14 to 16 are removed in Phase 6.
-2.  **"Make a planning sheet for me":** offered if Phase 0 test 3 shows an acceptable permission screen; otherwise the form accepts only an existing sheet's URL, with a link to the planning template.
+2.  **"Make a planning sheet for me":** offered. Phase 0 test 3 showed it needs only Sheets permission (`SpreadsheetApp.create` plus `Sheet.copyTo`), so no Drive permission is requested.
 3.  **Sharing new planning sheets:** left to the README (Part 1). The form shares nothing.
 
 ## Open Question
