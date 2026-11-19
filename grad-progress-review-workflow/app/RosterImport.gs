@@ -13,6 +13,7 @@ function rosterPageData(quarter) {
   return {
     quarter: q,
     quarterLabel: quarterLabel_(q),
+    studentCount: readTable_(C_().SHEETS.STUDENTS).length,
     curriculaFilter: C_().CF_ALL_DEPARTMENTS ? null : C_().CF_CURRICULA_PHASE1,
     window: q ? courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES) : null,
     missingEmails: readTable_(C_().SHEETS.INSTRUCTORS).filter(function(r) { return !r.Email && !isGradStudentAppointment_(r.Appointment); }).map(function(r) { return r.TS_Name; }),
@@ -214,6 +215,7 @@ function previewCourseFeedback(quarter, mygrad, tsData) {
     summary: joinSummary_(res.counts),
     counts: res.counts,
     missingInstructors: res.missingInstructors,
+    studentCount: readTable_(C_().SHEETS.STUDENTS).length,
     canLaunch: res.canLaunch,
     unmatched: res.enrollments.filter(function(e) { return e.exclusionReason === EXCLUSION_.NO_MATCH; })
       .map(function(e) { return e.curric + ' ' + e.number + ' ' + e.section; }),
@@ -311,6 +313,29 @@ function importCourseFeedback(quarter, mygrad, tsData) {
 
 /* Fills in an instructor's email (and optionally confirms the appointment) from the Roster page.
    A graduate student is never asked (principle 8): their email is optional and never goes on a page. */
+/* Suggested emails for the named instructors, from the department's public people page
+   (CoreDirectory.gs). Returns { suggestions: { name: match }, error }. Nothing is saved here. */
+function suggestInstructorEmails(names) {
+  assertAdminOrGpc_();
+  const url = C_().DEPARTMENT_DIRECTORY_URL;
+  if (!url) return { suggestions: {}, error: 'No department directory is set (DEPARTMENT_DIRECTORY_URL in Config.gs).' };
+  let html;
+  try {
+    const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return { suggestions: {}, error: 'The department directory answered ' + res.getResponseCode() + '.' };
+    html = res.getContentText();
+  } catch (err) {
+    return { suggestions: {}, error: 'The department directory could not be read (' + err.message + ').' };
+  }
+  const people = parseDepartmentDirectory_(html);
+  if (!people.length) return { suggestions: {}, error: 'No people found on the department directory page; its layout may have changed.' };
+  const suggestions = {};
+  (names || []).slice(0, 200).forEach(function(name) {
+    suggestions[name] = matchDirectoryPerson_(String(name), people);
+  });
+  return { suggestions: suggestions, error: '' };
+}
+
 function saveInstructor(tsName, email, appointment) {
   const actor = assertAdminOrGpc_();
   email = normEmail_(email);

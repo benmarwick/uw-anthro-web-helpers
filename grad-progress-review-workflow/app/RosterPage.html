@@ -256,17 +256,49 @@
     });
   };
 
+  var MISSING = [];   // the names in the missing-email form, in order (their index is the form row)
+
   function missingForm(names) {
+    MISSING = names.slice();
     if (!names.length) return '<p class="ok">Every instructor has an email.</p>';
-    return '<h3>Instructors without an email</h3><p class="muted">Launch stays disabled until each has one. Check new names in the UW Directory. A graduate student is never asked: choose "graduate student" and leave the email blank.</p>' + names.map(function (n, i) {
+    return '<h3>Instructors without an email</h3><p class="muted">Launch stays disabled until each has one. Check new names in the UW Directory. A graduate student is never asked: choose "graduate student" and leave the email blank.</p>' +
+      '<p><button type="button" data-suggest="1" title="Reads the department\'s public people page and fills in the emails it finds. Nothing is saved until you click Save.">Suggest emails from the department directory</button></p>' +
+      names.map(function (n, i) {
       return '<div class="card"><strong>' + esc(n) + '</strong><div class="grid2"><div><label for="em' + i + '">UW email</label><input type="email" id="em' + i + '"></div>' +
         '<div><label for="ap' + i + '">Appointment</label><select id="ap' + i + '"><option value="">As found in the CEC</option><option>faculty</option><option>graduate student</option><option>other</option></select></div></div>' +
+        '<p class="muted" id="sg' + i + '"></p>' +
         '<button data-save="' + i + '" data-name="' + esc(n) + '">Save</button></div>';
     }).join('');
   }
 
+  /* Fills each email box from the department directory, with a note saying where it came from.
+     A box the administrator has already typed in is left alone. */
+  function showSuggestions(res) {
+    if (res.error) { say(res.error + ' Enter the emails from the UW Directory instead.', 'bad'); return; }
+    var found = 0;
+    MISSING.forEach(function (n, i) {
+      var m = res.suggestions[n] || { status: 'not-found' };
+      var box = document.getElementById('em' + i);
+      var note = document.getElementById('sg' + i);
+      if (!box || !note) return;
+      if (m.status === 'found') {
+        if (!box.value) box.value = m.email;
+        note.textContent = 'From the department directory: ' + m.directoryName + (m.title ? ' (' + m.title + ')' : '') + '. Check it, then click Save.';
+        found++;
+      } else if (m.status === 'no-email') {
+        note.textContent = 'Listed in the department directory as ' + m.directoryName + ', but with no email. Check the UW Directory.';
+      } else if (m.status === 'ambiguous') {
+        note.textContent = 'More than one person in the department directory fits (' + m.directoryName + '). Check the UW Directory.';
+      } else {
+        note.textContent = 'Not in the department directory. Check the UW Directory.';
+      }
+    });
+    say(found + ' of ' + MISSING.length + ' email(s) suggested. Nothing is saved until you click Save for each one.', found ? 'ok' : 'bad');
+  }
+
   function showPreview(p) {
     var h = '<div class="card"><p><strong>' + esc(p.summary) + '</strong></p>';
+    if (p.studentCount === 0) h += '<p class="warn">The Students sheet is empty, so no registration can match. Click <strong>Get MyGrad data</strong> (below) and the MyGrad bookmarklet first, then Preview again.</p>';
     if (p.unmatched && p.unmatched.length) h += '<p class="warn">No Time Schedule match: ' + p.unmatched.map(esc).join(', ') + '</p>';
     if (p.missingCurricula && p.missingCurricula.length) h += '<p class="warn">Departments not found in the Time Schedule: ' + p.missingCurricula.map(esc).join(', ') + '</p>';
     if (p.pages) h += '<table class="rows"><thead><tr><th>Offering</th><th>Instructors</th><th>Students</th></tr></thead><tbody>' + p.pages.map(function (x) {
@@ -276,6 +308,13 @@
   }
 
   document.getElementById('previewOut').addEventListener('click', function (e) {
+    if (e.target.getAttribute('data-suggest') !== null) {
+      say('Reading the department directory…');
+      e.target.disabled = true;
+      call('suggestInstructorEmails', MISSING).then(showSuggestions).catch(function (er) { say(er.message, 'bad'); })
+        .then(function () { e.target.disabled = false; });
+      return;
+    }
     var i = e.target.getAttribute('data-save');
     if (i === null) return;
     call('saveInstructor', e.target.getAttribute('data-name'), document.getElementById('em' + i).value, document.getElementById('ap' + i).value)

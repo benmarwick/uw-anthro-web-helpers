@@ -18,7 +18,8 @@ var EXCLUSION_ = {
   NO_INSTRUCTOR: 'No instructor listed',
   OUTSIDE_PHASE: 'Outside the departments in this phase',
   GRAD_INSTRUCTOR: 'Instructor is a graduate student',
-  STUDENT_INACTIVE: 'Student on leave or no longer enrolled'
+  STUDENT_INACTIVE: 'Student on leave or no longer enrolled',
+  STUDENT_NOT_LISTED: 'Student not in the Students sheet (click Get MyGrad data first)'
 };
 
 /* 'BIO A 201 B' (with any spacing or non-breaking spaces) -> { curric:'BIO A', number:'201', section:'B' }. */
@@ -94,7 +95,8 @@ function joinRegistrations_(mygradRows, sections, students, instructors, options
     if (r.withdrawn === true || String(r.withdrawn).toLowerCase() === 'true' || isWithdrawnGrade_(r.grade)) {
       exclude(EXCLUSION_.DROPPED); enrollments.push(e); return;
     }
-    if (!student || student.status !== 'ACTIVE') { exclude(EXCLUSION_.STUDENT_INACTIVE); enrollments.push(e); return; }
+    if (!student) { exclude(EXCLUSION_.STUDENT_NOT_LISTED); enrollments.push(e); return; }
+    if (student.status !== 'ACTIVE') { exclude(EXCLUSION_.STUDENT_INACTIVE); enrollments.push(e); return; }
     if (curricula && curricula.indexOf(e.curric) === -1) { exclude(EXCLUSION_.OUTSIDE_PHASE); enrollments.push(e); return; }
     var s = byKey[sectionKey_(e.quarter, e.curric, e.number, lectureSection_(e.section))];
     if (!s) { counts.unmatched++; exclude(EXCLUSION_.NO_MATCH); enrollments.push(e); return; }

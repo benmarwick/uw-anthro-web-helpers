@@ -17,6 +17,7 @@ const CONFIG = {
   SUBFIELD_COORDINATORS: {},        // { 'Archaeology': 'x@uw.edu', 'Sociocultural': ..., 'Biological': ..., 'MA': ... }
   PRIVACY_URL: 'https://github.com/benmarwick/uw-anthro-web-helpers/blob/main/grad-progress-review-workflow/README.md#privacy-notice',
   SURVEY_URL: '',                   // the anonymous post-cycle survey (annual review plan §9.5)
+  DEPARTMENT_DIRECTORY_URL: 'https://anthropology.washington.edu/people', // public people page; the Roster page suggests instructor emails from it ('' turns this off)
 
   /* ---- Annual review ---- */
   CYCLE_YEAR: 2027,
