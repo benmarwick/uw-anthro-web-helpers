@@ -14,7 +14,10 @@ function runDataCheck() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const src = planningSources_(ss);
   const catalog = catalogCourses_(ss);
+  const prefixes = planningPrefixes_();
   const all = [], notes = [];
+  if (!src.sheets.length) notes.push('No planning sheets found: add each planning sheet ID on the Settings tab (or in the Dashboard "key for" cells).');
+  if (!src.years.length) notes.push('No academic years found in Dashboard B4, B5 or B8.');
   src.sheets.forEach(function(s) {
     let file;
     try { file = SpreadsheetApp.openById(s.id); } catch (e) { notes.push(s.label + ': cannot open the planning sheet.'); return; }
@@ -30,8 +33,8 @@ function runDataCheck() {
     });
   });
   let problems = [];
-  all.forEach(function(t) { problems = problems.concat(checkPlanningRows_(t.rows, { y0: t.y0, prefixes: PLANNING_PREFIXES, catalog: catalog })); });
-  problems = problems.concat(checkPartners_(all));
+  all.forEach(function(t) { problems = problems.concat(checkPlanningRows_(t.rows, { y0: t.y0, prefixes: prefixes, catalog: catalog })); });
+  problems = problems.concat(checkPartners_(all, prefixes));
   writeDataCheck_(ss, problems, notes);
 }
 
@@ -125,12 +128,11 @@ function checkPlanningRows_(rows, ctx) {
  * prefixes, that course should be planned in the same quarter of the same year,
  * at the same start time. Returns 'Check' rows.
  */
-function checkPartners_(tabs) {
+function checkPartners_(tabs, prefixes) {
   const out = [];
-  if (!PLANNING_PREFIXES.length) return out;
-  const pat = new RegExp('\\b(' + PLANNING_PREFIXES.map(function(p) { return p.replace(/ /g, '\\s*'); }).join('|') + ')\\s*(\\d{3})', 'gi');
-  const compact = {};
-  PLANNING_PREFIXES.forEach(function(p) { compact[p.replace(/\s+/g, '').toUpperCase()] = p; });
+  if (!prefixes || !prefixes.length) return out;
+  const pat = new RegExp('\\b(' + prefixes.map(function(p) { return p.replace(/ /g, '\\s*'); }).join('|') + ')\\s*(\\d{3})', 'gi');
+  const compact = prefixMap_(prefixes);
   // One index per academic year, across every planning sheet, so a partner in another prefix's sheet is found.
   const byYear = {};
   tabs.forEach(function(t) {
@@ -172,13 +174,16 @@ function writeDataCheck_(ss, problems, notes) {
   const counts = {};
   problems.forEach(function(p) { const k = p.level + ': ' + p.type; counts[k] = (counts[k] || 0) + 1; });
   const fix = problems.filter(function(p) { return p.level === 'Fix'; }).length;
+  // Summary: counts in column A and text in column B, so the text runs over the empty cells to its right.
   const top = [['Data Check, ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'), ''],
                [fix + ' to fix, ' + (problems.length - fix) + ' to check. Fix rows break a rule the forecast depends on; Check rows may be correct.', '']];
-  Object.keys(counts).forEach(function(k) { top.push([k, counts[k]]); });
-  notes.forEach(function(n) { top.push([n, '']); });
+  Object.keys(counts).forEach(function(k) { top.push([counts[k], k]); });
+  notes.forEach(function(n) { top.push(['', n]); });
   top.push(['', '']);
   sh.getRange(1, 1, top.length, 2).setValues(top);
   sh.getRange(1, 1).setFontWeight('bold');
+  sh.getRange(1, 1, top.length, 2).setWrapStrategy(SpreadsheetApp.WrapStrategy.OVERFLOW);
+  sh.getRange(3, 1, Math.max(1, top.length - 2), 1).setHorizontalAlignment('right');
   const head = ['Level', 'Problem', 'Planning sheet', 'Tab', 'Row', 'Course', 'Value', 'Open'];
   const start = top.length + 1;
   const body = problems.map(function(p) {
@@ -186,6 +191,7 @@ function writeDataCheck_(ss, problems, notes) {
   });
   sh.getRange(start, 1, 1, head.length).setValues([head]).setFontWeight('bold');
   if (body.length) sh.getRange(start + 1, 1, body.length, head.length).setValues(body);
-  sh.autoResizeColumns(1, head.length);
+  sh.autoResizeColumns(2, head.length - 1);
+  sh.setColumnWidth(1, 60);
   ss.setActiveSheet(sh);
 }

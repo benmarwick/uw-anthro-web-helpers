@@ -40,9 +40,6 @@
         <label>Prefix (Dept)</label>
         <select id="prefixFilter" onchange="drawChart()">
           <option value="ALL">All Departments</option>
-          <option value="ANTH">ANTH</option>
-          <option value="ARCHY" selected>ARCHY</option>
-          <option value="BIO A">BIO A</option>
         </select>
       </div>
       <div class="control-group pathway-checker">
@@ -68,7 +65,15 @@
       $('#courseSelect').select2({ placeholder: "Search & select specific courses", allowClear: true });
       $('#courseSelect').on('change', function() { drawChart(); });
       
-      google.script.run.withSuccessHandler(initDashboard).withFailureHandler(function(err){
+      // Ask for the prefixes (Settings tab) and the schedule at the same time; draw once both have arrived.
+      let settings = null, data = null;
+      const ready = function() { if (settings && data) initDashboard(data); };
+      google.script.run.withSuccessHandler(function(s) {
+        settings = s;
+        (s.prefixes || []).forEach(function(p, i) { $('#prefixFilter').append(new Option(p, p, false, i === 0)); });
+        ready();
+      }).getPageSettings();
+      google.script.run.withSuccessHandler(function(d) { data = d || []; ready(); }).withFailureHandler(function(err){
         console.error("Error fetching data:", err);
         $('#loading').text("Error loading data. Check console.");
       }).getScheduleData();

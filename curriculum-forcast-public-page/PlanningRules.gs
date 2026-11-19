@@ -10,9 +10,8 @@
  * after adding a year tab, because the year check depends on the tab's name.
  */
 
-// The prefixes a planning sheet may use in column D. Change these to your own.
-// (setup-form-plan.md moves this list to the Settings tab.)
-const PLANNING_PREFIXES = ['ANTH', 'ARCHY', 'BIO A'];
+// The prefixes a planning sheet may use in column D: the prefixes on the Settings tab.
+function planningPrefixes_() { return settings_().prefixes.map(function(p) { return p.prefix; }); }
 
 // Marks the highlight rules this file creates, so a re-run can find and replace them.
 const RULE_MARK = 'N("planning-rule")=0';
@@ -28,7 +27,7 @@ function applyPlanningRulesFromMenu() {
     src.years.forEach(function(year) {
       const tab = file.getSheetByName(year);
       if (!tab) { out.push(s.label + ' ' + year + ': no tab with that name, skipped'); return; }
-      const r = applyPlanningRules_(tab, PLANNING_PREFIXES);
+      const r = applyPlanningRules_(tab, planningPrefixes_());
       out.push(s.label + ' ' + year + ': rules applied (' + r.invalidNow + ' cells currently break a rule; Admin Tools > Run Data Check lists them)');
     });
   });
@@ -36,17 +35,21 @@ function applyPlanningRulesFromMenu() {
 }
 
 /**
- * The planning sheets and years named on the Dashboard: each "key for X" label
- * with a sheet ID beside it, and the academic years typed in B4, B5 and B8.
+ * The planning sheets and the years to work on: the prefixes on the Settings tab that
+ * have a planning sheet ID, or, if none has one, each "key for X" label on the Dashboard
+ * with a sheet ID beside it; and the academic years typed in Dashboard B4, B5 and B8.
  */
 function planningSources_(ss) {
   const dash = ss.getSheetByName('Dashboard');
-  const vals = dash.getRange('A1:B40').getDisplayValues();
   const sheets = [];
-  vals.forEach(function(r) {
-    const m = String(r[0]).match(/^key for\s+(.+)$/i);
-    if (m && /^[A-Za-z0-9_-]{30,}$/.test(String(r[1]).trim())) sheets.push({ label: m[1].trim(), id: String(r[1]).trim() });
-  });
+  const isId = function(x) { return /^[A-Za-z0-9_-]{30,}$/.test(String(x || '').trim()); };
+  settings_().prefixes.forEach(function(p) { if (isId(p.sheetId)) sheets.push({ label: p.prefix, id: String(p.sheetId).trim() }); });
+  if (!sheets.length) {
+    dash.getRange('A1:B40').getDisplayValues().forEach(function(r) {
+      const m = String(r[0]).match(/^key for\s+(.+)$/i);
+      if (m && isId(r[1])) sheets.push({ label: m[1].trim(), id: String(r[1]).trim() });
+    });
+  }
   const years = [];
   ['B4', 'B5', 'B8'].forEach(function(a) {
     const y = String(dash.getRange(a).getDisplayValue()).trim();

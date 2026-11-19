@@ -5,9 +5,8 @@
 function runScheduleChecks() {
   let ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // Update these to match the EXACT names of the tabs at the bottom of your screen. 
-  // (I am guessing the third one is "forAdminARCHY", change it if it's named differently!)
-  const sheetNames =["forAdminANTH", "forAdminBIOA", "forAdminARCHY"]; 
+  // The forAdmin tabs: one per prefix on the Settings tab.
+  const sheetNames = settings_().prefixes.map(function(p) { return adminTabName_(p.prefix); });
   
   let allCourses =[];
   let report = [["Type of Issue", "Quarter & Year", "Courses Involved", "Details"]];

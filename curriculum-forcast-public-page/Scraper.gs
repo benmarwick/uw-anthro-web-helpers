@@ -20,11 +20,10 @@ function runFullUpdate() {
 }
 
 function scrapeMasterGenEd() {
-  const catalogs = [
-    { prefix: "ANTH", url: "https://www.washington.edu/students/crscat/anthro.html" },
-    { prefix: "ARCHY", url: "https://www.washington.edu/students/crscat/archeo.html" },
-    { prefix: "BIO A", url: "https://www.washington.edu/students/crscat/bioanth.html" }
-  ];
+  // One catalog page per prefix, from the Settings tab.
+  const prefixes = settings_().prefixes;
+  const catalogs = prefixes.filter(function(p) { return p.catalogUrl; }).map(function(p) { return { prefix: p.prefix, url: p.catalogUrl }; });
+  const genEdList = settings_().genEd;
   
   let results = [];
 
@@ -46,14 +45,13 @@ function scrapeMasterGenEd() {
         let headMatch = headerText.match(/([A-Z\s&]+)\s+(\d+)/);
         if (!headMatch) return;
 
-        let prefix = headMatch[1].trim();
-        if (prefix === "BIOA") prefix = "BIO A";
+        let prefix = canonicalPrefix_(headMatch[1].trim(), prefixes); // puts the space back, e.g. BIOA -> BIO A
         let courseNum = headMatch[2];
         let courseID = `${prefix} ${courseNum}`;
 
         // 2. Extract Gen Ed from Header
         let genEdCodes = [];
-        ["NSc", "SSc", "A&H", "DIV"].forEach(code => {
+        genEdList.forEach(code => {
           if (headerText.includes(code)) genEdCodes.push(code);
         });
 
@@ -79,18 +77,14 @@ function scrapeMasterGenEd() {
 }
 
 function scrapeMasterOptions() {
-  const optionsMap = [
-    { name: "MAGH", url: "https://anthropology.washington.edu/medical-anthropology-global-health-ba" },
-    { name: "GLOB", url: "https://anthropology.washington.edu/anthropology-globalization-ba" },
-    { name: "ASCI", url: "https://anthropology.washington.edu/archaeological-sciences-ba" },
-    { name: "HEB",  url: "https://anthropology.washington.edu/human-evolutionary-biology-ba" },
-    { name: "INDG", url: "https://anthropology.washington.edu/indigenous-archaeology-ba" }
-  ];
+  // Major options, prefixes and heading phrases, from the Settings tab.
+  const s = settings_();
+  const optionsMap = s.options.map(function(o) { return { name: o.code, url: o.url }; });
   let finalResults = [];
-  const courseRegex = /(ANTH|ARCHY|BIO\s?A)\s*(\d{3})/gi;
-const coreKeywords = /Core Coursework|Core Requirements|Required Coursework|Required Core|ASc core list/i;
-const reqdKeywords = /Specific Courses Required|Choose one|Select from|one of the following|Choose from|Students are required to take two of the courses/i;
-const aprvdKeywords = /Approved Electives|Elective Courses|approved elective list|department-approved list|15 credits from the department approved elective list|15 credits from the following|credits from approved IA core list|credits from the department approved list/i;
+  const courseRegex = prefixCoursePattern_(s.prefixes);
+  const coreKeywords = phrasePattern_(s.phrases.core);
+  const reqdKeywords = phrasePattern_(s.phrases.reqd);
+  const aprvdKeywords = phrasePattern_(s.phrases.aprvd);
 
   optionsMap.forEach(opt => {
     try {
@@ -102,8 +96,7 @@ const aprvdKeywords = /Approved Electives|Elective Courses|approved elective lis
       
       let match;
       while ((match = courseRegex.exec(html)) !== null) {
-        let prefix = match[1].toUpperCase().replace(/\s+/g, ' ').trim();
-        if (prefix === "BIOA") prefix = "BIO A";
+        let prefix = canonicalPrefix_(match[1].toUpperCase().replace(/\s+/g, ' ').trim(), s.prefixes);
         let courseID = `${prefix} ${match[2]}`;
         let pos = match.index;
         if (coreStart !== -1 && pos < coreStart - 200) continue; 

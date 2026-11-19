@@ -1,14 +1,16 @@
 function doGet(e) {
+  const dept = settings_().department;
+  const title = function(what) { return (dept ? dept + ' ' : '') + 'Curriculum ' + what; };
   // 1. Check if the URL has "?page=schedule" at the end
   if (e.parameter.page === 'schedule') {
     return HtmlService.createHtmlOutputFromFile('ScheduleDashboard')
-      .setTitle('Anthropology Curriculum Schedule')
+      .setTitle(title('Schedule'))
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   // 2. Otherwise, load our ORIGINAL dashboard named 'Index')
   return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Anthropology Curriculum Forecast')
+    .setTitle(title('Forecast'))
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -126,8 +128,9 @@ function getScheduleData() {
   console.log("--- Starting getScheduleData() ---");
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // The specific sheets to pull schedule data from
-  const sheetNames = ["forAdminANTH", "forAdminARCHY", "forAdminBIOA"];
+  // The forAdmin tabs to pull schedule data from: one per prefix on the Settings tab
+  const prefixes = settings_().prefixes;
+  const sheetNames = prefixes.map(function(p) { return adminTabName_(p.prefix); });
   let cleanData =[];
 
   sheetNames.forEach(sheetName => {
@@ -190,7 +193,7 @@ function getScheduleData() {
       
       // Fallback: If 'Prefix' column is missing/blank, guess it from the sheet name!
       let prefixVal = col.prefix > -1 && row[col.prefix] ? row[col.prefix].trim() : sheetName.replace('forAdmin', '');
-      if (prefixVal === 'BIOA') prefixVal = 'BIO A'; // Add space back for BIO A
+      prefixVal = canonicalPrefix_(prefixVal, prefixes); // puts the space back, e.g. BIOA -> BIO A
 
       // Skip empty rows or classes without times
       if (!startVal || !endVal || !courseVal) return; 

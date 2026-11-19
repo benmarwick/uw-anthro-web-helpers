@@ -1,6 +1,6 @@
 # Plan: One-Form Setup for the Curriculum Forecast
 
-Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). The Settings tab and the form are not built yet.
+Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). Phase 1, the Settings tab and the script changes, is built and tested in a scratch copy (see [Phase 1 Results](#phase-1-results-19-november-2026)); it is not yet in the template or the live project. The form is not built yet.
 
 Goal: a department that copies the forecast template sets the whole system up by filling in one form inside the spreadsheet. Nobody edits a script or a formula. The form replaces Part 4 of the README ("Adapting the Scripts"), the "More or Fewer Than Three Prefixes" section, and most of Parts 1 and 3.
 
@@ -12,7 +12,7 @@ Each claim below is marked **observed** (seen in our files or in a test this ses
 2.  In the copy, choose **Forecast setup \> Set up or change settings**. Approve Google's permission screen once.
 3.  Fill in the form: department name, contact email, and one row per prefix (either "make a planning sheet for me" or the URL of an existing one). Optionally add major options, each with a short code and the page that lists its courses.
 4.  Click **Check**, fix anything it flags, then click **Set up**.
-5.  If a planning sheet belongs to someone else, click **Allow access** on the tabs the result screen names. (Not needed when the same person owns both files; see Phase 0, test 1.)
+5.  Click **Allow access** on the tabs the result screen names (see Phase 0, test 1).
 6.  Follow the five deployment clicks the result screen lists, paste the `/exec` address back into the form, and the form tests it.
 7.  Link that address from the department website.
 
@@ -40,7 +40,7 @@ Adding a prefix later means opening the same form, adding a row and clicking **S
 | A script can create a time-driven trigger (`ScriptApp.newTrigger`). | documented | Apps Script reference |
 | A planning sheet can be made from the template with Sheets permission alone: `SpreadsheetApp.create` plus `Sheet.copyTo` keeps every validation, highlight rule, header note, the frozen row and the formulas; only range protections are lost (the entry rules add theirs back). `DriveApp.makeCopy` and its Drive permission are not needed. | observed | Phase 0, test 3 |
 | A script cannot publish a web app without the Apps Script API and a Cloud project; we will not attempt it. | documented | Apps Script API reference |
-| A fresh copy of the forecast template imports a planning sheet owned by the same person with no **Allow access** step (data arrived within 15 seconds). A planning sheet owned by someone else is untested and may still need it. | observed (same owner), untested (other owner) | Phase 0, test 1 |
+| A copy needs **Allow access** for each planning sheet shared with UW only, even when the same person owns both: in a copy of the live forecast, the ANTH and BIO A imports showed `#REF!` until **Allow access** was clicked. The ARCHY import worked without it because ARCHY is shared with anyone who has the link. | observed | Phase 0, test 1, rechecked 19 Nov 2026 |
 | A new user's first menu click shows "Authorization required", then a plain permission screen (no unverified-app warning inside the UW domain); after approval the chosen menu item runs without a second click. | observed | Phase 0, test 2 |
 | Apps Script can read the catalog index and map prefixes to pages (348 prefixes). Take the last parenthesised group in each link, because some names have their own brackets ("International Studies (Area Studies) (JSIS A)"). Bothell and Tacoma prefixes are not in the Seattle index. | observed | Phase 0, test 5 |
 | The live project has one trigger: `runFullUpdate`, time-based, on Head, owned by bmarwick@uw.edu. Its "Last run" column was empty on 18 November. | observed | Phase 0, test 4 |
@@ -165,7 +165,7 @@ Stop point: you see the results table and choose the fallbacks.
 
 | # | Result | Consequence |
 |---|--------|-------------|
-| 1 | Passed for the same owner: a fresh template copy imported the ARCHY planning sheet with no **Allow access** step. | The result screen mentions **Allow access** only for a planning sheet owned by someone else. |
+| 1 | **Allow access** is needed for planning sheets shared with UW only, even with the same owner (rechecked 19 November: ANTH and BIO A showed `#REF!` until clicked). Not needed for a sheet shared with anyone who has the link. | Keep the README's "Allow access" step; the result screen lists the tabs still showing `#REF!`. |
 | 2 | Plain permission screen, no warnings; the menu item ran right after approval. A Data Check with no planning sheets said only "0 to fix, 0 to check". | No extra instructions needed. Phase 1: the Data Check says "No planning sheets on the Dashboard yet" when there are none, and its summary text gets a wider column. |
 | 3 | Passed with Sheets permission only (`SpreadsheetApp.create` plus `Sheet.copyTo`). | "Make a planning sheet for me" needs no Drive permission, so it is offered unconditionally (decision 2). The new file has no empty Apps Script project attached. |
 | 4 | One trigger, `runFullUpdate`, owned by bmarwick@uw.edu; "Last run" empty. | Phase 5 step 7 keeps it as the one trigger. Check the Executions page before cutover to confirm it runs monthly. |
@@ -175,9 +175,27 @@ Stop point: you see the results table and choose the fallbacks.
 
 - Add `settings_()` with the fallback, and change the files as in the table above.
 - Extend `tests/run.js`: prefix map, prefix pattern, settings parsing.
-- Push to the template project only. In a scratch copy of the template with a Settings tab filled with our three prefixes, check that the page, schedule view, conflict report and monthly update give the same output as the live system on the same day.
+- Test in a scratch copy's own project (not the template's), with a Settings tab filled with our three prefixes, and check that the page, schedule view, conflict report and monthly update give the same output as the old code on the same data.
 
 Stop point: you open the scratch copy's page and compare.
+
+#### Phase 1 Results (19 November 2026)
+
+Built: `Settings.gs` (the Settings tab layout, `settings_()` with the Anthropology fallback, `writeSettingsTab_`, the prefix helpers and `getPageSettings()` for the pages), and changes to `Code.gs`, `Scraper.gs`, `Conflict Report Script.gs`, `PlanningRules.gs` (`planningPrefixes_()` replaces the `PLANNING_PREFIXES` constant), `DataCheck.gs`, `Index.html` and `ScheduleDashboard.html`. `tests/run.js` adds 16 Settings checks (round trip of the tab layout, prefixes with a space, and the generated patterns being identical to the fixed ones they replaced).
+
+Tested in the scratch copy of the live forecast, against fingerprints taken with the old code on the same data:
+
+| Output | Old code | New code, Settings tab | New code, no Settings tab |
+|--------|----------|------------------------|---------------------------|
+| Course list (`getCourseData`) | 317 courses | identical | identical |
+| Schedule data (`getScheduleData`) | 115 rows | identical, same order | identical, same order |
+| Conflict Report | 214 rows | same rows; in each pair the course named first follows the prefix order (ANTH, ARCHY, BIO A instead of ANTH, BIO A, ARCHY). With the prefixes in the old order the report is identical. | same as with the Settings tab |
+| Catalog update (Ref_GenEd, Ref_Options) | 311 and 240 rows | identical | identical |
+| Data Check | 33 to fix, 107 to check | identical | not run |
+
+The course list page and the schedule view, opened through the scratch project's test address, show the same heading, subtitle, filters, links and option tags as the live pages. One visible change: the schedule view's prefix dropdown now opens on the first prefix (ANTH) instead of ARCHY.
+
+Deviation from the plan: the code was tested in the scratch copy's own project, not pushed to the template's project, so other departments copying the template never get unfinished code. The template is refreshed in Phase 4.
 
 ### Phase 2: Formula Builders and an Apply Function (about one day)
 

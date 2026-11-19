@@ -61,9 +61,36 @@ assert(types(run([row(2, ok)], { catalog: { 'ANTH 101': true } })).includes('Not
 const partners = plain(vm.runInContext('checkPartners_', ctx)([{ y0: 2026, rows: [
   row(2, Object.assign({}, ok, { D: 'ARCHY', E: 459, J: 'ARCHY 560 A' })),
   row(3, Object.assign({}, ok, { D: 'ARCHY', E: 560, J: 'ARCHY 459 A' })),
-  row(4, Object.assign({}, ok, { E: 410, J: 'ANTH 999', R: t(9, 30), S: t(10, 20) }))] }]));
+  row(4, Object.assign({}, ok, { E: 410, J: 'ANTH 999', R: t(9, 30), S: t(10, 20) }))] }], ['ANTH', 'ARCHY', 'BIO A']));
 assert.deepStrictEqual(partners.map(p => p.rowNum + ' ' + p.type), ['4 Linked course not planned in this quarter']);
 console.log('Data Check rules:', cases.length + 4, 'cases pass');
+
+// Settings: defaults, round trip through the tab layout, prefix helpers, and the patterns that replaced fixed ones.
+const S = name => vm.runInContext(name, ctx);
+ctx.SpreadsheetApp = { getActiveSpreadsheet: () => ({ getSheetByName: () => null }) };   // no Settings tab: defaults apply
+const defaults = plain(S('DEFAULT_SETTINGS_'));
+assert.deepStrictEqual(plain(S('settings_')()), defaults, 'without a Settings tab, settings_() returns the defaults');
+const back = plain(S('parseSettingsRows_')(S('settingsRows_')(defaults)));
+assert.deepStrictEqual(back, defaults, 'writing the Settings tab and reading it back gives the same settings');
+const custom = JSON.parse(JSON.stringify(defaults));
+custom.department = 'Geography'; custom.prefixes = [{ prefix: 'GEOG', sheetId: '1'.repeat(44), catalogUrl: 'https://www.washington.edu/students/crscat/geog.html' }, { prefix: 'JSIS A', sheetId: '', catalogUrl: '' }];
+custom.options = []; custom.phrases.core = ['Core'];
+assert.deepStrictEqual(plain(S('parseSettingsRows_')(S('settingsRows_')(custom))), custom, 'round trip with other values, a prefix with a space and no options');
+assert.strictEqual(S('canonicalPrefix_')('BIOA', defaults.prefixes), 'BIO A');
+assert.strictEqual(S('canonicalPrefix_')('ANTH', defaults.prefixes), 'ANTH');
+assert.strictEqual(S('canonicalPrefix_')('LING', defaults.prefixes), 'LING', 'a prefix not on the list is left as read');
+assert.strictEqual(S('adminTabName_')('BIO A'), 'forAdminBIOA');
+// The generated patterns are the same as the fixed ones they replaced in Scraper.gs.
+assert.strictEqual(S('prefixCoursePattern_')(defaults.prefixes).source, /(ANTH|ARCHY|BIO\s?A)\s*(\d{3})/gi.source);
+assert.strictEqual(S('phrasePattern_')(defaults.phrases.core).source, /Core Coursework|Core Requirements|Required Coursework|Required Core|ASc core list/i.source);
+assert.strictEqual(S('phrasePattern_')(defaults.phrases.reqd).source, /Specific Courses Required|Choose one|Select from|one of the following|Choose from|Students are required to take two of the courses/i.source);
+assert.strictEqual(S('phrasePattern_')(defaults.phrases.aprvd).source, /Approved Electives|Elective Courses|approved elective list|department-approved list|15 credits from the department approved elective list|15 credits from the following|credits from approved IA core list|credits from the department approved list/i.source);
+const page = plain(S('getPageSettings')());
+assert.deepStrictEqual(page.prefixes, ['ANTH', 'ARCHY', 'BIO A']);
+assert.strictEqual(page.catalogLinks['BIO A'], 'https://www.washington.edu/students/crscat/bioanth.html');
+assert.deepStrictEqual(Object.keys(page.optionLinks), ['MAGH', 'GLOB', 'ASCI', 'HEB', 'INDG']);
+assert(!JSON.stringify(page).includes('sheetId'), 'page settings carry no sheet IDs');
+console.log('Settings: 16 checks pass');
 
 if (process.argv[2]) {
   const tabs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
@@ -71,7 +98,7 @@ if (process.argv[2]) {
   tabs.forEach(tb => tb.rows.forEach(r => { r.values = r.values.map(fix); }));
   let all = [];
   tabs.forEach(tb => { all = all.concat(run(tb.rows, { y0: tb.y0 })); });
-  all = all.concat(plain(vm.runInContext('checkPartners_', ctx)(tabs)));
+  all = all.concat(plain(vm.runInContext('checkPartners_', ctx)(tabs, ['ANTH', 'ARCHY', 'BIO A'])));
   const counts = {};
   all.forEach(p => { const k = p.level + ': ' + p.type; counts[k] = (counts[k] || 0) + 1; });
   console.log(JSON.stringify(counts, null, 1));

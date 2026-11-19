@@ -59,8 +59,8 @@
     </style>
   </head>
   <body>
-    <h1>Anthropology Curriculum Forecast</h1>
-    <p class="subtitle">Future listings are tentative and subject to change at any time. For official details, visit the <a href="http://www.washington.edu/students/timeschd" target="_blank">UW Time Schedule</a>.</p>
+    <h1 id="pageTitle">Curriculum Forecast</h1>
+    <p class="subtitle"><span id="pageSubtitle"></span> For official details, visit the <a href="http://www.washington.edu/students/timeschd" target="_blank">UW Time Schedule</a>.</p>
     
     <div id="loading">Syncing course data with faculty planning sheets...</div>
     
@@ -87,20 +87,24 @@
 
     <script>
       let allCourses = [];
-      const catalogLinks = {
-        "ANTH": "https://www.washington.edu/students/crscat/anthro.html",
-        "ARCHY": "https://www.washington.edu/students/crscat/archeo.html",
-        "BIO A": "https://www.washington.edu/students/crscat/bioanth.html"
-      };
-      const optionLinks = {
-        "MAGH": "https://anthropology.washington.edu/medical-anthropology-global-health-ba",
-        "GLOB": "https://anthropology.washington.edu/anthropology-globalization-ba",
-        "ASCI": "https://anthropology.washington.edu/archaeological-sciences-ba",
-        "HEB":  "https://anthropology.washington.edu/human-evolutionary-biology-ba",
-        "INDG": "https://anthropology.washington.edu/indigenous-archaeology-ba"
+      // Department values from the Settings tab (getPageSettings in Settings.gs).
+      let catalogLinks = {}, optionLinks = {}, genEdCodes = [];
+
+      // Ask for the settings and the courses at the same time; draw once both have arrived.
+      window.onload = () => {
+        let settings = null, courses = null;
+        const ready = () => { if (settings && courses) initDashboard(courses); };
+        google.script.run.withSuccessHandler(s => { settings = s; applySettings(s); ready(); }).getPageSettings();
+        google.script.run.withSuccessHandler(c => { courses = c; ready(); }).getCourseData();
       };
 
-      window.onload = () => google.script.run.withSuccessHandler(initDashboard).getCourseData();
+      function applySettings(s) {
+        catalogLinks = s.catalogLinks || {};
+        optionLinks = s.optionLinks || {};
+        genEdCodes = s.genEd || [];
+        document.getElementById('pageTitle').textContent = (s.department ? s.department + ' ' : '') + 'Curriculum Forecast';
+        document.getElementById('pageSubtitle').textContent = s.subtitle || '';
+      }
 
       function initDashboard(courses) {
         allCourses = courses;
@@ -124,7 +128,7 @@
 
         html += createCheckboxGroup('Quarter', quarters, 'quarter');
         html += createCheckboxGroup('Year', years, 'year');
-        html += createCheckboxGroup('<a href="https://advising.uw.edu/degree-overview/general-education/" target="_blank">Gen Ed</a>', ["NSc", "SSc", "A&H", "DIV"], 'genEd');
+        html += createCheckboxGroup('<a href="https://advising.uw.edu/degree-overview/general-education/" target="_blank">Gen Ed</a>', genEdCodes, 'genEd');
         html += createCheckboxGroup('Writing', ["W Credit"], 'wCredit');
         
         html += `<div class="filter-group"><h3>Options</h3>`;

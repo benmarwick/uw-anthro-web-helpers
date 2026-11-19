@@ -235,6 +235,8 @@ To remove a prefix, delete its line and the semicolon before the closing brace. 
 
 ## Part 4: Adapting the Scripts
 
+**Change under way (19 November 2026):** the scripts in this folder now read these values from a **Settings** tab (`Settings.gs`; see [setup-form-plan.md](setup-form-plan.md)). The forecast template and our live forecast still run the earlier version, which is what this part describes; the line numbers below refer to that version, at commit `6527afe`.
+
 In **Extensions \> Apps Script**, change these Anthropology values, then save.
 
 | File | Line(s) | What to change |
