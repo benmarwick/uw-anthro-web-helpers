@@ -105,3 +105,34 @@ if (process.argv[2]) {
   const timeRows = all.filter(p => /outside 7:00|not after the start/.test(p.type)).map(p => `${p.sheet} ${p.tab} ${p.course}`);
   console.log('time-order rows:', [...new Set(timeRows)]);
 }
+
+// Formula builders (Setup.gs) against the live forecast's formulas, read 19 Nov 2026.
+const live = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'live-formulas-2026-11-19.json'), 'utf8'));
+const ID = { ANTH: 'ID_ANTH', 'BIO A': 'ID_BIOA', ARCHY: 'ID_ARCHY' };
+const KEY = { ANTH: 'ANTHkey', 'BIO A': 'BIOAkey', ARCHY: 'ARCHYkey' };
+// The live formulas use named ranges; the builders write each sheet ID as text. Swap one for the other before comparing.
+// Function names are case-insensitive in Sheets, and forAdminBIOA spells importrange in lowercase.
+const asText = f => Object.keys(KEY).reduce((x, p) => x.split('""&' + KEY[p] + '&""').join('"' + ID[p] + '"').split(KEY[p]).join('"' + ID[p] + '"'), f).replace(/\n$/, '').replace(/importrange\(/g, 'IMPORTRANGE(');
+const liveOrder = ['ANTH', 'BIO A', 'ARCHY'].map(p => ({ prefix: p, sheetId: ID[p] }));
+assert.strictEqual(S('combineFormula_')(liveOrder, 'AY1_sheetrange', 'AY1_quarters'), asText(live.student_A6), 'student tab A6');
+assert.strictEqual(S('combineFormula_')(liveOrder, 'AY2_sheetrange', 'AY2_quarters'), asText(live.student_K6), 'student tab K6');
+assert.strictEqual(S('combineFormula_')(liveOrder, 'AY1_sheetrange_more', 'AY1_quarters', ' AND Col11 is not null'), asText(live.ta_A2), 'TA needs A2');
+for (const p of ['ANTH', 'ARCHY', 'BIO A']) {
+  assert.strictEqual(S('forAdminFormula_')({ prefix: p, sheetId: ID[p] }), asText(live.forAdmin_B2[S('adminTabName_')(p)]), 'forAdmin B2 for ' + p);
+}
+const headings = plain(S('ADMIN_HEADINGS_'));
+headings.forEach((h, i) => assert.strictEqual(h, live.forAdmin_row1[S('colLetter_')(2 + i) + '1'], 'forAdmin heading ' + (2 + i)));
+// Summaries: the live sheet has two intended differences, R7 (reads $C3, skipping a row) and the BIO A label (BIOA).
+const expected = Object.assign({}, live.summaries, { R7: live.summaries.R7.replace('$C3:$F', '$C2:$F'), P3: 'BIO A' });
+const built = {};
+['ANTH', 'ARCHY', 'BIO A'].forEach((p, i) => Object.assign(built, plain(S('summariesBlock_')({ prefix: p }, i))));
+Object.keys(built).forEach(a1 => { built[a1] = String(built[a1]); });
+assert.deepStrictEqual(built, expected, 'Summaries blocks');
+// Shapes for other prefix counts: one prefix, and four with a space and a quote-needing tab name.
+const one = S('combineFormula_')([{ prefix: 'GEOG', sheetId: 'G' }], 'AY1_sheetrange', 'AY1_quarters');
+assert(!one.includes(';') && one.includes('IMPORTRANGE("G", AY1_sheetrange)'), 'one prefix: one line, no separator');
+const four = S('combineFormula_')(['A', 'B', 'C', 'D'].map(x => ({ prefix: x, sheetId: x })), 'AY1_sheetrange', 'AY1_quarters');
+assert.strictEqual((four.match(/;\n/g) || []).length, 3, 'four prefixes: three separators');
+assert.strictEqual(plain(S('summariesBlock_')({ prefix: 'JSIS A' }, 3))['X5'], '=COUNTUNIQUE(IFERROR(QUERY(forAdminJSISA!$C2:$F, "SELECT F WHERE C = \'AU\' AND F LIKE \'1%\'"), ))', 'fourth block: labels in W, first count in X');
+assert.strictEqual(S('sheetRef_')("forAdminB&A"), "'forAdminB&A'", 'tab names with other characters are quoted');
+console.log('Formula builders: match the live formulas (' + Object.keys(built).length + ' Summaries cells), 4 shape checks pass');

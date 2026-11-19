@@ -1,6 +1,6 @@
 # Plan: One-Form Setup for the Curriculum Forecast
 
-Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). Phase 1, the Settings tab and the script changes, is built and tested in a scratch copy (see [Phase 1 Results](#phase-1-results-19-november-2026)); it is not yet in the template or the live project. The form is not built yet.
+Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). Phases 1 and 2 (the Settings tab, the script changes and the formula builders) are built and tested in a scratch copy (see [Phase 1 Results](#phase-1-results-19-november-2026) and [Phase 2 Results](#phase-2-results-19-november-2026)); they are not yet in the template or the live project. The form is not built yet.
 
 Goal: a department that copies the forecast template sets the whole system up by filling in one form inside the spreadsheet. Nobody edits a script or a formula. The form replaces Part 4 of the README ("Adapting the Scripts"), the "More or Fewer Than Three Prefixes" section, and most of Parts 1 and 3.
 
@@ -205,6 +205,15 @@ Deviation from the plan: the code was tested in the scratch copy's own project, 
 
 Stop point: you review the generated formulas against the live ones.
 
+#### Phase 2 Results (19 November 2026)
+
+Built: `Setup.gs` with the formula builders (`combineFormula_`, `forAdminFormula_`, `summariesBlock_`) and `applySettings(removeOld)`, which rebuilds the forAdmin tabs (row 1, columns B to T, and B2), the student tab's A6 and K6, TA needs A2 and the Summaries blocks from the Settings tab. Headings to the right of column T on the forAdmin tabs are left as they are.
+
+- Node tests: for ANTH, BIO A and ARCHY, the builders reproduce A6, K6, TA needs A2, each forAdmin B2, the forAdmin headings and all 108 Summaries cells of the live forecast, read with `getFormulas()` on 19 November (fixture in `tests/fixtures/`). Intended differences: sheet IDs written as text instead of `ANTHkey` and the others, R7 reads from row 2, and the Summaries label is "BIO A" rather than "BIOA". One cosmetic difference is ignored: forAdminBIOA spells `importrange` in lowercase.
+- In the scratch copy, `applySettings` left every Summaries value unchanged except the P3 label (the R7 fix changed no number this year), and the course list kept the same 317 courses. The imports kept working with the IDs as text, with no new **Allow access**.
+- The course list's order within a quarter follows the Settings order. Our live formulas use ANTH, BIO A, ARCHY, so at cutover the Settings tab should list the prefixes in that order to keep the page order unchanged.
+- Shapes: four prefixes (a fourth forAdmin tab created and filled, four imports, four Summaries blocks), one prefix (one import, one block; other tabs kept), and back to three (the extra tab removed with `removeOld`).
+
 ### Phase 3: The Form (about one day)
 
 - `SetupForm.html` with **Check** and **Set up**, the owner check, planning sheet creation (`SpreadsheetApp.create` plus `Sheet.copyTo`, per Phase 0 test 3), the overlap checker years, trigger creation, first update, result screen and `/exec` test.
@@ -225,7 +234,7 @@ Stop point: you read the tester's notes; fixes loop back to Phase 3.
 Order matters, because the monthly trigger runs the newest saved code and the menu items do too, while the web page stays on version 39 until redeployed.
 
 1.  Name a version of the live spreadsheet in **File \> Version history**, export it, record today's course count on the live page, and run **Run Data Check** (keep its counts).
-2.  Add the Settings tab to the live spreadsheet, filled with ANTH, ARCHY and BIO A and their current sheet IDs, before any new code arrives. (With the fallback in place this is a second safeguard.)
+2.  Add the Settings tab to the live spreadsheet, filled with ANTH, BIO A and ARCHY (in that order, the order of the live formulas, so the page order does not change) and their current sheet IDs, before any new code arrives. (With the fallback in place this is a second safeguard.)
 3.  Push the new code to the live project. If Google asks for permission again (new scopes for Drive or triggers), you approve it.
 4.  Run **Check** in the live form; run **Set up** only after you agree, since it rewrites the combining formulas (and fixes R7).
 5.  Deploy a new version of the existing deployment (Part 5 of the README), at the same address.
