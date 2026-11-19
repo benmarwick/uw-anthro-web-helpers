@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  body { font: 14px/1.45 Arial, sans-serif; color: #222; margin: 0 4px; }
+  h2 { font-size: 16px; color: #4b2e83; margin: 18px 0 6px; }
+  p.hint { color: #555; margin: 2px 0 8px; }
+  label { display: block; font-weight: bold; margin: 8px 0 2px; }
+  input[type=text], textarea, select { width: 100%; box-sizing: border-box; padding: 5px; font: inherit; border: 1px solid #999; border-radius: 3px; }
+  textarea { min-height: 70px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12px; color: #555; padding: 2px 4px; }
+  td { padding: 2px 4px; vertical-align: top; }
+  button { font: inherit; padding: 6px 14px; border-radius: 3px; border: 1px solid #4b2e83; background: #fff; color: #4b2e83; cursor: pointer; margin: 4px 6px 4px 0; }
+  button.primary { background: #4b2e83; color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  .small { padding: 2px 8px; font-size: 12px; }
+  .bar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #ccc; padding: 6px 0; }
+  .ok { color: #1a7f37; } .warn { color: #8a5300; } .error { color: #b71c1c; }
+  ul.results { padding-left: 18px; margin: 4px 0; }
+  .box { border: 1px solid #ccc; border-radius: 4px; padding: 8px 12px; margin: 8px 0; background: #fafafa; }
+  .banner { background: #fff6e5; border-left: 4px solid #8a5300; padding: 8px 10px; margin: 6px 0; }
+  details summary { cursor: pointer; font-weight: bold; color: #4b2e83; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div id="banner"></div>
+<div id="formArea">
+  <h2>Department</h2>
+  <label for="department">Department name</label>
+  <input type="text" id="department" placeholder="for example Geography">
+  <p class="hint">The page heading reads "&lt;name&gt; Curriculum Forecast".</p>
+  <label for="subtitle">Page subtitle</label>
+  <input type="text" id="subtitle">
+  <label for="contactEmail">Contact email for students</label>
+  <input type="text" id="contactEmail" placeholder="for example geog-advising@uw.edu">
+
+  <h2>Prefixes</h2>
+  <p class="hint">One row per course prefix, exactly as the UW catalog writes it (for example BIO A). For each, either paste the address of its planning sheet, or let setup make one from the template. The catalog page is found for you; type it only if Check cannot find it.</p>
+  <table>
+    <thead><tr><th style="width:12%">Prefix</th><th style="width:20%">Planning sheet</th><th>Address of the planning sheet</th><th style="width:28%">Catalog page (optional)</th><th></th></tr></thead>
+    <tbody id="prefixRows"></tbody>
+  </table>
+  <button type="button" class="small" id="addPrefix">Add a prefix</button>
+  <div id="removedTabs"></div>
+
+  <h2>Major options (optional)</h2>
+  <p class="hint">A short code shown on the page (for example MAGH) and the department page that lists the option's courses.</p>
+  <table>
+    <thead><tr><th style="width:18%">Code</th><th>Page listing the option's courses</th><th></th></tr></thead>
+    <tbody id="optionRows"></tbody>
+  </table>
+  <button type="button" class="small" id="addOption">Add an option</button>
+
+  <details>
+    <summary>Advanced</summary>
+    <label for="genEd">Gen Ed codes, comma separated</label>
+    <input type="text" id="genEd">
+    <label for="core">Headings that start an option's core list (one per line)</label>
+    <textarea id="core"></textarea>
+    <label for="reqd">Phrases that start a required list</label>
+    <textarea id="reqd"></textarea>
+    <label for="aprvd">Phrases that start an approved-electives list</label>
+    <textarea id="aprvd"></textarea>
+    <label for="planningTemplateId">Planning template (address or ID) used by "make one for me"</label>
+    <input type="text" id="planningTemplateId">
+  </details>
+
+  <div class="bar">
+    <button type="button" id="check">Check</button>
+    <button type="button" id="setup" class="primary">Set up</button>
+    <span id="status" role="status" aria-live="polite"></span>
+  </div>
+  <div id="checkOut"></div>
+</div>
+<div id="resultArea" style="display:none"></div>
+
+<script>
+  var STATE = null;
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var $ = function (id) { return document.getElementById(id); };
+  var say = function (t, cls) { $('status').textContent = t; $('status').className = cls || ''; };
+  var busy = function (b) { $('check').disabled = b; $('setup').disabled = b; };
+
+  function prefixRow(p) {
+    var tr = document.createElement('tr');
+    var mode = p.mode || (p.sheetId ? 'use' : 'make');
+    tr.innerHTML = '<td><input type="text" data-f="prefix" aria-label="Prefix" value="' + esc(p.prefix) + '"></td>' +
+      '<td><select data-f="mode" aria-label="Planning sheet"><option value="use"' + (mode === 'use' ? ' selected' : '') + '>Use this sheet</option>' +
+      '<option value="make"' + (mode === 'make' ? ' selected' : '') + '>Make one for me</option></select></td>' +
+      '<td><input type="text" data-f="sheet" aria-label="Address of the planning sheet" placeholder="https://docs.google.com/spreadsheets/d/..." value="' + esc(p.sheetId ? 'https://docs.google.com/spreadsheets/d/' + p.sheetId + '/edit' : '') + '"></td>' +
+      '<td><input type="text" data-f="catalogUrl" aria-label="Catalog page" value="' + esc(p.catalogUrl) + '"></td>' +
+      '<td><button type="button" class="small" data-remove>Remove</button></td>';
+    var sync = function () { tr.querySelector('[data-f=sheet]').disabled = tr.querySelector('[data-f=mode]').value === 'make'; };
+    tr.querySelector('[data-f=mode]').onchange = sync; sync();
+    tr.querySelector('[data-remove]').onclick = function () { tr.remove(); showRemoved(); };
+    tr.querySelector('[data-f=prefix]').oninput = showRemoved;
+    $('prefixRows').appendChild(tr);
+  }
+  function optionRow(o) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><input type="text" data-f="code" aria-label="Option code" value="' + esc(o.code) + '"></td>' +
+      '<td><input type="text" data-f="url" aria-label="Option page" value="' + esc(o.url) + '"></td>' +
+      '<td><button type="button" class="small" data-remove>Remove</button></td>';
+    tr.querySelector('[data-remove]').onclick = function () { tr.remove(); };
+    $('optionRows').appendChild(tr);
+  }
+  function rows(id) {
+    return [].map.call($(id).querySelectorAll('tr'), function (tr) {
+      var o = {}; [].forEach.call(tr.querySelectorAll('[data-f]'), function (el) { o[el.getAttribute('data-f')] = el.value; }); return o;
+    });
+  }
+  /* forAdmin tabs whose prefix is no longer listed: deleting them needs a tick. */
+  function showRemoved() {
+    var wanted = rows('prefixRows').map(function (p) { return 'forAdmin' + String(p.prefix || '').toUpperCase().replace(/\s+/g, ''); });
+    var gone = (STATE.adminTabs || []).filter(function (t) { return wanted.indexOf(t) === -1; });
+    $('removedTabs').innerHTML = gone.length ? '<div class="banner"><label style="font-weight:normal"><input type="checkbox" id="removeOld"> Delete the tabs ' +
+      esc(gone.join(', ')) + ', whose prefixes are no longer listed. Their planning sheets are not touched.</label></div>' : '';
+  }
+  function gather() {
+    return { department: $('department').value, subtitle: $('subtitle').value, contactEmail: $('contactEmail').value,
+      prefixes: rows('prefixRows'), options: rows('optionRows'), genEd: $('genEd').value,
+      core: $('core').value, reqd: $('reqd').value, aprvd: $('aprvd').value, planningTemplateId: $('planningTemplateId').value,
+      removeOld: !!($('removeOld') && $('removeOld').checked) };
+  }
+  function showItems(items) {
+    return '<ul class="results">' + items.map(function (i) { return '<li class="' + i.level + '">' + esc(i.text) + '</li>'; }).join('') + '</ul>';
+  }
+
+  $('addPrefix').onclick = function () { prefixRow({ prefix: '', mode: 'make' }); };
+  $('addOption').onclick = function () { optionRow({ code: '', url: '' }); };
+
+  $('check').onclick = function () {
+    busy(true); say('Checking (this reads the catalog and each planning sheet)…');
+    google.script.run.withSuccessHandler(function (r) {
+      busy(false);
+      var bad = r.items.filter(function (i) { return i.level === 'error'; }).length;
+      say(bad ? bad + ' problem(s) to fix before Set up.' : 'No problems found. You can click Set up.', bad ? 'error' : 'ok');
+      // Fill in catalog pages that Check found.
+      [].forEach.call($('prefixRows').querySelectorAll('tr'), function (tr) {
+        var p = tr.querySelector('[data-f=prefix]').value.trim().toUpperCase().replace(/\s+/g, ' ');
+        var c = tr.querySelector('[data-f=catalogUrl]');
+        if (!c.value && r.catalog[p]) c.value = r.catalog[p];
+      });
+      $('checkOut').innerHTML = '<div class="box"><strong>Check</strong>' + showItems(r.items) + '</div>';
+    }).withFailureHandler(function (e) { busy(false); say(e.message, 'error'); }).checkSetup(gather());
+  };
+
+  $('setup').onclick = function () {
+    if (!confirm('Set up now? This writes the Settings tab, rebuilds the forecast formulas and Summaries, applies the entry rules to each planning sheet, and runs the catalog update and the Data Check. It takes about a minute.')) return;
+    busy(true); say('Setting up (about a minute)…');
+    google.script.run.withSuccessHandler(showResult).withFailureHandler(function (e) { busy(false); say(e.message, 'error'); }).runSetup(gather());
+  };
+
+  function showResult(r) {
+    $('formArea').style.display = 'none';
+    $('banner').innerHTML = '';
+    var h = '<h2>Set up finished</h2><div class="box"><strong>What changed</strong><ul class="results">' +
+      r.log.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
+    if (r.created.length) h += '<div class="box"><strong>New planning sheets</strong><ul class="results">' + r.created.map(function (c) {
+      return '<li><a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.prefix) + ' course planning</a></li>'; }).join('') + '</ul></div>';
+    if (r.refTabs.length) h += '<div class="banner"><strong>Allow access needed.</strong> Open each of these tabs, click cell B2 and choose <strong>Allow access</strong>: ' +
+      esc(r.refTabs.join(', ')) + '. Then check that the student tab and TA needs fill in.</div>';
+    if (r.options.length) h += '<div class="box"><strong>Major options found on their pages</strong><ul class="results">' + r.options.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') +
+      '</ul>If an option shows 0 Core, open Advanced and add the heading its page uses for its core list, then run Set up again.</div>';
+    h += '<div class="box"><strong>Data Check:</strong> ' + esc(r.dataCheck) + ' See the Data Check tab.</div>';
+    h += '<h2>Publish the web page</h2><ol>' +
+      '<li>Choose <strong>Extensions &gt; Apps Script</strong>.</li>' +
+      '<li>Click <strong>Deploy &gt; New deployment</strong>, click the gear next to Select type, and choose <strong>Web app</strong>.</li>' +
+      '<li>Set Execute as to <strong>Me</strong> and Who has access to <strong>Anyone within University of Washington</strong>.</li>' +
+      '<li>Click <strong>Deploy</strong>, approve the permissions, and copy the Web app URL (it ends in /exec).</li>' +
+      '<li>Paste it here and click Save; then open it to check the page.</li></ol>' +
+      '<label for="webAppUrl">Web app address</label><input type="text" id="webAppUrl" placeholder="https://script.google.com/a/macros/uw.edu/s/.../exec">' +
+      '<button type="button" id="saveUrl" class="primary">Save</button> <a id="openUrl" href="#" target="_blank" rel="noopener" style="display:none">Open the page</a> <span id="urlStatus" role="status" aria-live="polite"></span>' +
+      '<div class="bar"><button type="button" onclick="google.script.host.close()">Close</button></div>';
+    $('resultArea').innerHTML = h; $('resultArea').style.display = '';
+    $('saveUrl').onclick = function () {
+      google.script.run.withSuccessHandler(function (u) {
+        $('urlStatus').textContent = 'Saved.'; $('urlStatus').className = 'ok'; $('openUrl').href = u; $('openUrl').style.display = '';
+      }).withFailureHandler(function (e) { $('urlStatus').textContent = e.message; $('urlStatus').className = 'error'; }).saveWebAppUrl($('webAppUrl').value);
+    };
+  }
+
+  google.script.run.withSuccessHandler(function (st) {
+    STATE = st;
+    var s = st.settings;
+    $('department').value = s.department || ''; $('subtitle').value = s.subtitle || ''; $('contactEmail').value = s.contactEmail || '';
+    (s.prefixes.length ? s.prefixes : [{ prefix: '', mode: 'make' }]).forEach(prefixRow);
+    s.options.forEach(optionRow);
+    $('genEd').value = s.genEd.join(', ');
+    $('core').value = s.phrases.core.join('\n'); $('reqd').value = s.phrases.reqd.join('\n'); $('aprvd').value = s.phrases.aprvd.join('\n');
+    $('planningTemplateId').value = s.planningTemplateId || '';
+    var b = '';
+    if (!st.owner.isOwner) b += '<div class="banner">Only the spreadsheet\'s owner (' + esc(st.owner.owner || 'unknown') + ') can run Set up, because the monthly update belongs to whoever runs it. You are signed in as ' + esc(st.owner.me || 'unknown') + '.</div>';
+    if (!st.hasSettings) b += '<div class="banner">First setup: these values were read from the scripts and the Dashboard. Check them, then click Check.</div>';
+    b += '<p class="hint">Dashboard years: ' + esc(st.years.join(', ') || 'none') + '. Each planning sheet needs a tab named for each of these years.</p>';
+    $('banner').innerHTML = b;
+    showRemoved();
+  }).withFailureHandler(function (e) { $('banner').innerHTML = '<div class="banner error">' + esc(e.message) + '</div>'; }).getSetupState();
+</script>
+</body>
+</html>

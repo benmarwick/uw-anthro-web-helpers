@@ -136,3 +136,22 @@ assert.strictEqual((four.match(/;\n/g) || []).length, 3, 'four prefixes: three s
 assert.strictEqual(plain(S('summariesBlock_')({ prefix: 'JSIS A' }, 3))['X5'], '=COUNTUNIQUE(IFERROR(QUERY(forAdminJSISA!$C2:$F, "SELECT F WHERE C = \'AU\' AND F LIKE \'1%\'"), ))', 'fourth block: labels in W, first count in X');
 assert.strictEqual(S('sheetRef_')("forAdminB&A"), "'forAdminB&A'", 'tab names with other characters are quoted');
 console.log('Formula builders: match the live formulas (' + Object.keys(built).length + ' Summaries cells), 4 shape checks pass');
+
+// Setup form helpers (Setup.gs).
+assert.strictEqual(S('sheetIdFromUrl_')('https://docs.google.com/spreadsheets/d/1qu6Dl1ua2dLnkeR-j3ek1OJWAEVATlIdSJzjpH8CoAQ/edit#gid=0'), '1qu6Dl1ua2dLnkeR-j3ek1OJWAEVATlIdSJzjpH8CoAQ');
+assert.strictEqual(S('sheetIdFromUrl_')('1qu6Dl1ua2dLnkeR-j3ek1OJWAEVATlIdSJzjpH8CoAQ'), '1qu6Dl1ua2dLnkeR-j3ek1OJWAEVATlIdSJzjpH8CoAQ');
+assert.strictEqual(S('sheetIdFromUrl_')('not a sheet'), '');
+const idx = plain(S('catalogIndex_')('<li><a href="anthro.html">Anthropology (ANTH)</a></li><li><a href="bioanth.html">Biological Anthropology (BIO&nbsp;A)</a></li>' +
+  '<li><a href="jsisa.html">International Studies (Area Studies) (JSIS A)</a></li><li>China Studies -- See <a href="#JSIS">Jackson School</a></li>'));
+assert.deepStrictEqual(idx, { ANTH: 'https://www.washington.edu/students/crscat/anthro.html', 'BIO A': 'https://www.washington.edu/students/crscat/bioanth.html',
+  'JSIS A': 'https://www.washington.edu/students/crscat/jsisa.html' }, 'catalog index: last bracketed group, &nbsp; as a space, cross-references ignored');
+const goodRow = ['', 'Quarter', 'Year', 'Prefix', 'Course #', 'Section', 'Credits', 'Title', 'Instructor', 'Joint/Withered', '# TAs', 'Total Enrollment', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Time Start', 'Time End'];
+assert.deepStrictEqual(plain(S('planningHeadingProblems_')(goodRow)), [], 'the ANTH headings (with "Total Enrollment" and "Time Start") pass');
+const oldRow = goodRow.slice(0, 12).concat(['W Course?', 'Add Code Permission', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+assert(plain(S('planningHeadingProblems_')(oldRow)).length >= 5, 'the old layout (W Course? at M) is caught');
+const fs1 = plain(S('settingsFromForm_')({ department: ' Geography ', prefixes: [{ prefix: 'geog', mode: 'make' }, { prefix: 'jsis  a', mode: 'use', sheet: 'https://docs.google.com/spreadsheets/d/' + 'x'.repeat(40) + '/edit' }, { prefix: '' }],
+  options: [{ code: '', url: 'x' }], genEd: 'NSc, DIV', core: '', reqd: '', aprvd: '' }));
+assert.deepStrictEqual(fs1.prefixes.map(p => [p.prefix, p.mode, p.sheetId.length]), [['GEOG', 'make', 0], ['JSIS A', 'use', 40]], 'form prefixes: upper case, single spaces, blanks dropped');
+assert.strictEqual(fs1.department, 'Geography'); assert.deepStrictEqual(fs1.options, []); assert.deepStrictEqual(fs1.genEd, ['NSc', 'DIV']);
+assert.deepStrictEqual(fs1.phrases, defaults.phrases, 'empty phrase boxes keep the defaults');
+console.log('Setup form helpers: 11 checks pass');

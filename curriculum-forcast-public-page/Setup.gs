@@ -117,3 +117,254 @@ function applySettings(removeOld) {
   Logger.log(log.join('\n'));
   return log;
 }
+
+/* ======================================================================
+   The setup form (Forecast setup > Set up or change settings): SetupForm.html
+   calls getSetupState, checkSetup and runSetup through google.script.run.
+   ====================================================================== */
+
+const PLANNING_HEADING_WORDS_ = { 1: 'quarter', 2: 'year', 3: 'prefix', 4: 'course', 12: 'mon', 13: 'tue', 14: 'wed', 15: 'thu', 16: 'fri', 17: 'start', 18: 'end' };
+
+function openSetupForm() {
+  const html = HtmlService.createHtmlOutputFromFile('SetupForm').setWidth(980).setHeight(720);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Forecast setup');
+}
+
+/* Planning sheet ID from a pasted URL or ID; '' if none found. */
+function sheetIdFromUrl_(text) {
+  const t = String(text || '').trim();
+  const m = t.match(/\/spreadsheets\/d\/([A-Za-z0-9_-]{30,})/);
+  if (m) return m[1];
+  return /^[A-Za-z0-9_-]{30,}$/.test(t) ? t : '';
+}
+
+/* { prefix: catalog page URL } from the UW catalog index's HTML. Takes the last bracketed group in each link,
+   because some names have their own brackets ("International Studies (Area Studies) (JSIS A)"). */
+function catalogIndex_(html) {
+  const map = {};
+  const re = /<a href="([a-z]+\.html)">[^<]*\(([^()]+)\)\s*<\/a>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    map[m[2].replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()] = 'https://www.washington.edu/students/crscat/' + m[1];
+  }
+  return map;
+}
+
+/* Problems with a planning tab's row 1 (columns A to S), checked by key words so wording may vary. */
+function planningHeadingProblems_(row) {
+  const out = [];
+  Object.keys(PLANNING_HEADING_WORDS_).forEach(function(i) {
+    const h = String(row[i] || '').toLowerCase();
+    if (h.indexOf(PLANNING_HEADING_WORDS_[i]) === -1) out.push(colLetter_(Number(i) + 1) + ' should be the ' + PLANNING_HEADING_WORDS_[i] + ' column (found "' + row[i] + '")');
+  });
+  return out;
+}
+
+function dashboardYears_(ss) {
+  const dash = ss.getSheetByName('Dashboard');
+  const years = [];
+  ['B4', 'B5', 'B8'].forEach(function(a) { const y = String(dash.getRange(a).getDisplayValue()).trim(); if (/^\d{4}-\d{2}$/.test(y) && years.indexOf(y) === -1) years.push(y); });
+  return years;
+}
+
+/* Who is running the form, and whether they own the spreadsheet (the monthly trigger belongs to whoever runs Set up). */
+function ownerStatus_(ss) {
+  const me = Session.getActiveUser().getEmail();
+  const owner = ss.getOwner() ? ss.getOwner().getEmail() : '';
+  return { me: me, owner: owner, isOwner: !!me && !!owner && me.toLowerCase() === owner.toLowerCase() };
+}
+
+/* What the form shows when it opens. */
+function getSetupState() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  settingsCache_ = null;
+  const s = settings_();
+  const hasSettings = !!ss.getSheetByName(SETTINGS_TAB);
+  // Before the first setup, offer the Dashboard's planning sheet IDs.
+  if (!hasSettings) {
+    const ids = {};
+    ss.getSheetByName('Dashboard').getRange('A1:B40').getDisplayValues().forEach(function(r) {
+      const m = String(r[0]).match(/^key for\s+(.+)$/i); if (m && sheetIdFromUrl_(r[1])) ids[m[1].trim().replace(/\s+/g, '')] = sheetIdFromUrl_(r[1]);
+    });
+    s.prefixes.forEach(function(p) { p.sheetId = ids[p.prefix.replace(/\s+/g, '')] || ''; });
+  }
+  return { settings: s, hasSettings: hasSettings, years: dashboardYears_(ss), owner: ownerStatus_(ss),
+           adminTabs: ss.getSheets().map(function(x) { return x.getName(); }).filter(function(n) { return /^forAdmin/.test(n); }) };
+}
+
+/* The form's values as a settings object. form.prefixes rows: { prefix, mode: 'use'|'make', sheet, catalogUrl }. */
+function settingsFromForm_(form) {
+  const base = JSON.parse(JSON.stringify(DEFAULT_SETTINGS_));
+  const lines = function(t) { return String(t || '').split(/\r?\n/).map(function(x) { return x.trim(); }).filter(String); };
+  return {
+    department: String(form.department || '').trim(),
+    subtitle: String(form.subtitle || '').trim(),
+    contactEmail: String(form.contactEmail || '').trim(),
+    prefixes: (form.prefixes || []).filter(function(p) { return String(p.prefix || '').trim(); }).map(function(p) {
+      return { prefix: String(p.prefix).trim().toUpperCase().replace(/\s+/g, ' '), sheetId: p.mode === 'make' ? '' : sheetIdFromUrl_(p.sheet), catalogUrl: String(p.catalogUrl || '').trim(), mode: p.mode === 'make' ? 'make' : 'use' };
+    }),
+    options: (form.options || []).filter(function(o) { return String(o.code || '').trim(); }).map(function(o) { return { code: String(o.code).trim(), url: String(o.url || '').trim() }; }),
+    genEd: String(form.genEd || base.genEd.join(', ')).split(',').map(function(x) { return x.trim(); }).filter(String),
+    phrases: { core: lines(form.core).length ? lines(form.core) : base.phrases.core,
+               reqd: lines(form.reqd).length ? lines(form.reqd) : base.phrases.reqd,
+               aprvd: lines(form.aprvd).length ? lines(form.aprvd) : base.phrases.aprvd },
+    planningTemplateId: sheetIdFromUrl_(form.planningTemplateId) || base.planningTemplateId,
+    webAppUrl: String(form.webAppUrl || '').trim()
+  };
+}
+
+/* Check: writes nothing. Returns { items: [{ level: 'ok'|'warn'|'error', text }], catalog: { prefix: url } }. */
+function checkSetup(form) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const s = settingsFromForm_(form);
+  const years = dashboardYears_(ss);
+  const items = [], add = function(level, text) { items.push({ level: level, text: text }); };
+  const own = ownerStatus_(ss);
+  if (!own.isOwner) add('error', 'Set up must be run by the spreadsheet\'s owner (' + (own.owner || 'unknown') + '); you are signed in as ' + (own.me || 'unknown') + '. The monthly update would otherwise belong to you.');
+  if (!s.department) add('warn', 'No department name: the page heading will read just "Curriculum Forecast".');
+  if (!s.prefixes.length) add('error', 'Add at least one prefix.');
+  if (!years.length) add('error', 'No academic years on the Dashboard (B4, B5, B8).');
+  if (s.contactEmail && !/^[^@\s]+@[^@\s]+$/.test(s.contactEmail)) add('warn', 'The contact email does not look like an address: ' + s.contactEmail);
+  let index = {};
+  try { index = catalogIndex_(UrlFetchApp.fetch('https://www.washington.edu/students/crscat/').getContentText()); }
+  catch (e) { add('warn', 'Could not read the UW catalog index (' + e.message + '); type each catalog page by hand.'); }
+  const catalog = {};
+  const seen = {};
+  s.prefixes.forEach(function(p) {
+    if (seen[p.prefix]) add('error', p.prefix + ' is listed twice.'); seen[p.prefix] = true;
+    const found = p.catalogUrl || index[p.prefix] || '';
+    catalog[p.prefix] = found;
+    add(found ? 'ok' : 'warn', p.prefix + ': ' + (found ? 'catalog page ' + found : 'not in the Seattle catalog index; type its catalog page, or Gen Ed codes will be missing.'));
+    if (p.mode === 'make') {
+      try { SpreadsheetApp.openById(s.planningTemplateId); add('ok', p.prefix + ': a planning sheet will be made from the template, with tabs ' + years.join(', ') + '.'); }
+      catch (e) { add('error', p.prefix + ': cannot open the planning template (' + s.planningTemplateId + '); paste an existing planning sheet instead.'); }
+      return;
+    }
+    if (!p.sheetId) { add('error', p.prefix + ': paste the planning sheet\'s address, or choose "make one for me".'); return; }
+    let f;
+    try { f = SpreadsheetApp.openById(p.sheetId); } catch (e) { add('error', p.prefix + ': cannot open the planning sheet; check the address and that you can edit it.'); return; }
+    years.forEach(function(y) {
+      const t = f.getSheetByName(y);
+      if (!t) { add('error', p.prefix + ': "' + f.getName() + '" has no tab named ' + y + '.'); return; }
+      const probs = planningHeadingProblems_(t.getRange(1, 1, 1, 19).getDisplayValues()[0]);
+      add(probs.length ? 'error' : 'ok', p.prefix + ' ' + y + ': ' + (probs.length ? probs.join('; ') : 'columns A to S are in order.'));
+    });
+  });
+  const pat = prefixCoursePattern_(s.prefixes.length ? s.prefixes : [{ prefix: 'XXXX' }]);
+  s.options.forEach(function(o) {
+    try {
+      const html = UrlFetchApp.fetch(o.url, { muteHttpExceptions: true }).getContentText();
+      const n = (html.match(pat) || []).length;
+      add(n ? 'ok' : 'warn', 'Option ' + o.code + ': ' + (n ? n + ' course numbers with your prefixes on its page.' : 'no course numbers with your prefixes found on ' + o.url + '.'));
+    } catch (e) { add('warn', 'Option ' + o.code + ': could not load ' + o.url + '.'); }
+  });
+  return { items: items, catalog: catalog };
+}
+
+/* Makes a planning sheet from the template with Sheets permission only: one copy of the template's year tab per year,
+   plus its other tabs. Returns the new file's ID. */
+function makePlanningSheet_(prefix, years, templateId) {
+  const tpl = SpreadsheetApp.openById(templateId);
+  const out = SpreadsheetApp.create(prefix + ' course planning');
+  const blank = out.getSheets()[0];
+  const yearTab = tpl.getSheets().filter(function(t) { return /^\d{4}-\d{2}$/.test(t.getName()); })[0];
+  years.forEach(function(y) { yearTab.copyTo(out).setName(y); });
+  tpl.getSheets().filter(function(t) { return t !== yearTab && !/^\d{4}-\d{2}$/.test(t.getName()); }).forEach(function(t) { t.copyTo(out).setName(t.getName()); });
+  out.deleteSheet(blank);
+  return out.getId();
+}
+
+/* Adds years to a planning sheet's overlap checker dropdown (B1); removes none. */
+function addCheckerYears_(file, years) {
+  const ck = file.getSheetByName('course time overlap checker');
+  if (!ck) return false;
+  const rule = ck.getRange('B1').getDataValidation();
+  const have = rule && rule.getCriteriaType() === SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST ? rule.getCriteriaValues()[0].map(String) : [];
+  const all = have.concat(years.filter(function(y) { return have.indexOf(y) === -1; }));
+  ck.getRange('B1').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(all, true).build());
+  if (!ck.getRange('B1').getDisplayValue()) ck.getRange('B1').setValue(years[0]);
+  return true;
+}
+
+/* Set up: writes everything. Returns { log: [...], options: [...], refTabs: [...], dataCheck: '...', created: [...] }. */
+function runSetup(form) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const own = ownerStatus_(ss);
+  if (!own.isOwner) throw new Error('Set up must be run by the spreadsheet\'s owner (' + (own.owner || 'unknown') + '). You are signed in as ' + (own.me || 'unknown') + '.');
+  // Set up runs the same checks as Check, and refuses if any fails, so skipping Check cannot leave a half-built forecast.
+  const errors = checkSetup(form).items.filter(function(i) { return i.level === 'error'; });
+  if (errors.length) throw new Error('Set up stopped before changing anything. Fix these first (Check lists them too): ' + errors.map(function(i) { return i.text; }).join(' | '));
+  const s = settingsFromForm_(form);
+  const years = dashboardYears_(ss);
+  const log = [], created = [];
+  // Catalog pages the form did not fill in.
+  if (s.prefixes.some(function(p) { return !p.catalogUrl; })) {
+    try {
+      const index = catalogIndex_(UrlFetchApp.fetch('https://www.washington.edu/students/crscat/').getContentText());
+      s.prefixes.forEach(function(p) { if (!p.catalogUrl && index[p.prefix]) p.catalogUrl = index[p.prefix]; });
+    } catch (e) { log.push('Could not read the UW catalog index; catalog pages left blank.'); }
+  }
+  // Planning sheets to make.
+  s.prefixes.forEach(function(p) {
+    if (p.mode !== 'make') return;
+    p.sheetId = makePlanningSheet_(p.prefix, years, s.planningTemplateId);
+    created.push({ prefix: p.prefix, url: 'https://docs.google.com/spreadsheets/d/' + p.sheetId + '/edit' });
+    log.push('Made the planning sheet "' + p.prefix + ' course planning" in your Drive. Share it with your staff (README, Part 1).');
+  });
+  s.prefixes.forEach(function(p) { delete p.mode; });
+  // Settings, then everything built from them.
+  writeSettingsTab_(ss, s);
+  log.push('Wrote the Settings tab.');
+  applySettings(form.removeOld === true).forEach(function(x) { log.push(x); });
+  // Entry rules and overlap checker years on each planning sheet.
+  s.prefixes.forEach(function(p) {
+    const f = SpreadsheetApp.openById(p.sheetId);
+    years.forEach(function(y) {
+      const t = f.getSheetByName(y);
+      if (t) { applyPlanningRules_(t, s.prefixes.map(function(x) { return x.prefix; })); }
+      else log.push(p.prefix + ': no tab named ' + y + ', so no entry rules there.');
+    });
+    if (addCheckerYears_(f, years)) log.push(p.prefix + ': entry rules applied; overlap checker years ' + years.join(', ') + '.');
+  });
+  // Contact address in the notice, replacing the template's placeholder only.
+  const notice = ss.getSheetByName('Current and Next Academic Year').getRange('B1');
+  if (s.contactEmail && String(notice.getValue()).indexOf('<your contact address>') !== -1) {
+    notice.setValue(String(notice.getValue()).replace('<your contact address>', s.contactEmail));
+    log.push('Put ' + s.contactEmail + ' in the notice to students.');
+  }
+  // The monthly catalog update: exactly one trigger.
+  const triggers = ScriptApp.getProjectTriggers().filter(function(t) { return t.getHandlerFunction() === 'runFullUpdate'; });
+  if (!triggers.length) { ScriptApp.newTrigger('runFullUpdate').timeBased().onMonthDay(1).atHour(0).create(); log.push('Created the monthly catalog update (1st of each month, midnight to 1 am).'); }
+  else log.push('The monthly catalog update already exists (' + triggers.length + ').');
+  // First catalog update, then the per-option counts.
+  runFullUpdate();
+  const opt = {};
+  const ro = ss.getSheetByName('Ref_Options');
+  if (ro && ro.getLastRow() > 1) ro.getRange(2, 1, ro.getLastRow() - 1, 5).getValues().forEach(function(r) {
+    const o = opt[r[1]] = opt[r[1]] || { Core: 0, Reqd: 0, Aprvd: 0 };
+    if (r[2] === true) o.Core++; else if (r[3] === true) o.Reqd++; else o.Aprvd++;
+  });
+  const options = s.options.map(function(o) { const c = opt[o.code] || { Core: 0, Reqd: 0, Aprvd: 0 }; return o.code + ': ' + c.Core + ' Core, ' + c.Reqd + ' Reqd, ' + c.Aprvd + ' Aprvd'; });
+  // Tabs whose imports still need Allow access.
+  SpreadsheetApp.flush();
+  Utilities.sleep(5000);
+  const refTabs = s.prefixes.map(function(p) { return adminTabName_(p.prefix); }).filter(function(n) {
+    const v = ss.getSheetByName(n).getRange('B2').getDisplayValue(); return /^#(REF|N\/A|ERROR)/.test(v);
+  });
+  runDataCheck();
+  const dc = ss.getSheetByName('Data Check').getRange('A2').getDisplayValue();
+  ss.setActiveSheet(ss.getSheetByName(SETTINGS_TAB));
+  return { log: log, options: options, refTabs: refTabs, dataCheck: dc, created: created };
+}
+
+/* Saves the web app address on the Settings tab. */
+function saveWebAppUrl(url) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const u = String(url || '').trim();
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(u)) throw new Error('That does not look like a web app address; it should start with https://script.google.com/ and end in /exec.');
+  settingsCache_ = null;
+  const s = settings_();
+  s.webAppUrl = u;
+  writeSettingsTab_(ss, s);
+  return u;
+}

@@ -214,4 +214,8 @@ function onOpen() {
     .addItem('Run Data Check', 'runDataCheck')
     .addItem('Apply entry rules to planning sheets', 'applyPlanningRulesFromMenu')
     .addToUi();
+  SpreadsheetApp.getUi()
+    .createMenu('Forecast setup')
+    .addItem('Set up or change settings', 'openSetupForm')
+    .addToUi();
 }

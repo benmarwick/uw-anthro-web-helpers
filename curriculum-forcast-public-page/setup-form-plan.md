@@ -1,6 +1,6 @@
 # Plan: One-Form Setup for the Curriculum Forecast
 
-Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). Phases 1 and 2 (the Settings tab, the script changes and the formula builders) are built and tested in a scratch copy (see [Phase 1 Results](#phase-1-results-19-november-2026) and [Phase 2 Results](#phase-2-results-19-november-2026)); they are not yet in the template or the live project. The form is not built yet.
+Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). Phases 1 to 3 (the Settings tab, the script changes, the formula builders and the setup form) are built and tested in scratch copies (see [Phase 1 Results](#phase-1-results-19-november-2026), [Phase 2 Results](#phase-2-results-19-november-2026) and [Phase 3 Results](#phase-3-results-19-november-2026)); they are not yet in the template or the live project.
 
 Goal: a department that copies the forecast template sets the whole system up by filling in one form inside the spreadsheet. Nobody edits a script or a formula. The form replaces Part 4 of the README ("Adapting the Scripts"), the "More or Fewer Than Three Prefixes" section, and most of Parts 1 and 3.
 
@@ -220,6 +220,23 @@ Built: `Setup.gs` with the formula builders (`combineFormula_`, `forAdminFormula
 - Menu item in `onOpen`.
 
 Stop point: you click through the form in a scratch copy.
+
+#### Phase 3 Results (19 November 2026)
+
+Built: `SetupForm.html` (the form, opened from **Forecast setup \> Set up or change settings**, a second menu added in `onOpen`) and, in `Setup.gs`, `openSetupForm`, `getSetupState`, `checkSetup`, `runSetup` and `saveWebAppUrl`, with helpers for reading a sheet ID from an address, reading the catalog index, checking a planning tab's columns, making a planning sheet (`SpreadsheetApp.create` plus `Sheet.copyTo`) and adding years to the overlap checker. Node tests: 11 more checks.
+
+Run in a fresh copy of the forecast template ("SCRATCH Phase 0 forecast copy") on 19 November:
+
+- The first menu click showed Google's permission screen; after approval the form opened by itself.
+- **Set up** was clicked without **Check** first. With the values the form filled in from the copy (ANTH and BIO A "make one for me", ARCHY using the live ARCHY planning sheet), it made two planning sheets, wrote Settings, rebuilt the formulas and Summaries, applied the entry rules and checker years to all three sheets, created the monthly trigger, ran the catalog update and the Data Check, and showed the result screen: links to the new sheets, **Allow access** needed on forAdminANTH and forAdminBIOA (the two new private sheets), per-option counts (for example "MAGH: 3 Core, 0 Reqd, 70 Aprvd") and the Data Check summary.
+- The live ARCHY sheet's rules were re-applied with the same prefix list; afterwards it had the same 8 highlight rules, the same dropdowns to the right of column S, one protection and single header notes, as before.
+- Afterwards: the two new sheets were renamed "SCRATCH … (safe to delete)", and the trigger the test created was removed.
+
+Changes made after the run:
+- **Set up now runs the same checks as Check first** and refuses, before changing anything, if any fails. (The run above skipped Check; nothing failed, but a missing year tab would have left a half-built forecast.)
+- The "First setup" banner is hidden once the result screen shows.
+
+Not yet seen: the form's Check results on screen, the refusal message, and the `/exec` box. To be seen in the Phase 4 dry run.
 
 ### Phase 4: Template Refresh and the Dry Run (about half a day, plus the tester's time)
 
