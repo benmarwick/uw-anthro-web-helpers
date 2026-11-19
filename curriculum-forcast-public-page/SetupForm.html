@@ -81,6 +81,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var $ = function (id) { return document.getElementById(id); };
   var say = function (t, cls) { $('status').textContent = t; $('status').className = cls || ''; };
+  var msg = function (e) { return String(e && e.message || e).replace(/^Error:\s*/, ''); };
   var busy = function (b) { $('check').disabled = b; $('setup').disabled = b; };
 
   function prefixRow(p) {
@@ -115,8 +116,10 @@
   function showRemoved() {
     var wanted = rows('prefixRows').map(function (p) { return 'forAdmin' + String(p.prefix || '').toUpperCase().replace(/\s+/g, ''); });
     var gone = (STATE.adminTabs || []).filter(function (t) { return wanted.indexOf(t) === -1; });
-    $('removedTabs').innerHTML = gone.length ? '<div class="banner"><label style="font-weight:normal"><input type="checkbox" id="removeOld"> Delete the tabs ' +
-      esc(gone.join(', ')) + ', whose prefixes are no longer listed. Their planning sheets are not touched.</label></div>' : '';
+    var first = !STATE.settings.prefixes.length;   // a fresh copy of the template: its forAdmin tabs are examples
+    var was = $('removeOld') ? $('removeOld').checked : first;
+    $('removedTabs').innerHTML = gone.length ? '<div class="banner"><label style="font-weight:normal"><input type="checkbox" id="removeOld"' + (was ? ' checked' : '') + '> Delete the tabs ' +
+      esc(gone.join(', ')) + (first ? ', which came with the template.' : ', whose prefixes are no longer listed. Their planning sheets are not touched.') + '</label></div>' : '';
   }
   function gather() {
     return { department: $('department').value, subtitle: $('subtitle').value, contactEmail: $('contactEmail').value,
@@ -144,13 +147,13 @@
         if (!c.value && r.catalog[p]) c.value = r.catalog[p];
       });
       $('checkOut').innerHTML = '<div class="box"><strong>Check</strong>' + showItems(r.items) + '</div>';
-    }).withFailureHandler(function (e) { busy(false); say(e.message, 'error'); }).checkSetup(gather());
+    }).withFailureHandler(function (e) { busy(false); say(msg(e), 'error'); }).checkSetup(gather());
   };
 
   $('setup').onclick = function () {
     if (!confirm('Set up now? This writes the Settings tab, rebuilds the forecast formulas and Summaries, applies the entry rules to each planning sheet, and runs the catalog update and the Data Check. It takes about a minute.')) return;
     busy(true); say('Setting up (about a minute)…');
-    google.script.run.withSuccessHandler(showResult).withFailureHandler(function (e) { busy(false); say(e.message, 'error'); }).runSetup(gather());
+    google.script.run.withSuccessHandler(showResult).withFailureHandler(function (e) { busy(false); say(msg(e), 'error'); }).runSetup(gather());
   };
 
   function showResult(r) {
@@ -178,7 +181,7 @@
     $('saveUrl').onclick = function () {
       google.script.run.withSuccessHandler(function (u) {
         $('urlStatus').textContent = 'Saved.'; $('urlStatus').className = 'ok'; $('openUrl').href = u; $('openUrl').style.display = '';
-      }).withFailureHandler(function (e) { $('urlStatus').textContent = e.message; $('urlStatus').className = 'error'; }).saveWebAppUrl($('webAppUrl').value);
+      }).withFailureHandler(function (e) { $('urlStatus').textContent = msg(e); $('urlStatus').className = 'error'; }).saveWebAppUrl($('webAppUrl').value);
     };
   }
 
@@ -197,7 +200,7 @@
     b += '<p class="hint">Dashboard years: ' + esc(st.years.join(', ') || 'none') + '. Each planning sheet needs a tab named for each of these years.</p>';
     $('banner').innerHTML = b;
     showRemoved();
-  }).withFailureHandler(function (e) { $('banner').innerHTML = '<div class="banner error">' + esc(e.message) + '</div>'; }).getSetupState();
+  }).withFailureHandler(function (e) { $('banner').innerHTML = '<div class="banner error">' + esc(msg(e)) + '</div>'; }).getSetupState();
 </script>
 </body>
 </html>

@@ -10,8 +10,12 @@
  * after adding a year tab, because the year check depends on the tab's name.
  */
 
-// The prefixes a planning sheet may use in column D: the prefixes on the Settings tab.
-function planningPrefixes_() { return settings_().prefixes.map(function(p) { return p.prefix; }); }
+// The prefixes a planning sheet may use in column D: the prefixes on the Settings tab,
+// or null when none are listed yet (then column D accepts any prefix in capitals without stray spaces).
+function planningPrefixes_() {
+  const list = settings_().prefixes.map(function(p) { return p.prefix; });
+  return list.length ? list : null;
+}
 
 // Marks the highlight rules this file creates, so a re-run can find and replace them.
 const RULE_MARK = 'N("planning-rule")=0';

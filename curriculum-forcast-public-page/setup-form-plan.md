@@ -1,6 +1,6 @@
 # Plan: One-Form Setup for the Curriculum Forecast
 
-Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). Phases 1 to 3 (the Settings tab, the script changes, the formula builders and the setup form) are built and tested in scratch copies (see [Phase 1 Results](#phase-1-results-19-november-2026), [Phase 2 Results](#phase-2-results-19-november-2026) and [Phase 3 Results](#phase-3-results-19-november-2026)); they are not yet in the template or the live project.
+Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). Phases 1 to 4 are done: the Settings tab, the script changes, the formula builders and the setup form are built, tested, and in the forecast template, and a dry run as a new department passed (see the Phase 1 to 4 results below). The live forecast still runs the earlier version until Phase 5.
 
 Goal: a department that copies the forecast template sets the whole system up by filling in one form inside the spreadsheet. Nobody edits a script or a formula. The form replaces Part 4 of the README ("Adapting the Scripts"), the "More or Fewer Than Three Prefixes" section, and most of Parts 1 and 3.
 
@@ -246,6 +246,18 @@ Not yet seen: the form's Check results on screen, the refusal message, and the `
 
 Stop point: you read the tester's notes; fixes loop back to Phase 3.
 
+#### Phase 4 Results (19 November 2026)
+
+- **Template refreshed:** the template's project holds the repository's files exactly (checked with a fresh `clasp clone`), and its Settings tab is a placeholder (no department, prefixes or options; the default Gen Ed codes, phrases and planning template). The leftover-data search found no real sheet IDs, addresses, names or comments. The template's file ID and the README links are unchanged.
+- **Permission screen** a new department sees on its first menu click (fresh copy, 19 November): four boxes, none ticked by default: "See, edit, create, and delete all your Google Sheets spreadsheets", "Connect to an external service", "Allow this application to run when you are not present" and "Display and run third-party web content in prompts and sidebars inside Google applications". All four must be ticked (**Select all**); the README must say so. The project shows as "Conflict Report Script" on this screen.
+- **Dry run** (by me, as a stand-in tester; a colleague's run with the rewritten README is still worth doing): a fresh copy of the template, department "Dry Run Department", four prefixes (GEOG, JSIS A, CL AR, ESS; two with a space) all "make one for me", no options.
+  - **Check** found all four catalog pages and confirmed the planning sheets it would make; a fifth row ("use this sheet", no address) gave an error.
+  - **Set up** with that row refused before changing anything, naming the problem.
+  - **Set up** without it (2 minutes 44 seconds) made the four planning sheets, created four forAdmin tabs and deleted the template's three (pre-ticked on first setup), rebuilt the formulas and Summaries, applied the entry rules and checker years, put the contact address in the notice, created the trigger, ran the catalog update and the Data Check (0 and 0), and listed the four tabs needing **Allow access**.
+  - The web app deployed from the copy opened as "Dry Run Department Curriculum Forecast"; the form saved its `/exec` address and showed the link.
+  - Fixed afterwards: the form's messages no longer start with "Error:".
+  - Cleaned up: the four planning sheets renamed "SCRATCH dry run …", the test deployment deleted, the trigger removed.
+
 ### Phase 5: Live Cutover (about two hours, with you present)
 
 Order matters, because the monthly trigger runs the newest saved code and the menu items do too, while the web page stays on version 39 until redeployed.
@@ -303,4 +315,4 @@ If step 6 fails: redeploy version 39 (the page returns at once), restore the nam
 
 ## Open Question
 
-1.  Who can do the Phase 4 dry run? Needed before Phase 4, not before.
+1.  Who can do a second dry run with the rewritten README (Phase 6)? A colleague who has not seen the system would test the README itself, which the stand-in dry run in Phase 4 could not.
