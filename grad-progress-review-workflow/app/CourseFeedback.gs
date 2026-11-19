@@ -6,11 +6,12 @@
 
 /* ---------- Launch ---------- */
 
-/* Sends every NOT_STARTED page for the quarter. Refuses while any instructor has no email. */
+/* Sends every NOT_STARTED page for the quarter. Refuses before the window opens and while any instructor has no email. */
 function launchCourseFeedback_(quarter, actor) {
   const S = C_().SHEETS;
   if (C_().CF_QUARTERS_ON[quarter] === false) throw new Error(quarterLabel_(quarter) + ' is switched off in Config.gs (CF_QUARTERS_ON).');
   const w = courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES);
+  if (todayIso_() < w.opens) throw new Error('Course feedback for ' + quarterLabel_(quarter) + ' opens on ' + dateLong_(w.opens) + '. Launch is available from that day.');
   const pending = readTable_(S.REQUESTS).filter(function(r) { return r.Quarter === quarter && r.Status === 'NOT_STARTED'; });
   /* Every instructor who should be asked needs an email (course-feedback plan §4.5); see pageMissingInstructors_. */
   const inst = instructorsMap_();

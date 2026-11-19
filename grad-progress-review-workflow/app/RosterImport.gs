@@ -23,8 +23,66 @@ function rosterPageData(quarter) {
                  missing: r.Status === 'NOT_STARTED' ? pageMissingInstructors_(r, inst) : [] };
       });
     })(),
+    opensLong: q ? dateLong_(courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES).opens) : '',
+    launchOpen: q ? today >= courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES).opens : false,
     myGradUrl: 'https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist?orgid=14',
     timeScheduleUrl: q ? 'https://www.washington.edu/students/timeschd/' + q + '/' : ''
+  };
+}
+
+/* ---------- Check before launch ---------- */
+
+/* Everything Launch would send for the quarter, without sending it: for each page not yet sent, the
+   addresses that get CF-1 with the greeting each one would see, and the students on the page. Pages
+   with no students left are listed as closing (Launch closes them and sends nothing). The email text
+   is rendered from the first page, with a placeholder for the link that Launch creates. */
+function launchReviewData(quarter) {
+  assertAdminOrGpc_();
+  if (!/^(AUT|WIN|SPR|SUM)\d{4}$/.test(String(quarter))) throw new Error('Choose a quarter.');
+  const S = C_().SHEETS;
+  const w = courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES);
+  const students = {}, instByEmail = {};
+  readTable_(S.STUDENTS).forEach(function(r) { students[normEmail_(r.Email)] = r; });
+  readTable_(S.INSTRUCTORS).forEach(function(r) { if (r.Email) instByEmail[normEmail_(r.Email)] = r; });
+  /* The greeting firstNameFor_ would use, from tables read once. */
+  const greet = function(em) {
+    const s = students[em];
+    if (s && s.Preferred_First) return String(s.Preferred_First);
+    const i = instByEmail[em];
+    if (i && String(i.TS_Name).indexOf(',') !== -1) {
+      const given = String(i.TS_Name).split(',')[1].trim().split(/\s+/)[0];
+      if (given) return given.charAt(0).toUpperCase() + given.slice(1).toLowerCase();
+    }
+    return 'colleague';
+  };
+  const byKey = {}, excluded = {};
+  readTable_(S.ENROLLMENTS).forEach(function(e) {
+    if (e.Quarter !== quarter) return;
+    if (e.Exclusion_Reason) { excluded[e.Exclusion_Reason] = (excluded[e.Exclusion_Reason] || 0) + 1; return; }
+    (byKey[e.Request_Key] = byKey[e.Request_Key] || []).push(e);
+  });
+  const inst = instructorsMap_();
+  const pages = readTable_(S.REQUESTS).filter(function(r) { return r.Quarter === quarter && r.Status === 'NOT_STARTED'; }).map(function(r) {
+    const rows = byKey[r.Request_Key] || [];
+    return {
+      requestId: r.Request_ID, offering: r.Offering, instructors: r.Instructor_Names,
+      recipients: splitList_(r.Instructor_Emails).map(function(em) { em = normEmail_(em); return { email: em, greeting: greet(em) }; }),
+      missing: pageMissingInstructors_(r, inst),
+      students: rows.map(function(e) {
+        const s = students[normEmail_(e.Student_Email)] || {};
+        return { name: s.Name || e.Student_Email, program: s.Program || '', section: e.Section || '', advisee: !!e.Advisee_Of };
+      }).sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); })
+    };
+  }).sort(function(a, b) { return String(a.offering).localeCompare(String(b.offering)); });
+  const first = pages.filter(function(p) { return p.students.length && p.recipients.length; })[0];
+  const sample = first ? renderEmailTemplate_('CF-1', {
+    course: first.offering, quarter: quarterLabel_(quarter), n: first.students.length,
+    url: '(link to the page, created at launch)', notMineUrl: '(link, created at launch)', dueLong: dateLong_(w.due)
+  }, { firstName: first.recipients[0].greeting, gpcName: C_().GPC_NAME || 'The Graduate Program Coordinator', privacyUrl: C_().PRIVACY_URL, reference: first.requestId }) : null;
+  return {
+    quarterLabel: quarterLabel_(quarter), opensLong: dateLong_(w.opens), dueLong: dateLong_(w.due), launchOpen: todayIso_() >= w.opens,
+    pages: pages, excluded: Object.keys(excluded).map(function(k) { return { reason: k, n: excluded[k] }; }),
+    sample: sample ? { offering: first.offering, to: first.recipients[0].email, subject: sample.subject, text: sample.text } : null
   };
 }
 

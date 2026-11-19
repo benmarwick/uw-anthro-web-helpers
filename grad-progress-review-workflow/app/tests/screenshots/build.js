@@ -92,7 +92,27 @@ const rosterData = {
     { requestId: 'REQ-2', offering: 'ANTH 203 A / LING 203 A', instructors: 'Quill,Ada M', emails: 'ada.quill.sample@uw.edu', status: 'SUBMITTED' },
     { requestId: 'REQ-3', offering: 'ANTH 466', instructors: 'Stone,Cal', emails: 'cal.stone.sample@uw.edu', status: 'NOT_MY_COURSE' }
   ],
+  opensLong: run(`dateLong_(courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES).opens)`), launchOpen: false,
   myGradUrl: 'https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist?orgid=14', timeScheduleUrl: ''
+};
+/* The "Check before launch" list: what launchReviewData returns for two pages not yet sent. The email
+   text comes from the real CF-1 template. */
+const reviewData = {
+  quarterLabel: run(`quarterLabel_('${Q}')`), opensLong: rosterData.opensLong, launchOpen: false,
+  dueLong: run(`dateLong_(courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES).due)`),
+  pages: [
+    { requestId: 'REQ-4', offering: 'ANTH 512', instructors: 'Rowan,Bea / Stone,Cal', missing: [],
+      recipients: [{ email: 'bea.rowan.sample@uw.edu', greeting: 'Bea' }, { email: 'cal.stone.sample@uw.edu', greeting: 'Cal' }],
+      students: [{ name: 'Finch, Avery', program: 'PhD', section: 'A', advisee: true }, { name: 'Lark, Jordan', program: 'MA', section: 'A', advisee: false }] },
+    { requestId: 'REQ-5', offering: 'BIO A 201', instructors: 'Vale,Eli', missing: [], recipients: [{ email: 'eli.vale.sample@uw.edu', greeting: 'Eli' }], students: [] }
+  ],
+  excluded: [{ reason: 'Individual or research credits', n: 1 }, { reason: 'Outside the departments in this phase', n: 1 }],
+  sample: Object.assign({ offering: 'ANTH 512', to: 'bea.rowan.sample@uw.edu' }, (function () {
+    const o = run(`renderEmailTemplate_('CF-1', { course: 'ANTH 512', quarter: quarterLabel_('${Q}'), n: 2, url: '(link to the page, created at launch)',
+      notMineUrl: '(link, created at launch)', dueLong: dateLong_(courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES).due) },
+      { firstName: 'Bea', gpcName: CONFIG.GPC_NAME, privacyUrl: CONFIG.PRIVACY_URL, reference: 'REQ-4' })`);
+    return { subject: o.subject, text: o.text };
+  })())
 };
 const regMsg = { type: 'mygrad-data', mode: 'registrations', quarter: Q, students: Object.keys(STUDENTS), registrations, failures: [] };
 const tsMsg = { type: 'ts-sections', quarter: Q, sections, missingCurricula: [], appointments: {}, cecError: '' };
@@ -243,7 +263,7 @@ const pages = [
   /* The Roster page after both bridges have reported and the administrator clicked Preview. The two
      status lines use the same wording as the page's message handler, which only accepts real
      MyGrad and Time Schedule origins. */
-  build('RosterPage', 'roster', 'Roster', {}, { rosterPageData: rosterData, previewCourseFeedback: preview }, `
+  build('RosterPage', 'roster', 'Roster', {}, { rosterPageData: rosterData, previewCourseFeedback: preview, launchReviewData: reviewData }, `
     setTimeout(function () {
       REG = ${JSON.stringify(regMsg)}; TSD = ${JSON.stringify(tsMsg)};
       document.getElementById('regState').textContent = 'MyGrad: ' + REG.students.length + ' students, ' + REG.registrations.length + ' registrations for ' + REG.quarter + '.';

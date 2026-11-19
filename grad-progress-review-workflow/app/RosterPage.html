@@ -5,12 +5,15 @@
 <header class="top"><h1>Roster</h1><p>MyGrad registrations and Time Schedule sections for course feedback; MyGrad data for the annual review.</p></header>
 <main>
   <div id="msg" role="status" aria-live="polite"></div>
-  <div class="note">Each button opens a tab. In that tab, click the matching bookmarklet (MyGrad Table Audit on MyGrad; Time Schedule Sections on the Time Schedule). The data comes back here by itself, and you can close the tab. If that ever fails, each bookmarklet can download a CSV instead, which you upload below.</div>
+  <div class="note">Each button opens a tab. In that tab, click the matching bookmarklet (<a href="https://github.com/benmarwick/uw-anthro-web-helpers#mygrad-table-audit-bookmarklet" target="_blank" rel="noopener">MyGrad Table Audit</a> on MyGrad; <a href="https://github.com/benmarwick/uw-anthro-web-helpers#time-schedule-sections-bookmarklet" target="_blank" rel="noopener">Time Schedule Sections</a> on the Time Schedule). Not installed yet? Click its name to open the install instructions in a new tab. The data comes back here by itself, and you can close the tab. If that ever fails, each bookmarklet can download a CSV instead, which you upload below.</div>
 
   <h2>Quarter</h2>
   <style>
     .qpick { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
     .qpick > div { min-width: 160px; }
+    ol.steps { margin: 8px 0 12px; padding-left: 22px; font-size: 15px; }
+    ol.steps li { margin: 4px 0; }
+    .tip { background: #fff6e5; border-left: 4px solid var(--warn); padding: 8px 12px; margin: 6px 0; font-size: 15px; }
     .yearbox { position: relative; display: flex; gap: 6px; }
     .yearbox input { width: 7em; }
     .yearbox > button { margin: 0; padding: 6px 10px; }
@@ -34,25 +37,47 @@
   </div>
 
   <h2>Course feedback roster</h2>
-  <button id="getReg" class="primary">Get MyGrad registrations</button>
-  <button id="getTs" class="primary">Get Time Schedule sections</button>
+  <ol class="steps">
+    <li><strong>Get MyGrad registrations.</strong> MyGrad opens in a new tab (sign in, or connect to the UW VPN if it does not load). When the student list appears, click the <em><a href="https://github.com/benmarwick/uw-anthro-web-helpers#mygrad-table-audit-bookmarklet" target="_blank" rel="noopener">MyGrad Table Audit</a></em> bookmarklet in that tab and wait for "Sent to the app". Then close the tab.</li>
+    <li><strong>Get Time Schedule sections.</strong> In the Time Schedule tab, click the <em><a href="https://github.com/benmarwick/uw-anthro-web-helpers#time-schedule-sections-bookmarklet" target="_blank" rel="noopener">Time Schedule Sections</a></em> bookmarklet (it shows only a small purple status box). You type nothing: this page sends it the quarter and the departments. Wait for "Sent to the app", then close the tab. If it asks you for a quarter or curricula, the tab was not opened by this button: cancel, and click the button again.</li>
+    <li>Check that both lines below the buttons show counts, then click <strong>Preview</strong>. If the list looks right, click <strong>Import</strong>.</li>
+    <li>Add any missing instructor emails, then check the list under "Check before launch". Launch turns on once every page has an email and the opening day (the first day of course feedback) has come.</li>
+  </ol>
+  <button id="getReg" class="primary" title="Opens MyGrad. In that tab, click the MyGrad Table Audit bookmarklet.">Get MyGrad registrations</button>
+  <button id="getTs" class="primary" title="Opens the Time Schedule. In that tab, click the Time Schedule Sections bookmarklet.">Get Time Schedule sections</button>
+  <p id="bridgeTip" class="tip" role="status" aria-live="polite" hidden></p>
   <p id="regState" class="muted">MyGrad: not yet.</p>
   <p id="tsState" class="muted">Time Schedule: not yet.</p>
   <details><summary>Upload CSVs instead</summary>
+    <p class="muted">If a bookmarklet shows download buttons instead of "Sent to the app", download its CSV and upload it here.</p>
     <label for="regCsv">MyGrad registrations CSV</label><input type="file" id="regCsv" accept=".csv,text/csv">
     <label for="tsCsv">Time Schedule sections CSV</label><input type="file" id="tsCsv" accept=".csv,text/csv">
   </details>
-  <button id="preview">Preview</button><button id="import" class="primary">Import</button>
+  <button id="preview" title="Shows what Import would create. Nothing is saved.">Preview</button><button id="import" class="primary" title="Saves the instructor pages. Nothing is emailed until Launch.">Import</button>
   <div id="previewOut"></div>
 
   <h2>Instructor pages this quarter</h2>
   <div id="pages"></div>
+  <h2>Check before launch</h2>
+  <p class="muted">Nothing is emailed until you click Launch. The list below shows exactly what Launch would send: one email to each address, for each page not yet sent.</p>
+  <ol class="steps">
+    <li><strong>Addresses.</strong> Each address in "Email goes to" gets one email for that course. Check that each one belongs to someone who taught the course, and that the greeting name ("Dear …") is right. Graduate-student instructors are left out on purpose.</li>
+    <li><strong>Students.</strong> Check that the students listed are the Anthropology graduate students you expect in that course. "advisee" means an instructor on that page is the student's advisor (from <code>Advisor_Emails</code> in <code>Students</code> at the last import), so that instructor can answer "Covered in my annual review".</li>
+    <li><strong>Left out.</strong> The line under the table counts the registrations left out of every page, and why. A page with no students closes at launch and sends nothing.</li>
+    <li><strong>The email.</strong> Open "The email instructors receive" to read the text exactly as sent, with the first page's details.</li>
+    <li><strong>Fixing a wrong or extra address.</strong> Saving and importing only add addresses, so remove or correct it in the spreadsheet: the <code>Instructor_Emails</code> column of that course's row in <code>Feedback_Requests</code>, and the <code>Email</code> column in <code>Instructors</code> so the next import uses it. Then click <strong>Refresh the list</strong>.</li>
+    <li><strong>Wrong students or a missing course.</strong> Get the MyGrad and Time Schedule data again, then Preview and Import. Import replaces the quarter's student list and keeps the pages.</li>
+  </ol>
+  <button id="review">Refresh the list</button>
+  <div id="reviewOut"></div>
   <button id="launch" class="primary" disabled>Launch course feedback</button>
   <p id="launchNote" class="muted"></p>
 
   <h2>Annual review: MyGrad data</h2>
   <p class="muted">Milestones, leave, GPA, candidacy, ANTH 800 credits and the year's courses for the self-report (annual review plan §9.3). Students confirm or correct every value.</p>
-  <button id="getPre">Get MyGrad data</button>
+  <p class="muted">Click <strong>Get MyGrad data</strong>. In the MyGrad tab that opens, click the <em><a href="https://github.com/benmarwick/uw-anthro-web-helpers#mygrad-table-audit-bookmarklet" target="_blank" rel="noopener">MyGrad Table Audit</a></em> bookmarklet and wait for "Sent to the app". Then close the tab.</p>
+  <button id="getPre" title="Opens MyGrad. In that tab, click the MyGrad Table Audit bookmarklet.">Get MyGrad data</button>
+  <p id="preTip" class="tip" role="status" aria-live="polite" hidden></p>
   <label for="preCsv">Or upload the MyGrad prefill CSV</label><input type="file" id="preCsv" accept=".csv,text/csv">
   <div id="preOut"></div>
 </main>
@@ -62,6 +87,20 @@
   var CFG = null, REG = null, TSD = null, pending = { mygrad: null, ts: null };
 
   /* The quarter code, for example AUT2026, from the Quarter and Year fields; empty until both are set. */
+  /* A reminder beside the button that was clicked, since the message line is at the top of the page. */
+  /* Bookmarklet names in a reminder link to their install instructions in the repository readme. */
+  var BM_LINKS = {
+    'MyGrad Table Audit bookmarklet': 'https://github.com/benmarwick/uw-anthro-web-helpers#mygrad-table-audit-bookmarklet',
+    'Time Schedule Sections bookmarklet': 'https://github.com/benmarwick/uw-anthro-web-helpers#time-schedule-sections-bookmarklet'
+  };
+  function tip(id, text) {
+    var t = document.getElementById(id), h = esc(text);
+    Object.keys(BM_LINKS).forEach(function (name) {
+      h = h.split(name).join('<a href="' + BM_LINKS[name] + '" target="_blank" rel="noopener">' + name + '</a>');
+    });
+    t.innerHTML = h; t.hidden = !text;
+  }
+
   function q() {
     var t = document.getElementById('qterm').value, y = document.getElementById('qyear').value.trim();
     return t && /^\d{4}$/.test(y) ? t + y : '';
@@ -117,29 +156,33 @@
     var d = e.data || {};
     if (e.origin === MYGRAD) {
       if (d.type === 'mygrad-ready' && pending.mygrad) e.source.postMessage(pending.mygrad, e.origin);
-      if (d.type === 'mygrad-error') say(d.error, 'bad');
+      if (d.type === 'mygrad-error') { say(d.error, 'bad'); tip(pending.mygrad && pending.mygrad.mode === 'prefill' ? 'preTip' : 'bridgeTip', d.error); }
       if (d.type === 'mygrad-data' && d.mode === 'registrations') {
         REG = d; pending.mygrad = null;
         document.getElementById('regState').textContent = 'MyGrad: ' + d.students.length + ' students, ' + d.registrations.length + ' registrations for ' + d.quarter +
           (d.failures.length ? '; ' + d.failures.length + ' transcript(s) failed: ' + d.failures.map(function (f) { return f.email; }).join(', ') : '') + '.';
+        tip('bridgeTip', 'MyGrad data received. You can close the MyGrad tab. Next: click Get Time Schedule sections.');
       }
       if (d.type === 'mygrad-data' && d.mode === 'prefill') {
         pending.mygrad = null;
+        tip('preTip', 'MyGrad data received. You can close the MyGrad tab. Saving to the Students sheet…');
         call('importMyGradPrefill', d).then(showPrefill).catch(function (er) { say(er.message, 'bad'); });
       }
     }
     if (e.origin === TS) {
       if (d.type === 'ts-ready' && pending.ts) e.source.postMessage(pending.ts, e.origin);
-      if (d.type === 'ts-error') say(d.error, 'bad');
+      if (d.type === 'ts-error') { say(d.error, 'bad'); tip('bridgeTip', d.error); }
       if (d.type === 'ts-sections') {
         TSD = d; pending.ts = null;
         document.getElementById('tsState').textContent = 'Time Schedule: ' + d.sections.length + ' sections for ' + d.quarter +
           (d.missingCurricula.length ? '; not found: ' + d.missingCurricula.join(', ') : '') + (d.cecError ? '; appointment types not read (' + d.cecError + ')' : '') + '.';
+        tip('bridgeTip', 'Time Schedule data received. You can close the Time Schedule tab. Next: click Preview, then Import if the list looks right.');
       }
     }
   });
 
   function showPrefill(res) {
+    tip('preTip', '');
     document.getElementById('preOut').innerHTML = '<p class="ok">Students: ' + res.added + ' added, ' + res.updated + ' updated' + (res.failures ? ', ' + res.failures + ' failed' : '') + '.</p>' +
       (res.notInMyGrad.length ? '<p class="warn">Active in the Students sheet but not on the MyGrad list (check whether they have left): ' + res.notInMyGrad.map(esc).join(', ') + '</p>' : '');
   }
@@ -149,6 +192,7 @@
     pending.mygrad = { type: 'mygrad-config', mode: 'registrations', quarter: q() };
     window.open(CFG.myGradUrl, '_blank');
     say('MyGrad opened. Click the MyGrad Table Audit bookmarklet in that tab.');
+    tip('bridgeTip', 'Now go to the MyGrad tab. When the student list appears, click the MyGrad Table Audit bookmarklet and wait for "Sent to the app". The MyGrad line below then shows the counts.');
   };
   document.getElementById('getTs').onclick = function () {
     if (!REG) { say('Get the MyGrad registrations first; they decide which departments to read.', 'bad'); return; }
@@ -157,12 +201,14 @@
     pending.ts = { type: 'ts-config', quarter: q(), curricula: cs };
     window.open('https://www.washington.edu/students/timeschd/' + q() + '/', '_blank');
     say('Time Schedule opened for ' + cs.join(', ') + '. Click the Time Schedule Sections bookmarklet in that tab.');
+    tip('bridgeTip', 'Now go to the Time Schedule tab and click the Time Schedule Sections bookmarklet. You type nothing: this page sends it ' + q() + ' and ' + cs.join(', ') + '. Wait for "Sent to the app"; the Time Schedule line below then shows the count.');
   };
   document.getElementById('getPre').onclick = function () {
     var code = q() || CFG.quarter;
     pending.mygrad = { type: 'mygrad-config', mode: 'prefill', quarters: yearQuarters(code) };
     window.open(CFG.myGradUrl, '_blank');
     say('MyGrad opened. Click the MyGrad Table Audit bookmarklet in that tab.');
+    tip('preTip', 'Now go to the MyGrad tab. When the student list appears, click the MyGrad Table Audit bookmarklet and wait for "Sent to the app". The results then appear below.');
   };
 
   function parseCsv(text) {
@@ -238,11 +284,11 @@
 
   document.getElementById('preview').onclick = function () {
     say('Running the join…');
-    call('previewCourseFeedback', q(), REG, TSD).then(function (p) { showPreview(p); say('Preview ready. Nothing has been saved yet.', 'ok'); }).catch(function (e) { say(e.message, 'bad'); });
+    call('previewCourseFeedback', q(), REG, TSD).then(function (p) { showPreview(p); say('Preview ready. Nothing has been saved yet.', 'ok'); tip('bridgeTip', 'Preview ready below. Nothing is saved yet. If it looks right, click Import.'); }).catch(function (e) { say(e.message, 'bad'); });
   };
   document.getElementById('import').onclick = function () {
     say('Importing…');
-    call('importCourseFeedback', q(), REG, TSD).then(function (p) { showPreview(p); say('Imported: ' + p.created + ' new instructor page(s).', 'ok'); loadPages(); }).catch(function (e) { say(e.message, 'bad'); });
+    call('importCourseFeedback', q(), REG, TSD).then(function (p) { showPreview(p); say('Imported: ' + p.created + ' new instructor page(s).', 'ok'); tip('bridgeTip', 'Imported ' + p.created + ' new page(s). Nothing is emailed yet. Next: add any missing instructor emails under "Instructor pages this quarter".'); loadPages(); }).catch(function (e) { say(e.message, 'bad'); });
   };
   document.getElementById('launch').onclick = function () {
     if (!confirm('Send every new instructor page for ' + q() + ' now?')) return;
@@ -257,10 +303,12 @@
       var waiting = rows.filter(function (r) { return r.status === 'NOT_STARTED'; });
       /* The server lists, for each unsent page, the instructors who should be asked but have no email (the launch applies the same rule). */
       var noEmail = waiting.filter(function (r) { return (r.missing || []).length > 0 || !String(r.emails || '').trim(); });
-      document.getElementById('launch').disabled = !waiting.length || noEmail.length > 0;
+      document.getElementById('launch').disabled = !waiting.length || noEmail.length > 0 || !c.launchOpen;
       document.getElementById('launchNote').textContent = !waiting.length ? 'No pages waiting to be sent for ' + c.quarterLabel + '.'
+        : !c.launchOpen ? 'Launch opens on ' + c.opensLong + '. Until then you can import, add emails and check the list above; nothing is emailed.' + (noEmail.length ? ' ' + noEmail.length + ' page(s) still need an instructor email.' : '')
         : noEmail.length ? 'Launch is disabled: ' + noEmail.length + ' page(s) are missing an instructor email (' + noEmail.map(function (r) { return r.missing.join(', '); }).filter(Boolean).join('; ') + '). Add the emails above; they apply at once.'
         : waiting.length + ' page(s) ready to send for ' + c.quarterLabel + '.';
+      loadReview();
       document.getElementById('pages').innerHTML = rows.length ? '<table class="rows"><thead><tr><th>Offering</th><th>Instructors</th><th>Status</th><th>Action</th></tr></thead><tbody>' +
         rows.map(function (r) {
           var act = r.status === 'NOT_MY_COURSE'
@@ -270,6 +318,34 @@
         }).join('') + '</tbody></table>' : '<p class="muted">No instructor pages yet for this quarter.</p>';
     }).catch(function (e) { say(e.message, 'bad'); });
   }
+  function loadReview() {
+    var out = document.getElementById('reviewOut');
+    if (!q()) { out.innerHTML = ''; return; }
+    out.innerHTML = '<p class="muted">Loading the list…</p>';
+    call('launchReviewData', q()).then(function (d) {
+      if (!d.pages.length) { out.innerHTML = '<p class="muted">No pages waiting to be sent for ' + esc(d.quarterLabel) + '. Import first.</p>'; return; }
+      var sending = d.pages.filter(function (p) { return p.students.length; });
+      var emails = sending.reduce(function (n, p) { return n + p.recipients.length; }, 0);
+      var closing = d.pages.length - sending.length;
+      var h = '<p><strong>Launch would send ' + emails + ' email(s) for ' + sending.length + ' course page(s)</strong>, due ' + esc(d.dueLong) + '.' +
+        (closing ? ' ' + closing + ' page(s) have no students and will close without an email.' : '') + '</p>';
+      h += '<table class="rows"><thead><tr><th>Course</th><th>Email goes to</th><th>Students on the page</th></tr></thead><tbody>' +
+        d.pages.map(function (p) {
+          var to = p.recipients.length ? p.recipients.map(function (r) { return esc(r.email) + '<br><span class="muted">Dear ' + esc(r.greeting) + '</span>'; }).join('<br>') : '<span class="bad">No address</span>';
+          if (p.missing.length) to += '<br><span class="bad">Missing: ' + esc(p.missing.join(', ')) + '</span>';
+          var st = p.students.length ? '<strong>' + p.students.length + '</strong>: ' + p.students.map(function (x) {
+            return esc(x.name) + (x.program ? ' <span class="muted">(' + esc(x.program) + (x.section ? ', section ' + esc(x.section) : '') + ')</span>' : '') + (x.advisee ? ' <span class="pill">advisee</span>' : '');
+          }).join('; ') : '<span class="warn">None: closes at launch, no email</span>';
+          return '<tr><td>' + esc(p.offering) + '<br><span class="muted">' + esc(p.instructors) + '</span></td><td>' + to + '</td><td>' + st + '</td></tr>';
+        }).join('') + '</tbody></table>';
+      h += d.excluded.length ? '<p class="muted">Left out of every page: ' + d.excluded.map(function (x) { return esc(x.reason) + ' (' + x.n + ')'; }).join('; ') + '.</p>' : '';
+      if (d.sample) h += '<details><summary>The email instructors receive (example: ' + esc(d.sample.offering) + ', to ' + esc(d.sample.to) + ')</summary>' +
+        '<p><strong>Subject:</strong> ' + esc(d.sample.subject) + '</p><pre style="white-space:pre-wrap;font:inherit;background:#f7f7f7;padding:10px;border-radius:4px">' + esc(d.sample.text) + '</pre></details>';
+      out.innerHTML = h;
+    }).catch(function (e) { out.innerHTML = '<p class="bad">' + esc(e.message) + '</p>'; });
+  }
+  document.getElementById('review').onclick = loadReview;
+
   document.getElementById('pages').addEventListener('click', function (e) {
     var co = e.target.getAttribute('data-co'), re = e.target.getAttribute('data-reissue');
     if (co) call('addCoInstructor', co, document.getElementById('co_' + co).value).then(function () { say('Co-instructor added.', 'ok'); loadPages(); }).catch(function (er) { say(er.message, 'bad'); });
