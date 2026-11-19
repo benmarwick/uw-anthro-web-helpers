@@ -212,5 +212,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Admin Tools')
     .addItem('Run Schedule Validation', 'runScheduleChecks')
+    .addItem('Run Data Check', 'runDataCheck')
+    .addItem('Apply entry rules to planning sheets', 'applyPlanningRulesFromMenu')
     .addToUi();
 }

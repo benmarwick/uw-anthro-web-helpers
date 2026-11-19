@@ -46,7 +46,7 @@ People type only into the planning sheets and, in the forecast spreadsheet, into
 
 ## Files in This Folder
 
-All five files belong in one Apps Script project, the one you open from the forecast spreadsheet with **Extensions \> Apps Script**.
+All seven files (five scripts and two HTML pages) belong in one Apps Script project, the one you open from the forecast spreadsheet with **Extensions \> Apps Script**.
 
 | File | What it does |
 |------------------------|------------------------------------------------|
@@ -54,7 +54,11 @@ All five files belong in one Apps Script project, the one you open from the fore
 | `Index.html` | The student course list, with filters for prefix, quarter, year, Gen Ed, W credit, major option and instructor. |
 | `ScheduleDashboard.html` | A weekly timetable chart of one quarter, with a "pathway checker" that plots any set of courses together. |
 | `Scraper.gs` | `runFullUpdate` reads the UW course catalog pages and the department's major option pages, and rewrites the `Ref_GenEd` and `Ref_Options` tabs. |
-| `Conflict Report Script.gs` | Adds the **Admin Tools \> Run Schedule Validation** menu, which checks start times against the UW block schedule and lists overlapping classes in the `Conflict Report` tab. |
+| `Conflict Report Script.gs` | Adds the **Admin Tools** menu. Its **Run Schedule Validation** checks start times against the UW block schedule and lists overlapping classes in the `Conflict Report` tab. |
+| `PlanningRules.gs` | **Admin Tools \> Apply entry rules to planning sheets**: adds dropdowns, checks and highlights to columns A to S of each planning sheet (see [Entry Rules](#entry-rules)). |
+| `DataCheck.gs` | **Admin Tools \> Run Data Check**: lists every planning-sheet row that breaks a column rule, with a link to the cell, in the `Data Check` tab (see [Data Check](#data-check)). |
+
+`tests/run.js` is not part of the project. Run it with Node (`node tests/run.js`) after changing a script: it loads all the `.gs` files together, so a syntax error or a name defined in two files shows up before it reaches the live menus, and it tests the Data Check rules. Given the path of a JSON export of planning tabs, it also prints the Data Check's counts for them.
 
 ## Before You Start
 
@@ -73,8 +77,8 @@ The web page and the monthly trigger both stop working if the owner loses access
 
 - A UW Google account (`@uw.edu`) for everyone involved.
 - The two templates. Each link opens Google's "Make a copy" page; sign in with your UW account first.
-  - [Planning sheet template](https://docs.google.com/spreadsheets/d/1Fx3asQB6QjXnjsz0nxGQvF_23SsN_EM66icjySsCxDA/copy): one year tab with no courses, plus the overlap checker.
-  - [Forecast spreadsheet template](https://docs.google.com/spreadsheets/d/1ErYekwI1efEKvXTfGqU2uESB4OeDgVLacdDFhwQ0pEU/copy): every tab and the five scripts, with placeholders where your planning sheet IDs and contact address go.
+  - [Planning sheet template](https://docs.google.com/spreadsheets/d/1Fx3asQB6QjXnjsz0nxGQvF_23SsN_EM66icjySsCxDA/copy): one year tab with no courses and the entry rules in place, plus the overlap checker.
+  - [Forecast spreadsheet template](https://docs.google.com/spreadsheets/d/1ErYekwI1efEKvXTfGqU2uESB4OeDgVLacdDFhwQ0pEU/copy): every tab and the seven script and page files, with placeholders where your planning sheet IDs and contact address go.
 - The UW course catalog page for each prefix, for example `https://www.washington.edu/students/crscat/anthro.html`.
 - For each major option you want shown, the department web page that lists its courses.
 
@@ -93,7 +97,7 @@ Row 1 has the headings, and each later row is one course section. Columns A to S
 
 | Column | Heading | What to type | Example |
 |------------------|------------------|------------------|------------------|
-| A | (blank) | Quarter sort key: 1 autumn, 2 winter, 3 spring. | `1` |
+| A | (blank) | Quarter sort key: 1 autumn, 2 winter, 3 spring. Fills itself from column B once the entry rules are applied; do not type in it. | `1` |
 | B | Quarter | `AU`, `WI` or `SP`, exactly. Summer is not supported. | `AU` |
 | C | Year | The calendar year of that quarter. In 2026-27, autumn is 2026; winter and spring are 2027. | `2026` |
 | D | Prefix | As the UW catalog writes it, including spaces. | `BIO A` |
@@ -104,25 +108,29 @@ Row 1 has the headings, and each later row is one course section. Columns A to S
 | I | Instructor | Last name. Students see this. | `Rivera` |
 | J | Joint/Withered | The linked course (see below). | `LING 203` |
 | K | \# TAs | A number. | `2` |
-| L | Enrollment | Enrollment limit. | `150` |
-| M to Q | Mon to Fri | `X` on each meeting day. Some sheets use `Q` for a quiz-section day. | `X` |
+| L | Enrollment | Enrollment limit, or a split such as `30/15`. | `150` |
+| M to Q | Mon to Fri | `X` on each meeting day, `Q` for a quiz-section day. | `X` |
 | R | Time Start | A time value. | `10:30 AM` |
 | S | Time End | A time value. | `12:20 PM` |
 | T onward | Your choice | Anything your staff need, such as rooms, restrictions or fees. | |
 
 Rules that prevent most errors:
 
-- Type times as `10:30 AM` or `10:30`. If the cell is left-aligned after you press Enter, Sheets has stored text, and the conflict checker skips that course. **Format \> Number \> Time** fixes it.
+- Type times as `10:30 AM` or `10:30`, and leave the cell blank if the time is not known yet (not `TBD`). Text in a time cell makes the conflict checker skip that course.
 - Add new columns only after column S. A column inserted anywhere in A to S shifts every later column.
-- Keep column A consistent with column B, and check column C when you copy rows from another quarter.
+- Check column C when you copy rows from another quarter.
 - Keep each year tab under 200 rows. The forecast reads rows 1 to 200.
+
+The entry rules refuse most mistakes as you type them, and **Run Data Check** finds the rest, including values pasted in (Google's checks mark a pasted bad value but do not refuse it).
 
 In column J, a **joint** course is a formal catalog listing of courses always offered together (ANTH 203 and LING 203). A **withered** course is an informal pairing that runs in the same room at the same time (for example, a 400-level and a 500-level version). Give each course of a pair its own row and name the other course in column J.
 
 ### Helpful Features in the Template
 
-- **Notes on headings.** Hover over a heading with a small black triangle to read what the column means. Use notes only for column definitions: unlike comments, they notify no one.
+- **Notes on headings.** Hover over a heading with a small black triangle to read what the column means and, for each checked column, what it accepts. Use notes only for column definitions: unlike comments, they notify no one.
+- **Entry rules** on columns A to S: dropdowns for the quarter, prefix and days, checks on the year, course number, number of TAs, enrollment and times, and highlights for missing or inconsistent values (see [Entry Rules](#entry-rules)). Selecting a checked cell also shows what it accepts.
 - **Dropdown menus** for registration restrictions and room attributes. Edit the options under **Data \> Data validation**.
+- **# Readers** and **Enrollment notes** columns at the far right, for values that do not belong in "# TAs" or "Enrollment" (for example "1 reader" or "150 (108 ANTH / 42 LING)").
 - **Course time overlap checker tab.** Choose a year in B1 and a quarter in D1 to see each class meeting on a half-hour grid, colored by course level. Add each new year to the B1 dropdown's data validation list, starting with your renamed year tab. On a year tab with no courses it shows `#VALUE!`.
 
 Our ARCHY sheet also has two tabs that count, per quarter, how many courses from each archaeology major option's lists are offered. Add similar tabs if your options need them; the web page does not use them.
@@ -158,7 +166,7 @@ If a decision happens in a meeting or by email, add a one-line reply saying so. 
 
 ### Make Your Copy
 
-Signed in as the owner account, open the [forecast spreadsheet template](https://docs.google.com/spreadsheets/d/1ErYekwI1efEKvXTfGqU2uESB4OeDgVLacdDFhwQ0pEU/copy) and click **Make a copy**. In the copy, open **Extensions \> Apps Script** and check that the five files are there; paste in any that are missing from this folder. The copy has no trigger and no web address, so set up your own in Parts 4 and 5.
+Signed in as the owner account, open the [forecast spreadsheet template](https://docs.google.com/spreadsheets/d/1ErYekwI1efEKvXTfGqU2uESB4OeDgVLacdDFhwQ0pEU/copy) and click **Make a copy**. In the copy, open **Extensions \> Apps Script** and check that the seven files are there; paste in any that are missing from this folder. The copy has no trigger and no web address, so set up your own in Parts 4 and 5.
 
 The template's tabs show `#REF!` and its Ref_GenEd, Ref_Options and Conflict Report tabs are empty until you finish this part and Part 4. The notice to students says `<your contact address>` until you edit it.
 
@@ -173,6 +181,7 @@ The template's tabs show `#REF!` and its Ref_GenEd, Ref_Options and Conflict Rep
 | Summaries | Formulas | Distinct courses per level (100 to 400) for each prefix and quarter of the Admin year. |
 | Ref_GenEd, Ref_Options | `Scraper.gs` | Gen Ed codes, W credit and descriptions; which courses count toward which major option. Replaced monthly; do not edit. |
 | Conflict Report | `Conflict Report Script.gs` | The result of the last **Run Schedule Validation**. |
+| Data Check | `DataCheck.gs` | The result of the last **Run Data Check**. Created the first time you run it. |
 
 ### Set Up the Dashboard
 
@@ -244,6 +253,7 @@ In **Extensions \> Apps Script**, change these Anthropology values, then save.
 | `Index.html` | 127 | The Gen Ed filter; keep it the same as `Scraper.gs` line 56. |
 | `ScheduleDashboard.html` | 42 to 45 | The prefix dropdown. Move `selected` (line 44) to the prefix shown first. |
 | `Conflict Report Script.gs` | 10 | The forAdmin tab names. |
+| `PlanningRules.gs` | 15 | `PLANNING_PREFIXES`: the prefixes a planning sheet may use in column D. Then run **Admin Tools \> Apply entry rules to planning sheets**. |
 
 Leave the UW colors (`#4b2e83`) and the links to the Time Schedule, MyPlan and Gen Ed advising pages; they apply to every UW department.
 
@@ -286,14 +296,14 @@ Copy the address from **Deploy \> Manage deployments** so that the link ends in 
 
 ## Yearly and Quarterly Tasks
 
-**When you start planning a new year.** In each planning spreadsheet, duplicate the most recent year tab and rename it (for example `2028-29`). Update column C, revise times and instructors, and add the year to the B1 dropdown of the overlap checker tab.
+**When you start planning a new year.** In each planning spreadsheet, duplicate the most recent year tab and rename it (for example `2028-29`). Add the year to the B1 dropdown of the overlap checker tab. Put the new year on the forecast Dashboard (B5 or B8), then choose **Admin Tools \> Apply entry rules to planning sheets**: the year check depends on the tab's name, so a duplicated tab rejects the new years until the rules are re-applied. Then update column C and revise times and instructors.
 
 **When the next year becomes the current year.** On the forecast Dashboard, change B4 and B5; the student tab and web page follow at once. Change B8 when staff start scheduling the new year; the admin tabs, Summaries, conflict report and schedule view follow it.
 
 **Each quarter, before submitting the Time Schedule.**
 
-1.  In the forecast spreadsheet, choose **Admin Tools \> Run Schedule Validation** (the menu appears a few seconds after the spreadsheet opens).
-2.  Settle each line of the **Conflict Report** with the coordinator, in comments on the planning sheet.
+1.  In the forecast spreadsheet, choose **Admin Tools \> Run Data Check** (the menu appears a few seconds after the spreadsheet opens) and fix the "Fix" rows. Times typed as text or with AM and PM swapped are invisible to the next step.
+2.  Choose **Admin Tools \> Run Schedule Validation** and settle each line of the **Conflict Report** with the coordinator, in comments on the planning sheet.
 3.  Check **TA needs** and **Summaries** against your TA budget and your balance of course levels.
 
 **Automatic.** On the 1st of each month, `runFullUpdate` refreshes **Ref_GenEd** and **Ref_Options**.
@@ -317,6 +327,35 @@ Other lengths are not checked. The times are in lines 85 to 100 of `Conflict Rep
 
 **Overlaps.** Within each quarter, it reports two classes that share a day and overlap in time when both are 200-level with different prefixes ("200-Level Conflict"), or both are 300- or 400-level of any prefix ("Upper-Level Overlap"). It counts a day only when the cell contains `X`, and skips courses whose start time is stored as text. The rules are in lines 135 to 142.
 
+### Entry Rules
+
+**Apply entry rules to planning sheets** reads the planning sheet IDs and the years (B4, B5 and B8) from the Dashboard and sets these rules on each planning sheet's tab for each year. Re-running it replaces its own rules and leaves other rules, such as the restriction and room dropdowns, alone.
+
+| Column | Rule | If broken |
+|--------|------|-----------|
+| A | One formula in A1 fills the sort key from column B. Typing in the column brings up a warning. | |
+| B | AU, WI or SP | refused |
+| C | The tab's first year for AU, its second year for WI and SP | refused |
+| D | One of `PLANNING_PREFIXES` (in the template: capitals, no stray spaces) | refused |
+| E | Three digits, or blank | refused |
+| G | A number, a range such as `1-9`, or `CR/NC` | warning |
+| J | Names a course with its prefix, such as `LING 203` | warning |
+| K | A whole number | refused |
+| L | A whole number up to 2000, or a split such as `30/15` | warning |
+| M to Q | `X`, `Q` or blank, from a dropdown. Applying the rules first changes any lowercase `x` or `q` to capitals. | refused |
+| R, S | A time between 7:00 AM and 10:00 PM; the end after the start | refused |
+
+Each checked column's header has a note saying what the column accepts, added below any existing note. If Sheets turns a split such as `10/10` into a date, format the cell as plain text (**Format \> Number \> Plain text**) and retype it; the cap of 2000 makes such a date show as invalid.
+
+Highlights: red for a course number with no title, times with no days, days with no start time, an end not after the start, a time outside 7:00 AM to 10:00 PM, or text in "# TAs"; yellow for a course number with no instructor; orange for a duplicate section. A "refused" rule stops a typed entry; a pasted value that breaks it is kept and marked with a red corner.
+
+### Data Check
+
+**Run Data Check** reads the same planning tabs (it changes nothing in them) and writes one line per problem to the **Data Check** tab, with the counts by problem at the top and an **Open** link to each row.
+
+- **Fix** rows break a rule the forecast depends on: quarter, year, prefix or course number not in the expected form; a time typed as text, outside 7:00 AM to 10:00 PM, or ending before it starts; times with no days or days with no start time; text in "# TAs"; a day cell other than `X` or `Q`; the same quarter, course and section twice.
+- **Check** rows may be correct: no title, no instructor (expected for independent studies), credits not a number or range, enrollment not a number or a split such as `30/15` (or turned into a date), a joint or withered entry without a prefix, a course number not in the UW catalog (from **Ref_GenEd**), and a linked course (column J) that is not planned in the same quarter or starts at a different time.
+
 ### Schedule View
 
 `?page=schedule` draws each class of the Admin year as a bar on a Monday-to-Friday, 8 AM to 5 PM timeline, colored by level. Choose a quarter and prefix, or type course numbers into **Degree Pathway Checker** to plot courses a student might take together. Unlike the conflict report, it treats any non-empty day cell as a meeting, so a `Q` day appears as a class.
@@ -327,20 +366,23 @@ Other lengths are not checked. The times are in lines 85 to 100 of `Conflict Rep
 |------------------------------------|------------------------------------|
 | `#REF!` in a forecast tab | The import has not been allowed ([Allow the Imports](#allow-the-imports)), or the Dashboard year does not match a tab name in a planning sheet. If both are right, cut the formula, paste it back and press Enter. |
 | A course is missing from the web page | Check that the row has a prefix and a course number or title, that column B is exactly `AU`, `WI` or `SP`, that its quarter has an `x` on the Dashboard, and that the row is within the first 200. |
-| A course is in the wrong quarter or year | Column A or column C is wrong in the planning sheet. |
+| A course is in the wrong quarter or year | Column B or column C is wrong in the planning sheet (column A fills itself from column B). |
 | "Description not found in catalog index." | The course is not in the UW catalog yet. It appears after the catalog lists it and the next monthly update, or run `runFullUpdate` by hand. |
 | Option tags missing or wrong | Compare **Ref_Options** with your option pages and adjust `Scraper.gs` lines 91 to 93. |
 | Every course of an option is Aprvd | None of the line 91 "core" phrases is on that option's page. Add the page's own heading for its core list. |
 | A course is missing from the conflict report | Its times are stored as text, or its day cells contain something other than `X`. |
+| A cell will not accept what I type | An entry rule refuses it. Hover over the cell to see what it accepts; for a time not known yet, leave it blank. |
 | **Admin Tools** menu missing | Reload and wait a few seconds. If it is still missing, check that only one script file defines `onOpen`. |
 | Blank web page | Try an incognito window. We suspect being signed in to several Google accounts at once, but have not confirmed it. |
 | The website shows an old version | The link points at an old deployment. Copy the address from **Deploy \> Manage deployments**. |
 
 ## Status for UW Anthropology
 
-As of 18 November 2026, the live page (deployment version 39) lists both the current and the next academic year. The spreadsheet fixes this guide assumes are done: the extra tabs and the Dashboard testing area are deleted, the forAdmin headings are corrected, the ANTH 2027-28 tab follows the column rules, and the old `flush.gs` file is deleted from the Apps Script project. The two templates were made on 18 November 2026: the planning template from the ARCHY sheet's 2027-28 tab with every course row cleared, and the forecast template from the live forecast with placeholders for the sheet IDs and contact address. Neither contains course data, comments, instructor names or email addresses.
+As of 18 November 2026, the live page (deployment version 39) lists both the current and the next academic year. The spreadsheet fixes this guide assumes are done: the extra tabs and the Dashboard testing area are deleted, the forAdmin headings are corrected, the ANTH 2027-28 tab follows the column rules, and the old `flush.gs` file is deleted from the Apps Script project. The two templates were made on 18 November 2026: the planning template from the ARCHY sheet's 2027-28 tab with every course row cleared, and the forecast template from the live forecast with placeholders for the sheet IDs and contact address. Neither contains course data, comments, instructor names or email addresses. The planning template also has the entry rules and the **# Readers** and **Enrollment notes** columns.
+
+On 18 November 2026 the entry rules were applied to the 2026-27 and 2027-28 tabs of the ANTH, ARCHY and BIO A planning sheets and to the planning template (backups of the three sheets, made just before, are in the owner's Drive). Applying them changed 146 lowercase `x` day marks in the ANTH sheet to `X`. The only change to the forecast was that nine ANTH courses with an empty sort key moved into their quarters. A Data Check run that evening found 33 values to fix and 107 to check; the values to fix include five classes with AM and PM swapped or an end before the start (ANTH 458 and BIO A 344 in autumn 2026, ANTH 466 in spring 2027, BIO A 320 in winter 2028, ANTH 213 in spring 2028). The same day, `PlanningRules.gs`, `DataCheck.gs` and the new `onOpen` were added to the live forecast's Apps Script project (the web page stays on deployment version 39). The ANTH planning sheet's old "Template" tab (47 rows of a 2024-25 plan in the old column layout) was deleted, and so was a stray "2027-2028" tab holding one row (ANTH 444), after its open comment was copied into a note on that course in the 2027-28 tab; the backup copy keeps both tabs.
 
 Still to do:
 
-- The ANTH planning sheet's "Template" tab does not follow the column rules (it puts "W Course?" and "Add Code Permission" at M and N). Build new year tabs by duplicating the 2026-27 tab instead.
+- Fix the "Fix" rows in the Data Check (33 on 18 November), starting with the five times.
 - On the department page, replace the `urldefense.com` link with the raw `/exec` address.
