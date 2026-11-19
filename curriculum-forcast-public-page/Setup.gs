@@ -1,6 +1,6 @@
 /**
  * Setup: rebuilds everything in the forecast spreadsheet that depends on the list of
- * prefixes, from the Settings tab (setup-form-plan.md, Phase 2).
+ * prefixes, from the Settings tab.
  *
  * The formula builders are pure functions (text in, text out), tested in tests/run.js
  * against the live forecast's formulas. applySettings() writes their output.

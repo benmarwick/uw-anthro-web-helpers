@@ -27,6 +27,7 @@ The web page reads the forecast spreadsheet each time someone opens it, so edits
 - [Yearly and Quarterly Tasks](#yearly-and-quarterly-tasks)
 - [How the Checks Work](#how-the-checks-work)
 - [Troubleshooting](#troubleshooting)
+- [Notes for Maintainers](#notes-for-maintainers)
 - [Status for UW Anthropology](#status-for-uw-anthropology)
 
 ## Setting Up, in Short
@@ -73,7 +74,7 @@ All ten files (seven scripts and three HTML pages) belong in one Apps Script pro
 
 `tests/run.js` is not part of the project. Run it with Node (`node tests/run.js`) after changing a script: it loads all the `.gs` files together, so a syntax error or a name defined in two files shows up before it reaches the live menus. It tests the Data Check rules, the Settings tab layout, the formula builders (against our live formulas in `tests/fixtures/`) and the setup form's helpers.
 
-`setup-form-plan.md` records how the setup form was planned, built and tested.
+The setup form was planned, built and tested in November 2026; the plan and its test results are in this folder's git history (`setup-form-plan.md`, removed after the work was done). The points that still matter are in [Notes for Maintainers](#notes-for-maintainers).
 
 ## Before You Start
 
@@ -336,6 +337,33 @@ Highlights: red for a course number with no title, times with no days, days with
 | Blank web page | Try an incognito window. We suspect being signed in to several Google accounts at once, but have not confirmed it. |
 | The website shows an old version | The link points at an old deployment. Copy the address from **Deploy \> Manage deployments**. |
 
+## Notes for Maintainers
+
+**Where the code lives.** This folder is the source. Two Apps Script projects run it: the one bound to the forecast template (script ID `12ykqEKiXTk1nImURrisDVhwfTGQwRdUOcNSEnw8MKUsO7aUaCTeHKCtJ`) and the one bound to our live forecast (script ID `17bpseHvSyMrxPUXpaum4eUBS2DK6Z24e2bc7DIS-vPEK2Q3NqcdQTHvb`). To update either, `clasp clone` it, copy this folder's files over (the clone names scripts `.js`), and `clasp push --force`; for the live page, then make a new version of the existing deployment (Part 4). Menu items and the monthly update always run the newest pushed code; the web page runs only the deployed version.
+
+**Checks before pushing.** Run `node tests/run.js`. After pushing, `clasp clone` again into an empty folder and compare: `clasp push` reports "Script is already up to date" after a file is deleted locally and leaves the file in the project, so a renamed or removed file must also be deleted in the editor.
+
+**What Set up rewrites and what it leaves alone.**
+
+| Set up rewrites on every run | Set up never touches |
+|------------------------------|---------------------|
+| The Settings tab (from the form) | The Dashboard's years and `x` marks |
+| One forAdmin tab per prefix: row 1, columns B to T, and B2 | The notice text, apart from the template's contact placeholder |
+| Student tab A6 and K6, TA needs A2 | Planning tabs not named for a Dashboard year |
+| The Summaries blocks | Ref_GenEd and Ref_Options (the monthly update owns them) |
+| The entry rules on each planning tab for each Dashboard year (only its own rules) | Values typed in planning sheets, except lowercase `x` and `q` in the day columns, which become capitals |
+| The Data Check tab; the overlap checker's year list (adds years, removes none) | The Conflict Report, sharing and calculation settings |
+| The monthly trigger, if there is none | Planning sheets of removed prefixes (only their forAdmin tab goes, after a tick in the form) |
+
+The combining formulas write each planning sheet's ID as text, in the order of the Settings tab's prefix rows; the course list's order within a quarter follows that order. `tests/fixtures/live-formulas-2026-11-19.json` contains our live formulas from before the change, which the tests use to check the formula builders.
+
+**Google Sheets behaviour the rules depend on** (seen while building them):
+- A dropdown rule is case-sensitive: a list of `X, Q` marks a typed `x` invalid, which is why applying the rules capitalises existing day marks.
+- In a rule or highlight formula, Sheets evaluates every argument of `AND` and `OR`, and one error (for example `INT("20/20")`) makes the whole formula fail even when another argument is true. Number tests therefore sit inside `IF(ISNUMBER(...))`.
+- A pasted value that breaks a rule is kept and marked with a red corner; only typed values are refused. The Data Check finds the rest.
+- A copy of the forecast needs **Allow access** for each planning sheet shared only within UW, even when the same person owns both files; a sheet shared with anyone who has the link needs none.
+- A planning sheet made with `SpreadsheetApp.create` and `Sheet.copyTo` keeps every rule, highlight, note and formula of the template; only range protections are lost (the entry rules add theirs back). This is why setup needs no Google Drive permission.
+
 ## Status for UW Anthropology
 
 As of 19 November 2026:
@@ -349,4 +377,4 @@ Still to do:
 
 - Fix the "Fix" rows in the Data Check (33 on 19 November), starting with five classes with AM and PM swapped or an end before the start: ANTH 458 and BIO A 344 in autumn 2026, ANTH 466 in spring 2027, BIO A 320 in winter 2028 and ANTH 213 in spring 2028.
 - On the department page, replace the `urldefense.com` link with the raw `/exec` address.
-- Have a colleague who has not seen the system set up a pretend department from this README alone (`setup-form-plan.md`, Open Question).
+- Have a colleague who has not seen the system set up a pretend department from this README alone. The setup form was tested end to end, but only by its author.
