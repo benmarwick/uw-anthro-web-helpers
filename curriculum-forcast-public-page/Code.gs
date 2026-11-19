@@ -36,39 +36,56 @@ function getCourseData() {
   
   const headers = data[headerRowIdx].map(h => h.trim().toLowerCase());
   const courses =[];
-  
-  const idxQtr = headers.indexOf("quarter");
-  const idxYr = headers.indexOf("year");
-  const idxPre = headers.indexOf("prefix");
-  // Check for "course #" or "course"
-  const idxNum = headers.indexOf("course #") > -1 ? headers.indexOf("course #") : headers.indexOf("course"); 
-  const idxTit = headers.indexOf("title");
-  const idxInst = headers.indexOf("instructor");
 
-  for (let j = headerRowIdx + 1; j < data.length; j++) {
-    const row = data[j];
-    if (!row[idxPre] && !row[idxNum]) continue; 
-    
-    let prefix = row[idxPre].trim();
-    let num = row[idxNum].trim();
-    let courseID = `${prefix} ${num}`;
+  // The tab holds one block of columns per academic year, side by side
+  // (current year in B:I, next year in L:S). Each block starts at a
+  // "Quarter" header, so read every block, not only the first one.
+  const blockStarts = [];
+  headers.forEach((h, i) => { if (h === "quarter") blockStarts.push(i); });
 
-    let ref = genEdMap[courseID] || { codes: "", w: "FALSE", desc: "Description not found in catalog index." };
-    let optData = optionsMap[courseID] ||[];
+  blockStarts.forEach((start, b) => {
+    const end = b + 1 < blockStarts.length ? blockStarts[b + 1] : headers.length;
+    const find = name => {
+      const i = headers.indexOf(name, start);
+      return (i > -1 && i < end) ? i : -1;
+    };
 
-    courses.push({
-      quarter: idxQtr > -1 ? row[idxQtr] : "",
-      year: idxYr > -1 ? row[idxYr] : "",
-      prefix: prefix,
-      courseNum: num,
-      title: idxTit > -1 ? row[idxTit] : "",
-      instructor: idxInst > -1 ? row[idxInst] : "",
-      genEd: ref.codes,
-      wCredit: ref.w === "TRUE",
-      description: ref.desc,
-      options: optData 
-    });
-  }
+    const idxQtr = start;
+    const idxYr = find("year");
+    const idxPre = find("prefix");
+    // Check for "course #" or "course"
+    const idxNum = find("course #") > -1 ? find("course #") : find("course");
+    const idxTit = find("title");
+    const idxInst = find("instructor");
+    if (idxPre === -1 || idxNum === -1) return;
+
+    for (let j = headerRowIdx + 1; j < data.length; j++) {
+      const row = data[j];
+      if (!row[idxPre] && !row[idxNum]) continue;
+
+      let prefix = row[idxPre].trim();
+      let num = row[idxNum].trim();
+      // Skip placeholder rows (prefix only, no course number or title yet)
+      if (!num && !(idxTit > -1 && row[idxTit].trim())) continue;
+      let courseID = `${prefix} ${num}`;
+
+      let ref = genEdMap[courseID] || { codes: "", w: "FALSE", desc: "Description not found in catalog index." };
+      let optData = optionsMap[courseID] ||[];
+
+      courses.push({
+        quarter: row[idxQtr],
+        year: idxYr > -1 ? row[idxYr] : "",
+        prefix: prefix,
+        courseNum: num,
+        title: idxTit > -1 ? row[idxTit] : "",
+        instructor: idxInst > -1 ? row[idxInst] : "",
+        genEd: ref.codes,
+        wCredit: ref.w === "TRUE",
+        description: ref.desc,
+        options: optData
+      });
+    }
+  });
   return courses;
 }
 

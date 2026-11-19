@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <!-- Plotly.js -->
+  <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- Select2 CSS & JS -->
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9f9; margin: 0; padding: 20px; }
+    .header { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    h2 { margin-top: 0; color: #333; }
+    .controls { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+    .control-group { display: flex; flex-direction: column; }
+    label { font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px; text-transform: uppercase; }
+    select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; min-width: 150px; }
+    .pathway-checker { flex-grow: 1; min-width: 300px; }
+    #chartDiv { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); height: 600px; }
+    #loading { text-align: center; padding: 50px; font-size: 18px; color: #666; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h2 id="dashTitle">Curriculum Scheduling Dashboard</h2>
+    <div class="controls">
+      <div class="control-group">
+        <label>Quarter</label>
+        <select id="quarterFilter" onchange="drawChart()">
+          <option value="AU">Autumn (AU)</option>
+          <option value="WI">Winter (WI)</option>
+          <option value="SP">Spring (SP)</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Prefix (Dept)</label>
+        <select id="prefixFilter" onchange="drawChart()">
+          <option value="ALL">All Departments</option>
+          <option value="ANTH">ANTH</option>
+          <option value="ARCHY" selected>ARCHY</option>
+          <option value="BIO A">BIO A</option>
+        </select>
+      </div>
+      <div class="control-group pathway-checker">
+        <label>Degree Pathway Checker (Overrides Filters)</label>
+        <select id="courseSelect" multiple="multiple" style="width: 100%;"></select>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading">Loading schedule data from Google Sheets...</div>
+  <div id="chartDiv" style="display:none;"></div>
+
+  <script>
+    let rawData =[];
+    
+    // Brewer Qualitative Dark2 Palette
+    const colorPalette = {
+      '100': '#1b9e77', '200': '#d95f02', '300': '#7570b3', '400': '#e7298a',
+      '500': '#66a61e', '600': '#e6ab02', '700': '#a6761d', '800': '#666666' 
+    };
+
+    $(document).ready(function() {
+      $('#courseSelect').select2({ placeholder: "Search & select specific courses", allowClear: true });
+      $('#courseSelect').on('change', function() { drawChart(); });
+      
+      google.script.run.withSuccessHandler(initDashboard).withFailureHandler(function(err){
+        console.error("Error fetching data:", err);
+        $('#loading').text("Error loading data. Check console.");
+      }).getScheduleData();
+    });
+
+    function initDashboard(data) {
+      rawData = data ||[]; 
+      
+      if (rawData.length > 0) {
+        let uniqueYears =[...new Set(rawData.map(d => d.year).filter(y => y))].sort();
+        if (uniqueYears.length > 0) {
+          $('#dashTitle').text(`Curriculum Scheduling Dashboard (${uniqueYears.join('-')})`);
+        }
+
+        let uniqueCourses =[...new Set(rawData.map(d => d.fullCode))].sort();
+        uniqueCourses.forEach(course => {
+          $('#courseSelect').append(new Option(course, course, false, false));
+        });
+      }
+
+      $('#loading').hide();
+      $('#chartDiv').show();
+      drawChart();
+    }
+
+    function parseTimeData(timeStr) {
+      let match = timeStr.match(/(\d+):(\d+).*?(AM|PM)/i);
+      if (!match) return { jsDate: new Date(1970, 0, 1, 0, 0, 0), plotStr: '1970-01-01 00:00:00' };
+
+      let hours = parseInt(match[1], 10);
+      let mins = match[2]; 
+      let ampm = match[3].toUpperCase();
+
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+
+      let hoursStr = hours.toString().padStart(2, '0');
+      let plotStr = `1970-01-01 ${hoursStr}:${mins}:00`;
+
+      return {
+        jsDate: new Date(1970, 0, 1, hours, parseInt(mins, 10), 0),
+        plotStr: plotStr
+      };
+    }
+
+    function drawChart() {
+      const selectedQuarter = $('#quarterFilter').val();
+      const selectedPrefix = $('#prefixFilter').val();
+      const pathwayCourses = $('#courseSelect').val() ||[];
+
+      let filteredData = rawData.filter(d => {
+        if (pathwayCourses.length > 0) return pathwayCourses.includes(d.fullCode);
+        return (d.quarter === selectedQuarter) && (selectedPrefix === 'ALL' || d.prefix === selectedPrefix);
+      });
+
+      let traces = {};
+      const dayOrder =['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+      filteredData.forEach(course => {
+        let startData = parseTimeData(course.start);
+        let endData = parseTimeData(course.end);
+        let durationMs = endData.jsDate.getTime() - startData.jsDate.getTime(); 
+
+        let levelStr = course.level + '-level';
+        
+        if (!traces[levelStr]) {
+          traces[levelStr] = {
+            name: levelStr, 
+            type: 'bar', 
+            orientation: 'h',
+            y:[], base: [], x: [], 
+            
+            // NEW TEXT FORMATTING:
+            text:[], // For the text ON the bar
+            textposition: 'inside', // Lock text inside the block
+            insidetextanchor: 'middle',
+            textfont: { size: 14, color: '#ffffff' }, // Large, white font
+            
+            hovertext:[], // For the Tooltip
+            hoverinfo: 'hovertext', // Tell Plotly to only show the tooltip formatting on hover
+            
+            marker: { color: colorPalette[course.level] || '#333333' }
+          };
+        }
+
+        course.days.forEach(day => {
+          traces[levelStr].y.push(day);
+          traces[levelStr].base.push(startData.plotStr);
+          traces[levelStr].x.push(durationMs);
+          
+          // Show ONLY the bolded course code on the physical bar
+          traces[levelStr].text.push(`<b>${course.fullCode}</b>`);
+          
+          // Keep all the rich details in the tooltip
+          let hoverHTML = `<b>${course.fullCode}</b><br>${course.title}<br>Instructor: ${course.instructor}<br>Time: ${course.start} - ${course.end}`;
+          traces[levelStr].hovertext.push(hoverHTML);
+        });
+      });
+
+      let plotData = Object.values(traces);
+
+      let layout = {
+        title: pathwayCourses.length > 0 ? 'Degree Pathway Schedule Check' : `${selectedQuarter} Schedule`,
+        barmode: 'group',
+        yaxis: { 
+          categoryorder: 'array', 
+          categoryarray: dayOrder, 
+          autorange: 'reversed', 
+          tickfont: { size: 14 } 
+        },
+        xaxis: { 
+          type: 'date', 
+          tickformat: '%I:%M %p', 
+          title: 'Time of Day', 
+          range:['1970-01-01 08:00:00', '1970-01-01 17:00:00'] 
+        },
+        margin: { l: 60, r: 20, t: 50, b: 50 }, 
+        hovermode: 'closest',
+        
+        // ZEBRA SHADING FOR THE BACKGROUND
+        shapes:[
+          // Plotly's categorical axis maps array indices to integer coordinates: 0=Mon, 1=Tue, 2=Wed, etc.
+          // Drawing from -0.5 to 0.5 creates a perfect row background behind Monday, 1.5 to 2.5 for Wednesday, etc.
+          { type: 'rect', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: -0.5, y1: 0.5, fillcolor: '#f0f0f0', layer: 'below', line: {width: 0} }, // Mon
+          { type: 'rect', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: 1.5, y1: 2.5, fillcolor: '#f0f0f0', layer: 'below', line: {width: 0} },  // Wed
+          { type: 'rect', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: 3.5, y1: 4.5, fillcolor: '#f0f0f0', layer: 'below', line: {width: 0} }   // Fri
+        ]
+      };
+
+      Plotly.newPlot('chartDiv', plotData, layout, {responsive: true});
+    }
+  </script>
+</body>
+</html>
