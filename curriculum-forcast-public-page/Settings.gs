@@ -5,30 +5,18 @@
  * the rows below it, up to the next block, belong to it. Table blocks ([Prefixes],
  * [Major options]) have a row of column headings first. See writeSettingsTab_ for the layout.
  *
- * Without a Settings tab, settings_() returns the Anthropology values below, so a
- * spreadsheet set up before the Settings tab existed keeps working unchanged. Those
- * values have no planning sheet IDs: without a Settings tab the planning sheets still
- * come from the Dashboard's "key for" cells (see planningSources_).
+ * Without a Settings tab, settings_() returns the neutral values below (no department,
+ * prefixes or options). Forecast setup > Set up or change settings writes the tab.
  */
 
 const SETTINGS_TAB = 'Settings';
 
 const DEFAULT_SETTINGS_ = {
-  department: 'Anthropology',
+  department: '',
   subtitle: 'Future listings are tentative and subject to change at any time.',
   contactEmail: '',
-  prefixes: [
-    { prefix: 'ANTH', sheetId: '', catalogUrl: 'https://www.washington.edu/students/crscat/anthro.html' },
-    { prefix: 'ARCHY', sheetId: '', catalogUrl: 'https://www.washington.edu/students/crscat/archeo.html' },
-    { prefix: 'BIO A', sheetId: '', catalogUrl: 'https://www.washington.edu/students/crscat/bioanth.html' }
-  ],
-  options: [
-    { code: 'MAGH', url: 'https://anthropology.washington.edu/medical-anthropology-global-health-ba' },
-    { code: 'GLOB', url: 'https://anthropology.washington.edu/anthropology-globalization-ba' },
-    { code: 'ASCI', url: 'https://anthropology.washington.edu/archaeological-sciences-ba' },
-    { code: 'HEB', url: 'https://anthropology.washington.edu/human-evolutionary-biology-ba' },
-    { code: 'INDG', url: 'https://anthropology.washington.edu/indigenous-archaeology-ba' }
-  ],
+  prefixes: [],
+  options: [],
   genEd: ['NSc', 'SSc', 'A&H', 'DIV'],
   phrases: {
     core: ['Core Coursework', 'Core Requirements', 'Required Coursework', 'Required Core', 'ASc core list'],

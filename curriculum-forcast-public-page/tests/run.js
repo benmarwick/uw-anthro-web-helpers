@@ -70,27 +70,40 @@ const S = name => vm.runInContext(name, ctx);
 ctx.SpreadsheetApp = { getActiveSpreadsheet: () => ({ getSheetByName: () => null }) };   // no Settings tab: defaults apply
 const defaults = plain(S('DEFAULT_SETTINGS_'));
 assert.deepStrictEqual(plain(S('settings_')()), defaults, 'without a Settings tab, settings_() returns the defaults');
-const back = plain(S('parseSettingsRows_')(S('settingsRows_')(defaults)));
-assert.deepStrictEqual(back, defaults, 'writing the Settings tab and reading it back gives the same settings');
+assert.strictEqual(defaults.department, ''); assert.deepStrictEqual(defaults.prefixes, []); assert.deepStrictEqual(defaults.options, []);
+// Anthropology's values, as they were in the scripts before the Settings tab (the live forecast's Settings tab has these).
+const anthro = Object.assign(JSON.parse(JSON.stringify(defaults)), {
+  department: 'Anthropology',
+  prefixes: [{ prefix: 'ANTH', sheetId: '', catalogUrl: 'https://www.washington.edu/students/crscat/anthro.html' },
+             { prefix: 'ARCHY', sheetId: '', catalogUrl: 'https://www.washington.edu/students/crscat/archeo.html' },
+             { prefix: 'BIO A', sheetId: '', catalogUrl: 'https://www.washington.edu/students/crscat/bioanth.html' }],
+  options: ['MAGH', 'GLOB', 'ASCI', 'HEB', 'INDG'].map(c => ({ code: c, url: 'https://anthropology.washington.edu/' + c })) });
+const back = plain(S('parseSettingsRows_')(S('settingsRows_')(anthro)));
+assert.deepStrictEqual(back, anthro, 'writing the Settings tab and reading it back gives the same settings');
+assert.deepStrictEqual(plain(S('parseSettingsRows_')(S('settingsRows_')(defaults))), defaults, 'round trip of the neutral defaults');
 const custom = JSON.parse(JSON.stringify(defaults));
 custom.department = 'Geography'; custom.prefixes = [{ prefix: 'GEOG', sheetId: '1'.repeat(44), catalogUrl: 'https://www.washington.edu/students/crscat/geog.html' }, { prefix: 'JSIS A', sheetId: '', catalogUrl: '' }];
 custom.options = []; custom.phrases.core = ['Core'];
 assert.deepStrictEqual(plain(S('parseSettingsRows_')(S('settingsRows_')(custom))), custom, 'round trip with other values, a prefix with a space and no options');
-assert.strictEqual(S('canonicalPrefix_')('BIOA', defaults.prefixes), 'BIO A');
-assert.strictEqual(S('canonicalPrefix_')('ANTH', defaults.prefixes), 'ANTH');
-assert.strictEqual(S('canonicalPrefix_')('LING', defaults.prefixes), 'LING', 'a prefix not on the list is left as read');
+assert.strictEqual(S('canonicalPrefix_')('BIOA', anthro.prefixes), 'BIO A');
+assert.strictEqual(S('canonicalPrefix_')('ANTH', anthro.prefixes), 'ANTH');
+assert.strictEqual(S('canonicalPrefix_')('LING', anthro.prefixes), 'LING', 'a prefix not on the list is left as read');
 assert.strictEqual(S('adminTabName_')('BIO A'), 'forAdminBIOA');
 // The generated patterns are the same as the fixed ones they replaced in Scraper.gs.
-assert.strictEqual(S('prefixCoursePattern_')(defaults.prefixes).source, /(ANTH|ARCHY|BIO\s?A)\s*(\d{3})/gi.source);
+assert.strictEqual(S('prefixCoursePattern_')(anthro.prefixes).source, /(ANTH|ARCHY|BIO\s?A)\s*(\d{3})/gi.source);
 assert.strictEqual(S('phrasePattern_')(defaults.phrases.core).source, /Core Coursework|Core Requirements|Required Coursework|Required Core|ASc core list/i.source);
 assert.strictEqual(S('phrasePattern_')(defaults.phrases.reqd).source, /Specific Courses Required|Choose one|Select from|one of the following|Choose from|Students are required to take two of the courses/i.source);
 assert.strictEqual(S('phrasePattern_')(defaults.phrases.aprvd).source, /Approved Electives|Elective Courses|approved elective list|department-approved list|15 credits from the department approved elective list|15 credits from the following|credits from approved IA core list|credits from the department approved list/i.source);
+const tabRows = S('settingsRows_')(anthro);
+ctx.SpreadsheetApp = { getActiveSpreadsheet: () => ({ getSheetByName: n => n === 'Settings' ? { getDataRange: () => ({ getDisplayValues: () => tabRows }) } : null }) };
+vm.runInContext('settingsCache_ = null', ctx);
 const page = plain(S('getPageSettings')());
 assert.deepStrictEqual(page.prefixes, ['ANTH', 'ARCHY', 'BIO A']);
 assert.strictEqual(page.catalogLinks['BIO A'], 'https://www.washington.edu/students/crscat/bioanth.html');
 assert.deepStrictEqual(Object.keys(page.optionLinks), ['MAGH', 'GLOB', 'ASCI', 'HEB', 'INDG']);
+assert.strictEqual(page.department, 'Anthropology', 'page settings come from the Settings tab');
 assert(!JSON.stringify(page).includes('sheetId'), 'page settings carry no sheet IDs');
-console.log('Settings: 16 checks pass');
+console.log('Settings: 21 checks pass');
 
 if (process.argv[2]) {
   const tabs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));

@@ -1,6 +1,6 @@
 # Plan: One-Form Setup for the Curriculum Forecast
 
-Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). Phases 1 to 4 are done: the Settings tab, the script changes, the formula builders and the setup form are built, tested, and in the forecast template, and a dry run as a new department passed (see the Phase 1 to 4 results below). The live forecast still runs the earlier version until Phase 5.
+Status, 18 November 2026: the entry rules and the Data Check are built and in use (see [Already Built](#already-built-entry-rules-and-data-check-18-november-2026)). Phase 0 is done (see [Phase 0 Results](#phase-0-results-18-november-2026)). All six phases are done (see the results under each phase). The live forecast and the template run the setup form; the README describes setup with it. One open question remains: a second dry run by a colleague, using the README alone.
 
 Goal: a department that copies the forecast template sets the whole system up by filling in one form inside the spreadsheet. Nobody edits a script or a formula. The form replaces Part 4 of the README ("Adapting the Scripts"), the "More or Fewer Than Three Prefixes" section, and most of Parts 1 and 3.
 
@@ -248,9 +248,9 @@ Stop point: you read the tester's notes; fixes loop back to Phase 3.
 
 #### Phase 4 Results (19 November 2026)
 
-- **Template refreshed:** the template's project holds the repository's files exactly (checked with a fresh `clasp clone`), and its Settings tab is a placeholder (no department, prefixes or options; the default Gen Ed codes, phrases and planning template). The leftover-data search found no real sheet IDs, addresses, names or comments. The template's file ID and the README links are unchanged.
+- **Template refreshed:** the template's project contains the repository's files exactly (checked with a fresh `clasp clone`), and its Settings tab is a placeholder (no department, prefixes or options; the default Gen Ed codes, phrases and planning template). The leftover-data search found no real sheet IDs, addresses, names or comments. The template's file ID and the README links are unchanged.
 - **Permission screen** a new department sees on its first menu click (fresh copy, 19 November): four boxes, none ticked by default: "See, edit, create, and delete all your Google Sheets spreadsheets", "Connect to an external service", "Allow this application to run when you are not present" and "Display and run third-party web content in prompts and sidebars inside Google applications". All four must be ticked (**Select all**); the README must say so. The project shows as "Conflict Report Script" on this screen.
-- **Dry run** (by me, as a stand-in tester; a colleague's run with the rewritten README is still worth doing): a fresh copy of the template, department "Dry Run Department", four prefixes (GEOG, JSIS A, CL AR, ESS; two with a space) all "make one for me", no options.
+- **Dry run** (by me, in place of a tester; a colleague's run with the rewritten README is still worth doing): a fresh copy of the template, department "Dry Run Department", four prefixes (GEOG, JSIS A, CL AR, ESS; two with a space) all "make one for me", no options.
   - **Check** found all four catalog pages and confirmed the planning sheets it would make; a fifth row ("use this sheet", no address) gave an error.
   - **Set up** with that row refused before changing anything, naming the problem.
   - **Set up** without it (2 minutes 44 seconds) made the four planning sheets, created four forAdmin tabs and deleted the template's three (pre-ticked on first setup), rebuilt the formulas and Summaries, applied the entry rules and checker years, put the contact address in the notice, created the trigger, ran the catalog update and the Data Check (0 and 0), and listed the four tabs needing **Allow access**.
@@ -272,11 +272,29 @@ Order matters, because the monthly trigger runs the newest saved code and the me
 
 If step 6 fails: redeploy version 39 (the page returns at once), restore the named version, and push the previous code.
 
+#### Phase 5 Results (19 November 2026)
+
+1.  Before: a backup copy of the live forecast ("BACKUP Anthropology curriculum forecast before Settings 2026-11-19"); the live page listed 317 courses; a Data Check of the live planning sheets gave 33 to fix and 107 to check.
+2.  The Settings tab was written to the live forecast (ANTH, BIO A, ARCHY, the order of the live formulas), while the old code was still running and ignoring it.
+3.  The new code was pushed to the live project (by you; the permission check stopped me) and confirmed with a fresh `clasp clone`.
+4.  Google asked the live project for one new permission ("run when you are not present"). **Check** found no problems; **Set up** (clicked by you) rewrote the Settings tab, rebuilt the formulas and Summaries, re-applied the entry rules, kept the one existing trigger, and reported 33 to fix and 107 to check. No **Allow access** was needed: the existing grants covered the formulas with the sheet IDs as text.
+5.  Redeployed (by you) as version 40 of the existing deployment, at the same address.
+6.  After: the live page served the new page code and listed the same 317 courses; the schedule view drew its chart with the prefixes from Settings; the Data Check gave the same counts; one monthly trigger.
+
+Found during the cutover and fixed: the form's "Publish the web page" steps told the user to use the Extensions menu, which the form's own box covers. The form now has a **Web page address** box with **Save address** on its main screen; when an address is already saved, the result screen shows it and warns against **New deployment**; otherwise the steps begin with "Click **Close**".
+
 ### Phase 6: README and Cleanup (about half a day)
 
 - Rewrite the README around the new steps; remove Part 4 and the formula-editing sections.
 - Remove the Anthropology fallback from `settings_()`, the retired named ranges and Dashboard rows 14 to 16.
 - Commit when you ask.
+
+#### Phase 6 Results (19 November 2026)
+
+- **README rewritten** around the form: a short "Setting Up, in Short", the four permissions (tick **Select all**), Check, Set up, the result screen, **Allow access**, publishing and saving the address, and the yearly tasks with the form. Removed: the script-editing table, renaming admin tabs, editing formulas for more or fewer prefixes, and the Dashboard key cells.
+- **Code:** the built-in defaults are neutral (no department, prefixes or options); the Data Check and the form no longer fall back to the Dashboard's "key for" cells. Tests updated (21 Settings checks).
+- **Spreadsheets:** in the live forecast and the template, the named ranges `ANTHkey`, `BIOAkey`, `ARCHYkey`, `MAGH_sheetrange` and `MAGH_Y_N_col` were removed and Dashboard rows 14 to 16 replaced by "Planning sheet IDs are on the Settings tab." No formula used them (checked in an export of the live forecast).
+- **Template project** updated with the final code. The live project needs the same final push (the form fixes and neutral defaults); the page does not depend on it.
 
 ## Steps Only You Can Do
 
@@ -315,4 +333,4 @@ If step 6 fails: redeploy version 39 (the page returns at once), restore the nam
 
 ## Open Question
 
-1.  Who can do a second dry run with the rewritten README (Phase 6)? A colleague who has not seen the system would test the README itself, which the stand-in dry run in Phase 4 could not.
+1.  Who can do a second dry run with the rewritten README (Phase 6)? A colleague who has not seen the system would test the README itself, which my dry run in Phase 4 could not.

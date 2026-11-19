@@ -4,7 +4,7 @@
  * itself from the quarter, and highlights for missing or inconsistent values.
  *
  * Run from the forecast spreadsheet: Admin Tools > Apply entry rules to planning sheets.
- * It reads the planning sheet IDs and the years from the Dashboard, and applies
+ * It reads the planning sheet IDs from the Settings tab and the years from the Dashboard, and applies
  * the rules to each planning sheet's tab for each of those years. It is safe to
  * re-run: it replaces its own rules and leaves every other rule alone. Re-run it
  * after adding a year tab, because the year check depends on the tab's name.
@@ -35,25 +35,18 @@ function applyPlanningRulesFromMenu() {
       out.push(s.label + ' ' + year + ': rules applied (' + r.invalidNow + ' cells currently break a rule; Admin Tools > Run Data Check lists them)');
     });
   });
-  SpreadsheetApp.getUi().alert('Entry rules', out.join('\n') || 'No planning sheets found on the Dashboard.', SpreadsheetApp.getUi().ButtonSet.OK);
+  SpreadsheetApp.getUi().alert('Entry rules', out.join('\n') || 'No planning sheets on the Settings tab yet. Use Forecast setup > Set up or change settings.', SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 /**
  * The planning sheets and the years to work on: the prefixes on the Settings tab that
- * have a planning sheet ID, or, if none has one, each "key for X" label on the Dashboard
- * with a sheet ID beside it; and the academic years typed in Dashboard B4, B5 and B8.
+ * have a planning sheet ID, and the academic years typed in Dashboard B4, B5 and B8.
  */
 function planningSources_(ss) {
   const dash = ss.getSheetByName('Dashboard');
   const sheets = [];
   const isId = function(x) { return /^[A-Za-z0-9_-]{30,}$/.test(String(x || '').trim()); };
   settings_().prefixes.forEach(function(p) { if (isId(p.sheetId)) sheets.push({ label: p.prefix, id: String(p.sheetId).trim() }); });
-  if (!sheets.length) {
-    dash.getRange('A1:B40').getDisplayValues().forEach(function(r) {
-      const m = String(r[0]).match(/^key for\s+(.+)$/i);
-      if (m && isId(r[1])) sheets.push({ label: m[1].trim(), id: String(r[1]).trim() });
-    });
-  }
   const years = [];
   ['B4', 'B5', 'B8'].forEach(function(a) {
     const y = String(dash.getRange(a).getDisplayValue()).trim();

@@ -53,6 +53,12 @@
   </table>
   <button type="button" class="small" id="addOption">Add an option</button>
 
+  <h2>Web page address</h2>
+  <p class="hint">The address of your published forecast page, ending in /exec. Leave it blank until you publish the page (the steps appear after Set up); then come back here, paste it and click Save address.</p>
+  <label for="webAppUrl">Web page address</label>
+  <input type="text" id="webAppUrl" placeholder="https://script.google.com/a/macros/uw.edu/s/.../exec">
+  <button type="button" class="small" id="saveUrl">Save address</button> <a id="openUrl" href="#" target="_blank" rel="noopener" style="display:none">Open the page</a> <span id="urlStatus" role="status" aria-live="polite"></span>
+
   <details>
     <summary>Advanced</summary>
     <label for="genEd">Gen Ed codes, comma separated</label>
@@ -124,7 +130,7 @@
   function gather() {
     return { department: $('department').value, subtitle: $('subtitle').value, contactEmail: $('contactEmail').value,
       prefixes: rows('prefixRows'), options: rows('optionRows'), genEd: $('genEd').value,
-      core: $('core').value, reqd: $('reqd').value, aprvd: $('aprvd').value, planningTemplateId: $('planningTemplateId').value,
+      core: $('core').value, reqd: $('reqd').value, aprvd: $('aprvd').value, planningTemplateId: $('planningTemplateId').value, webAppUrl: $('webAppUrl').value,
       removeOld: !!($('removeOld') && $('removeOld').checked) };
   }
   function showItems(items) {
@@ -168,22 +174,30 @@
     if (r.options.length) h += '<div class="box"><strong>Major options found on their pages</strong><ul class="results">' + r.options.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') +
       '</ul>If an option shows 0 Core, open Advanced and add the heading its page uses for its core list, then run Set up again.</div>';
     h += '<div class="box"><strong>Data Check:</strong> ' + esc(r.dataCheck) + ' See the Data Check tab.</div>';
-    h += '<h2>Publish the web page</h2><ol>' +
-      '<li>Choose <strong>Extensions &gt; Apps Script</strong>.</li>' +
-      '<li>Click <strong>Deploy &gt; New deployment</strong>, click the gear next to Select type, and choose <strong>Web app</strong>.</li>' +
-      '<li>Set Execute as to <strong>Me</strong> and Who has access to <strong>Anyone within University of Washington</strong>.</li>' +
-      '<li>Click <strong>Deploy</strong>, approve the permissions, and copy the Web app URL (it ends in /exec).</li>' +
-      '<li>Paste it here and click Save; then open it to check the page.</li></ol>' +
-      '<label for="webAppUrl">Web app address</label><input type="text" id="webAppUrl" placeholder="https://script.google.com/a/macros/uw.edu/s/.../exec">' +
-      '<button type="button" id="saveUrl" class="primary">Save</button> <a id="openUrl" href="#" target="_blank" rel="noopener" style="display:none">Open the page</a> <span id="urlStatus" role="status" aria-live="polite"></span>' +
-      '<div class="bar"><button type="button" onclick="google.script.host.close()">Close</button></div>';
+    if (r.webAppUrl) {
+      // Already published: the page picks up spreadsheet changes by itself; only script changes need a new version.
+      h += '<h2>Your web page</h2><div class="box">Published at <a href="' + esc(r.webAppUrl) + '" target="_blank" rel="noopener">' + esc(r.webAppUrl) + '</a>. ' +
+        'It shows the new settings straight away. After changing the scripts, update it with <strong>Deploy &gt; Manage deployments</strong>, the pencil icon, <strong>New version</strong> (README, Part 5). ' +
+        'Do not use <strong>New deployment</strong>: it makes a different address.</div>';
+    } else {
+      h += '<h2>Publish the web page</h2><ol>' +
+        '<li>Click <strong>Close</strong> below (this box covers the menus).</li>' +
+        '<li>Choose <strong>Extensions &gt; Apps Script</strong>.</li>' +
+        '<li>Click <strong>Deploy &gt; New deployment</strong>, click the gear next to Select type, and choose <strong>Web app</strong>.</li>' +
+        '<li>Set Execute as to <strong>Me</strong> and Who has access to <strong>Anyone within University of Washington</strong>.</li>' +
+        '<li>Click <strong>Deploy</strong>, approve the permissions, and copy the Web app URL (it ends in /exec).</li>' +
+        '<li>Back in the spreadsheet, choose <strong>Forecast setup &gt; Set up or change settings</strong>, paste the address under <strong>Web page address</strong> and click <strong>Save address</strong>.</li></ol>';
+    }
+    h += '<div class="bar"><button type="button" onclick="google.script.host.close()">Close</button></div>';
     $('resultArea').innerHTML = h; $('resultArea').style.display = '';
-    $('saveUrl').onclick = function () {
-      google.script.run.withSuccessHandler(function (u) {
-        $('urlStatus').textContent = 'Saved.'; $('urlStatus').className = 'ok'; $('openUrl').href = u; $('openUrl').style.display = '';
-      }).withFailureHandler(function (e) { $('urlStatus').textContent = msg(e); $('urlStatus').className = 'error'; }).saveWebAppUrl($('webAppUrl').value);
-    };
   }
+
+  $('saveUrl').onclick = function () {
+    $('urlStatus').textContent = 'Saving…'; $('urlStatus').className = '';
+    google.script.run.withSuccessHandler(function (u) {
+      $('urlStatus').textContent = 'Saved.'; $('urlStatus').className = 'ok'; $('openUrl').href = u; $('openUrl').style.display = '';
+    }).withFailureHandler(function (e) { $('urlStatus').textContent = msg(e); $('urlStatus').className = 'error'; }).saveWebAppUrl($('webAppUrl').value);
+  };
 
   google.script.run.withSuccessHandler(function (st) {
     STATE = st;
@@ -194,9 +208,11 @@
     $('genEd').value = s.genEd.join(', ');
     $('core').value = s.phrases.core.join('\n'); $('reqd').value = s.phrases.reqd.join('\n'); $('aprvd').value = s.phrases.aprvd.join('\n');
     $('planningTemplateId').value = s.planningTemplateId || '';
+    $('webAppUrl').value = s.webAppUrl || '';
+    if (s.webAppUrl) { $('openUrl').href = s.webAppUrl; $('openUrl').style.display = ''; }
     var b = '';
     if (!st.owner.isOwner) b += '<div class="banner">Only the spreadsheet\'s owner (' + esc(st.owner.owner || 'unknown') + ') can run Set up, because the monthly update belongs to whoever runs it. You are signed in as ' + esc(st.owner.me || 'unknown') + '.</div>';
-    if (!st.hasSettings) b += '<div class="banner">First setup: these values were read from the scripts and the Dashboard. Check them, then click Check.</div>';
+    if (!st.settings.prefixes.length) b += '<div class="banner">First setup: fill in your department and prefixes, click Check, then Set up.</div>';
     b += '<p class="hint">Dashboard years: ' + esc(st.years.join(', ') || 'none') + '. Each planning sheet needs a tab named for each of these years.</p>';
     $('banner').innerHTML = b;
     showRemoved();

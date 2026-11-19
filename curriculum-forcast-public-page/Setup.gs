@@ -180,14 +180,6 @@ function getSetupState() {
   settingsCache_ = null;
   const s = settings_();
   const hasSettings = !!ss.getSheetByName(SETTINGS_TAB);
-  // Before the first setup, offer the Dashboard's planning sheet IDs.
-  if (!hasSettings) {
-    const ids = {};
-    ss.getSheetByName('Dashboard').getRange('A1:B40').getDisplayValues().forEach(function(r) {
-      const m = String(r[0]).match(/^key for\s+(.+)$/i); if (m && sheetIdFromUrl_(r[1])) ids[m[1].trim().replace(/\s+/g, '')] = sheetIdFromUrl_(r[1]);
-    });
-    s.prefixes.forEach(function(p) { p.sheetId = ids[p.prefix.replace(/\s+/g, '')] || ''; });
-  }
   return { settings: s, hasSettings: hasSettings, years: dashboardYears_(ss), owner: ownerStatus_(ss),
            adminTabs: ss.getSheets().map(function(x) { return x.getName(); }).filter(function(n) { return /^forAdmin/.test(n); }) };
 }
@@ -225,6 +217,7 @@ function checkSetup(form) {
   if (!s.prefixes.length) add('error', 'Add at least one prefix.');
   if (!years.length) add('error', 'No academic years on the Dashboard (B4, B5, B8).');
   if (s.contactEmail && !/^[^@\s]+@[^@\s]+$/.test(s.contactEmail)) add('warn', 'The contact email does not look like an address: ' + s.contactEmail);
+  if (s.webAppUrl && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(s.webAppUrl)) add('warn', 'The web page address should start with https://script.google.com/ and end in /exec: ' + s.webAppUrl);
   let index = {};
   try { index = catalogIndex_(UrlFetchApp.fetch('https://www.washington.edu/students/crscat/').getContentText()); }
   catch (e) { add('warn', 'Could not read the UW catalog index (' + e.message + '); type each catalog page by hand.'); }
@@ -354,7 +347,7 @@ function runSetup(form) {
   runDataCheck();
   const dc = ss.getSheetByName('Data Check').getRange('A2').getDisplayValue();
   ss.setActiveSheet(ss.getSheetByName(SETTINGS_TAB));
-  return { log: log, options: options, refTabs: refTabs, dataCheck: dc, created: created };
+  return { log: log, options: options, refTabs: refTabs, dataCheck: dc, created: created, webAppUrl: s.webAppUrl };
 }
 
 /* Saves the web app address on the Settings tab. */
@@ -362,6 +355,7 @@ function saveWebAppUrl(url) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const u = String(url || '').trim();
   if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(u)) throw new Error('That does not look like a web app address; it should start with https://script.google.com/ and end in /exec.');
+  if (!ss.getSheetByName(SETTINGS_TAB)) throw new Error('Run Set up first; the address is saved on the Settings tab it creates.');
   settingsCache_ = null;
   const s = settings_();
   s.webAppUrl = u;

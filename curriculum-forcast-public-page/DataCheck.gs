@@ -16,7 +16,7 @@ function runDataCheck() {
   const catalog = catalogCourses_(ss);
   const prefixes = planningPrefixes_();
   const all = [], notes = [];
-  if (!src.sheets.length) notes.push('No planning sheets found: add each planning sheet ID on the Settings tab (or in the Dashboard "key for" cells).');
+  if (!src.sheets.length) notes.push('No planning sheets found: add them with Forecast setup > Set up or change settings.');
   if (!src.years.length) notes.push('No academic years found in Dashboard B4, B5 or B8.');
   src.sheets.forEach(function(s) {
     let file;
