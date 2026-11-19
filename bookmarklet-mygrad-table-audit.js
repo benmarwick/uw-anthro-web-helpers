@@ -1,6 +1,13 @@
 javascript:(function(){
 'use strict';
 
+/* Under Node (the app's tests), export the bridge's origin rule and
+   stop before touching the page. */
+if(typeof module !== 'undefined' && module.exports){
+    module.exports = {bridgeDecision: bridgeDecision};
+    return;
+}
+
 /* ============================================================
    MYGRAD DEPARTMENT VIEW - TABLE AUDIT
    ------------------------------------------------------------
@@ -66,9 +73,10 @@ javascript:(function(){
 
    No AI is used. Nothing leaves the browser unless you press "Send
    to the app" (when the graduate review app opened this tab) or
-   download a CSV. The app bridge below sends only to an Apps Script
-   page (an https://*-script.googleusercontent.com origin) that asked
-   for the data first, and sends no grades for course feedback.
+   download a CSV. The app bridge below sends only to the app tab
+   that opened this tab, from the exact Apps Script origin you
+   approved, after it asked for the data. It sends no grades for
+   course feedback.
    ============================================================ */
 
 const url = new URLSearchParams(location.search);
@@ -915,8 +923,24 @@ function updateCounts(g){
    When the graduate review app opens this tab, the bookmarklet
    tells the app it is ready, waits for the app's request, reads
    every student's transcript with the identity check above, and
-   sends the result back with postMessage. It answers only an
-   Apps Script page (https://*-script.googleusercontent.com).
+   sends the result back with postMessage.
+
+   WHO IT ANSWERS (review item 25)
+   Every Apps Script web app, anyone's, is served from some
+   https://n-<hash>-0lu-script.googleusercontent.com origin, so that
+   pattern alone does not identify this app. A request is answered
+   only when all of these hold:
+     - it comes from the window that opened this tab (window.opener)
+     - its origin is an Apps Script origin
+     - its origin is exactly the one approved before; the first time
+       (or if the origin ever changes), you are asked to confirm the
+       exact origin, and an approval is remembered in this browser's
+       storage for the MyGrad site under APPROVED_ORIGIN_KEY
+   The <hash> is not known before the app is deployed, so it is not
+   written into this file. A secret in the URL would not help: this
+   file is public, and a page that opens MyGrad can choose its own.
+   To forget an approval, run in the MyGrad tab's console:
+     localStorage.removeItem('uw-review-app-origin')
 
    Two requests:
      registrations: the target quarter's courses for every student.
@@ -928,7 +952,39 @@ function updateCounts(g){
    Without an opener tab, the same data can be downloaded as CSV.
    ============================================================ */
 
-const APP_ORIGIN_RE = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
+const APPROVED_ORIGIN_KEY = 'uw-review-app-origin';
+
+/* Decides what to do with a request: 'allow', 'ask' (show the origin
+   and let the user confirm) or 'reject'. A function declaration, so
+   the Node export at the top of the file can reach it. */
+function bridgeDecision(origin, source, opener, approved){
+    const appsScriptOrigin = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
+    if(!opener || source !== opener) return 'reject';
+    if(!appsScriptOrigin.test(origin)) return 'reject';
+    if(approved && origin === approved) return 'allow';
+    return 'ask';
+}
+
+function approvedOrigin(){
+    try{ return localStorage.getItem(APPROVED_ORIGIN_KEY) || ''; }catch(e){ return ''; }
+}
+function rememberOrigin(origin){
+    try{ localStorage.setItem(APPROVED_ORIGIN_KEY, origin); }catch(e){}
+}
+
+/* Shows the exact origin and asks before any student data is sent. */
+function confirmOrigin(origin, approved){
+    const changed = approved && approved !== origin;
+    const intro = changed
+        ? 'WARNING: this request comes from a different Apps Script page than the one approved before.\n\n' +
+          'Approved before:\n' + approved + '\n\nThis request:\n' + origin + '\n\n' +
+          'This is expected only if the graduate review app was moved to a new deployment.'
+        : 'An Apps Script page is asking for student transcript data. It is served from:\n\n' + origin;
+    return confirm(intro + '\n\n' +
+        'Click OK only if you opened this tab with a button on the graduate review app\'s Roster page. ' +
+        'OK remembers this address, so you will not be asked again. Cancel sends nothing.');
+}
+
 const QUARTER_WORDS = {AUT:'AUTUMN', WIN:'WINTER', SPR:'SPRING', SUM:'SUMMER'};
 const RE_QTR_LABEL = /\b(AUTUMN|WINTER|SPRING|SUMMER)\s+(\d{4})\b/;
 
@@ -1091,10 +1147,24 @@ function startAppBridge(){
     buildBridgePanel();
     if(!window.opener) return;
     let busy = false;
+    let refused = false;
     window.addEventListener('message', async e => {
-        if(!APP_ORIGIN_RE.test(e.origin) || !e.data || e.data.type !== 'mygrad-config' || busy) return;
+        if(!e.data || e.data.type !== 'mygrad-config' || busy || refused) return;
         const config = e.data;
         if(['registrations', 'prefill'].indexOf(config.mode) === -1) return;
+        const approved = approvedOrigin();
+        const decision = bridgeDecision(e.origin, e.source, window.opener, approved);
+        if(decision === 'reject') return;
+        if(decision === 'ask'){
+            if(!confirmOrigin(e.origin, approved)){
+                /* One refusal per tab, so a page cannot keep re-asking. */
+                refused = true;
+                bridgeStatus('Nothing sent: the request from ' + e.origin + ' was refused. ' +
+                             'To try again, click the bookmark again in this tab.');
+                return;
+            }
+            rememberOrigin(e.origin);
+        }
         busy = true;
         bridgeStatus('Reading transcripts for the app…');
         const res = await collectForApp(config, (n, t) => bridgeStatus('Transcripts ' + n + ' / ' + t));

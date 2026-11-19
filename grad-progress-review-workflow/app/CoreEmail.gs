@@ -25,11 +25,15 @@ var EMAIL_TEMPLATES_ = {
       signoff: ['With thanks,', p.gpcName, 'Graduate Program Coordinator, Anthropology']
     };
   },
+  /* CF-2 can go out before grades are due (Autumn 2026: 14 Dec, grades due 22 Dec) or after, so it names the
+     grade deadline in the right tense. p.gradesDueLong: the grade deadline; p.gradesDuePassed: true once it has passed. */
   'CF-2': function(p) {
+    var grades = '';
+    if (p.gradesDueLong) grades = (p.gradesDuePassed ? 'Grades were due ' : 'Grades are due ') + p.gradesDueLong + '. ';
     return {
       subject: 'Gentle reminder: your graduate students in ' + p.course,
       body: [
-        'Grades are in. Thank you for all the work that took. When you have a few minutes, your page for ' + p.course + " is still open: [Open your page](" + p.url + "). It's due " + p.dueLong + '.',
+        grades + 'Thank you for all the work the end of the quarter takes. When you have a few minutes, your page for ' + p.course + " is still open: [Open your page](" + p.url + "). It's due " + p.dueLong + '.',
         'Even a quick "Not enough contact" helps; it tells us the page has been seen.'
       ],
       signoff: ['With thanks,', p.gpcName]
@@ -77,8 +81,11 @@ var EMAIL_TEMPLATES_ = {
     return {
       subject: 'An instructor has asked for a follow-up conversation (' + p.quarter + ')',
       body: [
-        'An instructor has asked for a follow-up with ' + (p.isAdvisor ? 'one of your advisees' : 'one of our students') + ' this quarter. Their note is in the app: [Open the note](' + p.url + ').',
-        'The aim is to talk with the student by ' + p.deadlineLong + ', so they hear about it while there is still time to act on it.' + (p.isAdvisor ? " I'll be in touch about which of us has that conversation." : '')
+        /* The advisor's view does not show follow-up notes, so the advisor's copy has no link and promises the note instead. */
+        p.isAdvisor
+          ? 'An instructor has asked for a follow-up with one of your advisees this quarter.'
+          : 'An instructor has asked for a follow-up with one of our students this quarter. Their note is in the app: [Open the note](' + p.url + ').',
+        'The aim is to talk with the student by ' + p.deadlineLong + ', so they hear about it while there is still time to act on it.' + (p.isAdvisor ? " I'll be in touch to share the note and agree which of us has that conversation." : '')
       ],
       signoff: ['Thank you,', p.gpcName]
     };

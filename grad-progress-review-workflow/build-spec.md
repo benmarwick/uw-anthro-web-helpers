@@ -103,7 +103,7 @@ Every page checks the signed-in UW account against the row, applies recusal befo
 >
 > Dear {first_name},
 >
-> Grades are in. Thank you for all the work that took. When you have a few minutes, your page for {course} is still open: [Open your page]. It's due {due_long}.
+> {Grades are due / Grades were due} {grades_due_long}. Thank you for all the work the end of the quarter takes. When you have a few minutes, your page for {course} is still open: [Open your page]. It's due {due_long}.
 >
 > Even a quick "Not enough contact" helps; it tells us the page has been seen.
 >
@@ -161,9 +161,9 @@ Every page checks the signed-in UW account against the row, applies recusal befo
 >
 > Dear {first_name},
 >
-> An instructor has asked for a follow-up with {one_of_your_advisees_or_one_of_our_students} this quarter. Their note is in the app: [Open the note].
+> An instructor has asked for a follow-up with {one_of_your_advisees_or_one_of_our_students} this quarter. {gpc_only: Their note is in the app: [Open the note].}
 >
-> The aim is to talk with the student by {deadline_long}, so they hear about it while there is still time to act on it. {advisor_only: I'll be in touch about which of us has that conversation.}
+> The aim is to talk with the student by {deadline_long}, so they hear about it while there is still time to act on it. {advisor_only: I'll be in touch to share the note and agree which of us has that conversation.}
 >
 > Thank you,
 > {gpc_name}

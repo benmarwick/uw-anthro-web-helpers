@@ -83,7 +83,7 @@ function checkTriggerHealth_() {
   });
 
   const triggerFailures = logs.filter(l =>
-    l.Function.includes('Automation') || l.Function.includes('checkRemindersAndEscalations') ||
+    l.Function.includes('Automation') || l.Function.includes('dailyRun') ||
     l.Function.includes('DeadLetterQueue') || l.Function.includes('processDeadLetterQueue')
   ).length;
 
@@ -100,7 +100,8 @@ function checkTriggerHealth_() {
   }
 
   const triggers = ScriptApp.getProjectTriggers();
-  const expected = ['checkRemindersAndEscalations', 'processDeadLetterQueue'];
+  /* The triggers createTriggers_() (Automation.gs) makes. */
+  const expected = ['dailyRun', 'processDeadLetterQueue', 'checkAlertThresholds'];
   const found = triggers.map(t => t.getHandlerFunction());
   const missing = expected.filter(f => !found.includes(f));
 
@@ -208,10 +209,11 @@ function sendAlertSummary_(alerts) {
     <p style="font-size:12px;color:#666;">Check the <strong>Logs</strong> sheet for detailed error context.</p>
   `;
 
-  GmailApp.sendEmail({
-    to: C_().ALERT_EMAIL || C_().GPC_EMAIL,
-    subject,
-    htmlBody,
+  const to = C_().ALERT_EMAIL || C_().GPC_EMAIL;
+  if (!to) return;
+  const plainBody = alerts.map(a => `${a.severity} ${a.type}: ${a.message}`).join('\n');
+  GmailApp.sendEmail(to, subject, plainBody, {
+    htmlBody: htmlBody,
     name: 'Graduate Review System Alerts'
   });
 

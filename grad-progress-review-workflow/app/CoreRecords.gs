@@ -16,13 +16,21 @@ function buildFeedbackRecord_(offerings, comments, followups, viewer, synthesis)
   });
   var withText = visible.filter(function(c) { return c.contact === 'enough'; })
     .sort(function(a, b) { return quarterOrder_(a.quarter) - quarterOrder_(b.quarter); });   // date order, not alphabetical
-  var noContact = visible.filter(function(c) { return c.contact !== 'enough'; }).length;
+  var noContact = visible.filter(function(c) { return c.contact !== 'enough' && c.contact !== 'covered'; }).length;
+  var covered = visible.filter(function(c) { return c.contact === 'covered'; }).length;   // the advisor's "Covered in my annual review"
+  var coveredPart = covered > 0 ? '; ' + covered + " covered in the advisor's annual review" : '';
   var notReceived = (offerings || []).filter(function(o) { return !o.submitted; }).length;
   var instructors = {};
   withText.forEach(function(c) { (c.instructorNames || []).forEach(function(n) { instructors[n] = true; }); });
   var nInstructors = Object.keys(instructors).length;
   var coverage = (offerings || []).length + ' ' + plural_((offerings || []).length, 'course', 'courses') + '; feedback from ' +
-    nInstructors + ' ' + plural_(nInstructors, 'instructor', 'instructors') + "; " + noContact + " 'not enough contact'; " + notReceived + ' not received.';
+    nInstructors + ' ' + plural_(nInstructors, 'instructor', 'instructors') + "; " + noContact + " 'not enough contact'" + coveredPart + '; ' + notReceived + ' not received.';
+  /* The student hears about a follow-up in the conversation (course-feedback plan §5.3) and sees its
+     outcome (privacy notice), so a flag with no recorded outcome is left out of what the student and
+     the PDF copy show. The advisor, who is told about the flag (CF-7), and calibration still see it. */
+  var shownFollowups = (followups || []).filter(function(f) {
+    return (viewer !== 'student' && viewer !== 'pdf') || !!f.outcome;
+  });
   var record = {
     coverage: coverage,
     thin: withText.length < 2,
@@ -31,7 +39,7 @@ function buildFeedbackRecord_(offerings, comments, followups, viewer, synthesis)
       return { course: c.course, quarter: c.quarter, quarterLabel: quarterLabel_(c.quarter), written: c.written, discussion: c.discussion, literature: c.literature };
     }),
     flags: viewer === 'calibration' || viewer === 'student' || viewer === 'advisor' || viewer === 'pdf'
-      ? (followups || []).map(function(f) { return { quarter: f.quarter, quarterLabel: quarterLabel_(f.quarter), outcome: f.outcome || 'Open', contactDate: f.contactDate || '' }; }) : [],
+      ? shownFollowups.map(function(f) { return { quarter: f.quarter, quarterLabel: quarterLabel_(f.quarter), outcome: f.outcome || 'Open', contactDate: f.contactDate || '' }; }) : [],
     synthesis: synthesis || ''
   };
   if (viewer === 'calibration') return record; // summary only: no free text (decision 7)

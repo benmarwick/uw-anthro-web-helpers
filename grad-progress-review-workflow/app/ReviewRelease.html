@@ -24,16 +24,28 @@
   var DATA = <?!= dataJson ?>;
   document.getElementById('quarter').value = DATA.quarter || '';
 
+  /* The buttons for one comment depend on its status, not on whether it has been released: a comment
+     revised after release (REVISED_AFTER_RELEASE) still needs the check, and a student-only one can be resolved. */
+  function actionsFor(c) {
+    var pill = c.released ? '<span class="pill">Released</span>' : '';
+    if (c.status === 'SUBMITTED' || c.status === 'REVISED' || c.status === 'REVISED_AFTER_RELEASE') {
+      return pill + '<button data-check="' + esc(c.id) + '">Passes the check</button>' +
+        '<label for="r_' + esc(c.id) + '">Reason to return (the instructor sees this)</label><textarea id="r_' + esc(c.id) + '"></textarea>' +
+        '<label for="n_' + esc(c.id) + '">Note for the student if it is still unrevised on release day (optional)</label><textarea id="n_' + esc(c.id) + '"></textarea><button data-return="' + esc(c.id) + '">Return to the instructor</button>';
+    }
+    if (c.status === 'STUDENT_ONLY') {
+      return pill + '<button data-resolve="' + esc(c.id) + '">Mark resolved</button>';
+    }
+    return pill;
+  }
+
   function load() {
     var q = document.getElementById('quarter').value.trim().toUpperCase();
     say('Loading…');
     call('releasePageData', q).then(function (d) {
       say(d.releaseDate ? 'Planned release date: ' + d.releaseDate + '.' : '');
       document.getElementById('comments').innerHTML = d.comments.length ? d.comments.map(function (c) {
-        var actions = c.released ? '<span class="pill">Released</span>' :
-          (c.status === 'SUBMITTED' || c.status === 'REVISED' || c.status === 'REVISED_AFTER_RELEASE' ? '<button data-check="' + esc(c.id) + '">Passes the check</button>' +
-            '<label for="r_' + esc(c.id) + '">Reason to return (the instructor sees this)</label><textarea id="r_' + esc(c.id) + '"></textarea>' +
-            '<label for="n_' + esc(c.id) + '">Note for the student if it is still unrevised on release day (optional)</label><textarea id="n_' + esc(c.id) + '"></textarea><button data-return="' + esc(c.id) + '">Return to the instructor</button>' : '');
+        var actions = actionsFor(c);
         return '<div class="card"><h3>' + esc(c.student) + ' · ' + esc(c.course) + ' <span class="pill">' + esc(c.status) + '</span></h3><p class="muted">' + esc(c.instructors) + (c.subfield ? ' · ' + esc(c.subfield) : '') + '</p>' +
           (c.contact === 'enough'
             ? '<p>Written work: ' + esc(c.written) + ' · Discussion: ' + esc(c.discussion) + ' · Literature: ' + esc(c.literature) + '</p><p><strong>Did well:</strong> ' + nl2br(c.strength) + '</p><p><strong>Next step:</strong> ' + nl2br(c.nextStep) + '</p>'
@@ -60,6 +72,7 @@
   document.querySelector('main').addEventListener('click', function (e) {
     var t = e.target, id;
     if ((id = t.getAttribute('data-check'))) call('checkComment', id).then(load).catch(function (er) { say(er.message, 'bad'); });
+    if ((id = t.getAttribute('data-resolve'))) call('resolveComment', id).then(function () { say('Resolved.', 'ok'); load(); }).catch(function (er) { say(er.message, 'bad'); });
     if ((id = t.getAttribute('data-return'))) call('returnComment', id, document.getElementById('r_' + id).value, document.getElementById('n_' + id).value)
       .then(function (until) { say('Returned; the instructor can revise until ' + until + '.', 'ok'); load(); }).catch(function (er) { say(er.message, 'bad'); });
     if ((id = t.getAttribute('data-close'))) call('closeFollowup', id, document.getElementById('o_' + id).value, document.getElementById('d_' + id).value, document.getElementById('i_' + id).checked)

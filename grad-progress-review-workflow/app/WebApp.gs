@@ -55,6 +55,10 @@ function uploadCv(token, form) {
   if (blob.getContentType() !== 'application/pdf') throw new Error('The CV must be a PDF.');
   if (blob.getBytes().length > C_().PDF.MAX_FILE_SIZE_MB * 1024 * 1024) throw new Error('The CV must be 10 MB or smaller.');
   const file = DriveApp.getFolderById(C_().ARCHIVE_FOLDER_ID).createFile(blob.setName('CV_' + x.review.Review_ID + '.pdf'));
+  /* The folder is restricted, so share the CV with the advisors, who see a link to it (as PdfEngine.gs shares the PDF). */
+  splitList_(x.review.Advisor_Emails).forEach(function(a) {
+    try { file.addViewer(a); } catch (err) { logWarn_('WebApp.uploadCv', 'Could not share the CV with an advisor', { reviewId: x.review.Review_ID, error: err.message }); }
+  });
   updateRow_(C_().SHEETS.REVIEWS, x.review._row, { CV_File_ID: file.getId(), Updated_At: nowIso_() });
   return true;
 }

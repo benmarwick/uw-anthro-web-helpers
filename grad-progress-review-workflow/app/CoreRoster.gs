@@ -106,14 +106,18 @@ function joinRegistrations_(mygradRows, sections, students, instructors, options
     var names = (s.instructors || []).filter(function(n) { return !isPlaceholderInstructor_(n); });
     if (!names.length) { exclude(EXCLUSION_.NO_INSTRUCTOR); enrollments.push(e); return; }
     e.instructorNames = names;
-    var emails = [], gradInstructor = false;
+    /* A graduate-student instructor is never asked (principle 8), so their email is never needed. The appointment
+       is checked first; only the other instructors need an email. */
+    var emails = [], gradCount = 0;
     names.forEach(function(n) {
       var rec = instructors[normalizeInstructorName_(n)];
+      var isGrad = rec && String(rec.appointment).toLowerCase() === 'graduate student';
+      if (isGrad) { gradCount++; return; }
       if (!rec || !rec.email) { missing[normalizeInstructorName_(n)] = n; return; }
-      if (String(rec.appointment).toLowerCase() === 'graduate student') gradInstructor = true;
-      else emails.push(String(rec.email).toLowerCase());
+      emails.push(String(rec.email).toLowerCase());
     });
-    if (gradInstructor && !emails.length) { exclude(EXCLUSION_.GRAD_INSTRUCTOR); enrollments.push(e); return; }
+    /* Excluded only when every instructor is a graduate student; a mixed page waits for the others' emails. */
+    if (gradCount === names.length) { exclude(EXCLUSION_.GRAD_INSTRUCTOR); enrollments.push(e); return; }
     e.instructorEmails = emails.sort();
     e.isAdviseeOf = emails.filter(function(em) { return (student.advisorEmails || []).map(function(a) { return a.toLowerCase(); }).indexOf(em) !== -1; });
     counts.matched++;

@@ -17,7 +17,7 @@ It is a sibling of [`ta-evaluation-workflow`](../ta-evaluation-workflow) and reu
 | [`course-feedback-plan.md`](course-feedback-plan.md) | The course feedback plan, a module of the same system |
 | [`build-spec.md`](build-spec.md) | States, pages, every email text, and the acceptance tests |
 | [`app/`](app) | The Apps Script project |
-| [`app/tests/run.js`](app/tests/run.js) | Tests for the pure modules: `node --test grad-progress-review-workflow/app/tests/run.js` |
+| [`app/tests/`](app/tests) | Node tests: `run.js` for the pure modules, and `fix-*.test.js` for the review fixes. Run them all from the repository root with `node --test "grad-progress-review-workflow/app/tests/*.js"` |
 | [`app/tests/screenshots/build.js`](app/tests/screenshots/build.js) | Builds the pages with sample data for the [screenshots](#screenshots) |
 | [`r3-postmessage-test/`](r3-postmessage-test) | The R3 test page (passed 17 Nov 2026) |
 | [`../bookmarklet-mygrad-table-audit.js`](../bookmarklet-mygrad-table-audit.js) | MyGrad bookmarklet, with the app bridge (task R1) |
@@ -40,7 +40,7 @@ It is a sibling of [`ta-evaluation-workflow`](../ta-evaluation-workflow) and reu
 
 **Verified:**
 
-- 27 Node tests pass, covering the pure-logic acceptance tests in build-spec §4 (1 to 6, 8, 10, 11, 13, 16, 20 to 22, 24, and the flow part of 19), the calendar dates both plans state, and the date order of Course Feedback Records.
+- The Node tests pass (run `node --test "grad-progress-review-workflow/app/tests/*.js"`; the count is in its output). `run.js` covers the pure-logic acceptance tests in build-spec §4 (1 to 6, 8, 10, 11, 13, 16, 20 to 22, 24, and the flow part of 19), the calendar dates both plans state, and the date order of Course Feedback Records.
 - R3: an Apps Script page receives `postMessage` from MyGrad and Time Schedule tabs (course-feedback plan §4.5).
 - The Time Schedule parser on the real Autumn 2026 ANTH, ARCHY, BIO A and LING pages, and the joint-listing merge on real pairs.
 - How MyGrad shows current, next-quarter and withdrawn courses (all 41 transcripts, 1,329 rows), and that MyGrad's GPA follows the Graduate School's definition (34 of 34).
@@ -141,7 +141,7 @@ Edit [`app/Config.gs`](app/Config.gs). The values at the top:
 | `CYCLE_YEAR` | The spring year of the current annual cycle, for example `2027` |
 | `CF_QUARTERS_ON` | Which quarters run course feedback. Autumn 2026 is the first; summers are off (decision 9) |
 
-Every value above is set. This repository is public, so anything in `Config.gs` is public once committed, including the role email addresses. The spreadsheet and folder IDs grant no access by themselves; only the people the files are shared with can open them.
+Every value above is set except `SUBFIELD_COORDINATORS` and `SURVEY_URL`, which are empty. Until they are filled in, no one can open the subfield summary page (it answers "This page is for subfield coordinators."), the Program stage page's subfield filter has no choices, and the post-cycle survey email (AR-12) is not sent. This repository is public, so anything in `Config.gs` is public once committed, including the role email addresses. The spreadsheet and folder IDs grant no access by themselves; only the people the files are shared with can open them.
 
 ### 5. Push and deploy
 
@@ -174,6 +174,8 @@ Open the main spreadsheet and reload it, so the **Graduate review** menu appears
 ### 8. Install the bookmarklets
 
 The administrator installs two bookmarklets from the main [readme](../readme.md): [MyGrad Table Audit](../readme.md#mygrad-table-audit-bookmarklet) and [Time Schedule Sections](../readme.md#time-schedule-sections-bookmarklet). The Roster page opens each site in a new tab, and the bookmarklet clicked there sends the data back to the app.
+
+The first time the MyGrad bookmarklet is asked for data, it shows the exact address of the page asking, for example `https://n-…-0lu-script.googleusercontent.com`, and sends nothing until you click OK. Click OK only if you opened that MyGrad tab with a button on the Roster page. The browser then remembers the address for MyGrad, and later requests from it are answered without asking. Every Apps Script web app, anyone's, is served from an address of that form, so this one approval is what stops another Apps Script page from collecting student data through the bookmarklet. If the bookmarklet ever warns that a request comes from a different page than the one approved, click Cancel unless the app has just been moved to a new deployment. If you click Cancel by mistake, click the bookmark again in the same MyGrad tab and the Roster page asks again. Each person who runs the bookmarklet approves once in each browser they use. To forget the approval, open the browser console in a MyGrad tab and run `localStorage.removeItem('uw-review-app-origin')`.
 
 ### 9. Fill in the Students sheet
 
@@ -315,7 +317,7 @@ Two hourly tasks retry failed emails from `Dead_Letter_Queue` and check the aler
 | Roster page, student course feedback page | [`app/RosterPage.html`](app/RosterPage.html), [`app/Home.html`](app/Home.html) |
 | Every email | [`app/CoreEmail.gs`](app/CoreEmail.gs) |
 
-After editing, run `node --test grad-progress-review-workflow/app/tests/run.js`, then push and update the deployment (setup step 5).
+After editing, run `node --test "grad-progress-review-workflow/app/tests/*.js"`, then push and update the deployment (setup step 5).
 
 ## How the app is organized
 

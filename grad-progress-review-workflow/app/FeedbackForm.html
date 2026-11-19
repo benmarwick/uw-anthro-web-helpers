@@ -17,7 +17,7 @@
   }
 
   function studentBlock(s, i) {
-    var dis = s.editable && !page.readOnlyLock ? '' : ' disabled';
+    var dis = s.editable && !page.readOnlyLock && !page.viewOnly ? '' : ' disabled';
     var id = 's' + i;
     var levels = function (key, label) {
       return '<label for="' + id + key + '">' + esc(label) + ' <span class="help">Relative to the student\'s stage in their graduate program</span></label><select id="' + id + key + '" data-f="' + key + '"' + dis + '><option value="">Choose…</option>' +
@@ -46,6 +46,7 @@
     document.getElementById('title').textContent = 'Course feedback: ' + page.offering;
     document.getElementById('sub').textContent = page.quarter + (page.due ? ' · due ' + page.due : '');
     var h = '';
+    if (page.viewOnly) h += '<div class="warnbox">You are viewing this page as the administrator. Only the instructors can change or submit it.</div>';
     if (page.readOnlyLock) h += '<div class="warnbox">' + esc(page.lockOwner) + ' is editing this shared page. It will open for you when they finish (within 30 minutes).</div>';
     if (page.closed) h += '<div class="warnbox">This page has closed. You can still revise any comment the GPC returned to you.</div>';
     h += guidance() + '<p class="muted">About 30 seconds for a student you could not comment on, and 3 to 4 minutes for one you could.</p>';
@@ -53,7 +54,8 @@
     h += '<section class="card"><label for="sig">Type your name to sign</label><input type="text" id="sig" value="' + esc(page.signature) + '">' +
       '<label for="mins">How long did this take? <span class="help">Optional, for the pilot</span></label><select id="mins"><option value="">Choose…</option>' +
       ['under 5', '5 to 15', 'over 15'].map(function (m) { return '<option' + (m === page.minutes ? ' selected' : '') + '>' + m + '</option>'; }).join('') + '</select></section>';
-    h += '<div class="status"><button id="save">Save draft</button><button id="submit" class="primary">Submit</button><div id="msg" role="status" aria-live="polite"></div></div>';
+    h += '<div class="status"><button id="save">Save draft</button><button id="submit" class="primary">Submit</button><div id="msg" role="status" aria-live="polite"></div></div>' +
+      '<p class="muted">Save draft keeps comments you have not submitted yet. To change a comment you have already submitted, edit it and press Submit again.</p>';
     document.getElementById('main').innerHTML = h;
     var main = document.getElementById('main');
     main.addEventListener('change', function (e) {
@@ -69,7 +71,8 @@
     });
     document.getElementById('save').onclick = function () { send(false); };
     document.getElementById('submit').onclick = function () { send(true); };
-    if (page.readOnlyLock) { document.getElementById('save').disabled = true; document.getElementById('submit').disabled = true; }
+    if (page.readOnlyLock || page.viewOnly) { document.getElementById('save').disabled = true; document.getElementById('submit').disabled = true; }
+    if (page.viewOnly) document.getElementById('sig').disabled = true;
   }
 
   function gather() {
@@ -89,8 +92,9 @@
 
   function send(final) {
     say(final ? 'Submitting…' : 'Saving…');
-    call('saveFeedbackPage', DATA.token, gather(), final).then(function () {
-      say(final ? 'Thank you. Your feedback is submitted. You can edit it until the page closes.' : 'Draft saved.', 'ok');
+    call('saveFeedbackPage', DATA.token, gather(), final).then(function (res) {
+      var skippedNote = res && res.skipped ? ' Changes to comments you had already submitted were not saved; press Submit to send them.' : '';
+      say(final ? 'Thank you. Your feedback is submitted. You can edit it until the page closes.' : 'Draft saved.' + skippedNote, 'ok');
     }).catch(function (e) { say(e.message, 'bad'); });
   }
 

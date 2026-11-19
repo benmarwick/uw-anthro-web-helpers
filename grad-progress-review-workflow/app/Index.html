@@ -102,15 +102,16 @@
     document.getElementById('sub').textContent = R.studentName + (R.due ? ' · due ' + R.due : '');
     var h = '';
     if (R.returned) h += '<div class="warnbox"><strong>The GPC asked you to look again at your evaluation:</strong> ' + nl2br(R.returnNote) + '</div>';
-    if (R.flags && R.flags.length && R.stage !== 'student') h += '<div class="note"><strong>Flags</strong><ul>' + R.flags.map(function (f) { return '<li>' + esc(f.text) + '</li>'; }).join('') + '</ul></div>';
+    if (R.flags && R.flags.length && R.stage === 'advisor') h += '<div class="note"><strong>Flags</strong><ul>' + R.flags.map(function (f) { return '<li>' + esc(f.text) + '</li>'; }).join('') + '</ul></div>';
     var draft = R.draft || {};
+    var injected = [];   // fields filled in on this page rather than loaded from a saved draft; sent on the first save
     if (R.stage === 'student') {
       var pre = R.prefill || {};
       FIELDS = R.type === 'ANNUAL' ? STUDENT_ANNUAL : STUDENT_MA;
       if (R.type === 'ANNUAL') {
-        if (!draft.coursework && pre.coursework) draft.coursework = pre.coursework;
-        if (!draft.lastGoals && pre.lastGoals) draft.lastGoals = pre.lastGoals;
-        if (!draft.actionItemsProgress && pre.actionItemsProgress) draft.actionItemsProgress = pre.actionItemsProgress;
+        if (!draft.coursework && pre.coursework) { draft.coursework = pre.coursework; injected.push('coursework'); }
+        if (!draft.lastGoals && pre.lastGoals) { draft.lastGoals = pre.lastGoals; injected.push('lastGoals'); }
+        if (!draft.actionItemsProgress && pre.actionItemsProgress) { draft.actionItemsProgress = pre.actionItemsProgress; injected.push('actionItemsProgress'); }
         var of = R.onFile || {};
         h += '<div class="note"><strong>On file:</strong> ' + esc(of.program || '') + (of.subfield ? ' · ' + esc(of.subfield) : '') +
           (of.entryQuarter ? ' · entered ' + esc(of.entryQuarter) : '') + ' · advisor' + ((of.advisors || []).length === 1 ? '' : 's') + ': ' + esc((of.advisors || []).join(', ') || 'none recorded') +
@@ -124,11 +125,15 @@
     }
     if (R.stage === 'advisor') {
       FIELDS = R.type === 'ANNUAL' ? ADVISOR_ANNUAL : ADVISOR_CHECKIN;
-      if (R.type === 'ANNUAL' && !draft.agreement) draft.agreement = ['milestones', 'research', 'coursework', 'professional activity', 'next year\'s plan'].map(function (a) { return { area: a, agree: '', comment: '' }; });
+      if (R.type === 'ANNUAL' && !draft.agreement) {
+        draft.agreement = ['milestones', 'research', 'coursework', 'professional activity', 'next year\'s plan'].map(function (a) { return { area: a, agree: '', comment: '' }; });
+        injected.push('agreement');
+      }
       var sr = R.studentReport || {};
       h += section("The student's report", Object.keys(sr).filter(function (k) { return k !== 'prefill' && k !== 'signatureName'; }).map(function (k) {
         return '<h3>' + esc(k) + '</h3>' + showValue(sr[k]); }).join('') || '<p class="muted">Nothing submitted.</p>');
       if (R.development && Object.keys(R.development).length) h += section('Development modules (you and the student only)', Object.keys(R.development).map(function (k) { return '<h3>' + esc(k) + '</h3>' + showValue(R.development[k]); }).join(''));
+      if (R.cvUrl) h += section("The student's CV", '<p><a href="' + esc(R.cvUrl) + '" target="_blank" rel="noopener">Open the CV</a> (shared with your UW account)</p>');
       if (R.courseFeedback) h += section('Course Feedback Record (read-only)', recordHtml(R.courseFeedback));
     }
     if (R.stage === 'ack') {
@@ -150,19 +155,67 @@
       say('Uploading…');
       google.script.run.withSuccessHandler(function () { say('CV uploaded.', 'ok'); }).withFailureHandler(function (e) { say(e.message, 'bad'); }).uploadCv(DATA.token, document.getElementById('cvform'));
     };
-    setInterval(function () { send(false, true); }, 30000);
+    setBaseline(injected);
+    AUTOSAVE = setInterval(function () { send(false, true); }, 60000);
   }
 
+  /* ---- Saving ---- */
+  /* Only the fields changed since the last successful save are sent. Co-advisors editing different
+     fields no longer overwrite each other, and an unchanged form is not autosaved at all. */
+  var AUTOSAVE = null;
+  var BASELINE = {};
   var sending = false;
+  var queued = null;   // a Save or Submit pressed while an autosave was running
+
+  function setBaseline(unsentKeys) {
+    BASELINE = collectForm(document.getElementById('form'));
+    unsentKeys.forEach(function (k) { delete BASELINE[k]; });
+  }
+
+  function changedFields(current) {
+    var changes = {};
+    Object.keys(current).forEach(function (k) {
+      if (JSON.stringify(current[k]) !== JSON.stringify(BASELINE[k])) changes[k] = current[k];
+    });
+    return changes;
+  }
+
+  function runQueued() {
+    if (!queued) return;
+    var next = queued;
+    queued = null;
+    send(next.final);
+  }
+
   function send(final, quiet) {
-    if (sending) return;
+    if (sending) {
+      if (!quiet) {
+        queued = { final: final };
+        say(final ? 'Submitting as soon as the autosave finishes…' : 'Saving as soon as the autosave finishes…');
+      }
+      return;
+    }
+    var form = document.getElementById('form');
+    if (!form) return;
+    var changes = changedFields(collectForm(form));
+    if (quiet && !Object.keys(changes).length) return;
     sending = true;
     if (!quiet) say(final ? 'Submitting…' : 'Saving…');
-    call('saveReviewStage', DATA.token, collectForm(document.getElementById('form')), final).then(function (res) {
+    call('saveReviewStage', DATA.token, changes, final).then(function () {
       sending = false;
-      if (final) document.getElementById('main').innerHTML = '<div class="card"><h2>Thank you</h2><p>Your ' + (R.stage === 'ack' ? 'acknowledgement' : 'submission') + ' is saved. You\'ll get an email when there is a next step.</p></div>';
-      else if (!quiet) say('Draft saved.', 'ok');
-    }).catch(function (e) { sending = false; if (!quiet) say(e.message, 'bad'); });
+      Object.keys(changes).forEach(function (k) { BASELINE[k] = changes[k]; });
+      if (final) {
+        clearInterval(AUTOSAVE);
+        document.getElementById('main').innerHTML = '<div class="card"><h2>Thank you</h2><p>Your ' + (R.stage === 'ack' ? 'acknowledgement' : 'submission') + ' is saved. You\'ll get an email when there is a next step.</p></div>';
+        return;
+      }
+      if (!quiet) say('Draft saved.', 'ok');
+      runQueued();
+    }).catch(function (e) {
+      sending = false;
+      say(quiet ? 'Autosave failed: ' + e.message : e.message, 'bad');
+      runQueued();
+    });
   }
 
   call('loadReview', DATA.token).then(function (r) {

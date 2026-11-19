@@ -79,20 +79,27 @@ function launchMaCheckins_(quarter, actor) {
   return n;
 }
 
-/* A PhD interim check-in (§4.2): advisor stage only, unless the advisor escalates. */
+/* An interim check-in (§4.2; build-spec §1.1). A PhD interim has an advisor stage only, unless the
+   advisor escalates. An MA interim follows the MA check-in flow and starts with the student; the
+   advisor gets AR-13 when the student submits. */
 function createInterimReview_(student, parentId, advisorMonths, missingOrLowGpa, actor) {
   const due = interimDueDate_(todayIso_(), advisorMonths, missingOrLowGpa);
   const t = newToken_();
   const email = normEmail_(student.Email);
-  const row = createReviewRow_({ Cycle: quarterForDate_(due) || '', Type: 'INTERIM', Program: student.Program === 'MA' ? 'MA' : 'PHD', Student_Email: email,
-    Advisor_Emails: student.Advisor_Emails, Chair_Email: student.Chair_Email, Status: 'ADVISOR_PENDING', Due_Date: due, Interim_Due: due,
+  const isMa = student.Program === 'MA';
+  const firstStage = isMa ? 'STUDENT_PENDING' : 'ADVISOR_PENDING';
+  const row = createReviewRow_({ Cycle: quarterForDate_(due) || '', Type: 'INTERIM', Program: isMa ? 'MA' : 'PHD', Student_Email: email,
+    Advisor_Emails: student.Advisor_Emails, Chair_Email: student.Chair_Email, Status: firstStage, Due_Date: due, Interim_Due: due,
     Secure_Token: t.token, Token_Expiry: new Date(isoToUtc_(due) + C_().TOKEN_TTL_DAYS * 86400000).toISOString(), Parent_Review_ID: parentId || '' });
-  splitList_(student.Advisor_Emails).forEach(function(a) {
-    sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterLabel_(quarterForDate_(due) || ''), url: appUrl_({ t: t.token }),
-      dueLong: dateLong_(due), isInterim: true }, row.Review_ID);
-  });
-  sendTemplate_('AR-10', email, student.Preferred_First || 'there', { quarter: quarterLabel_(quarterForDate_(due) || ''), url: appUrl_({ view: 'student' }),
-    dueLong: dateLong_(due), isInterim: true }, row.Review_ID);
+  const quarterText = quarterLabel_(quarterForDate_(due) || '');
+  const url = appUrl_({ t: t.token });
+  if (isMa) {
+    sendTemplate_('AR-10', email, student.Preferred_First || 'there', { quarter: quarterText, url: url, dueLong: dateLong_(due), isInterim: true }, row.Review_ID);
+  } else {
+    splitList_(student.Advisor_Emails).forEach(function(a) {
+      sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterText, url: url, dueLong: dateLong_(due), isInterim: true }, row.Review_ID);
+    });
+  }
   logEvent_({ action: C_().ACTIONS.INTERIM_CREATED, evaluationId: row.Review_ID, details: { parent: parentId, due: due }, actorEmail: actor || 'SYSTEM' });
   return row.Review_ID;
 }
@@ -127,17 +134,23 @@ function loadReview(token) {
   const out = {
     reviewId: r.Review_ID, type: r.Type, program: r.Program, cycle: r.Cycle, stage: stage, status: r.Status, due: r.Due_Date ? dateLong_(r.Due_Date) : '',
     studentName: student.Name || r.Student_Email, coAdvised: splitList_(r.Advisor_Emails).length > 1, returned: !!x.access.returned,
-    levels: CF_LEVELS_, ratings: REVIEW_RATINGS_, flags: computeFlags_(student, r)
+    levels: CF_LEVELS_, ratings: REVIEW_RATINGS_,
+    /* Flags are for the advisor and the GPC (annual review plan §6), never the student. */
+    flags: stage === 'advisor' ? computeFlags_(student, r) : []
   };
   const sp = parseJson_(r.Student_Payload), ap = parseJson_(r.Advisor_Payload), pp = parseJson_(r.Program_Payload), dp = parseJson_(r.Development_Payload);
   if (stage === 'student') {
-    out.draft = sp; out.prefill = sp.prefill || {}; out.development = dp;
+    out.draft = stageDraft_(r, stage, sp, dp); out.prefill = sp.prefill || {}; out.development = dp;
     /* What the first box of the report asks the student to check (annual review plan §5.1). */
     out.onFile = { program: student.Program === 'MA' ? 'MA (Archaeological Heritage)' : 'PhD', subfield: student.Subfield || '',
                    advisors: splitList_(student.Advisor_Emails), chair: student.Chair_Email || '', gsr: student.GSR_Email || '',
                    entryQuarter: quarterLabel_(student.Entry_Quarter || ''), leaveEnds: student.Leave_Ends ? quarterLabel_(student.Leave_Ends) : '' };
   }
-  if (stage === 'advisor') { out.studentReport = sp; out.development = dp; out.draft = ap; out.returnNote = x.access.returned ? (pp.returnReason || '') : ''; }
+  if (stage === 'advisor') {
+    out.studentReport = sp; out.development = dp; out.draft = stageDraft_(r, stage, ap, dp);
+    out.returnNote = x.access.returned ? (pp.returnReason || '') : '';
+    out.cvUrl = cvUrlFor_(r);
+  }
   if (stage === 'ack') {
     out.studentReport = sp; out.advisor = ap; out.advisingChallenges = advisingChallengesFor_(r.Review_ID);
     out.finalRating = pp.finalRating || ''; out.letterText = pp.letterText || ''; out.draft = parseJson_(r.Response_Payload);
@@ -146,6 +159,31 @@ function loadReview(token) {
     out.courseFeedback = courseFeedbackForReview_(r, stage === 'advisor' ? 'advisor' : 'student');
   }
   return out;
+}
+
+/* What this role saved: its own payload, plus its fields kept in Development_Payload and in the
+   Confidential spreadsheet. Only fields this stage may write are added, so an advisor never gets
+   the student's GPC-only note. */
+function stageDraft_(review, stage, mainPayload, developmentPayload) {
+  const draft = Object.assign({}, mainPayload);
+  const ownFields = STAGE_FIELDS_[stage] || [];
+  ownFields.forEach(function(k) {
+    if (DEVELOPMENT_FIELDS_.indexOf(k) !== -1 && developmentPayload[k] !== undefined) draft[k] = developmentPayload[k];
+  });
+  const ownConfidential = ownFields.filter(function(k) { return CONFIDENTIAL_STAGE_FIELDS_.indexOf(k) !== -1; });
+  Object.assign(draft, confidentialFieldsFor_(review.Review_ID, ownConfidential));
+  return draft;
+}
+
+/* A link to the student's uploaded CV, shared with the advisors at upload (WebApp.gs). */
+function cvUrlFor_(review) {
+  if (!review.CV_File_ID) return '';
+  try {
+    return DriveApp.getFileById(review.CV_File_ID).getUrl();
+  } catch (err) {
+    logWarn_('Reviews.cvUrlFor', 'CV file not found', { reviewId: review.Review_ID });
+    return '';
+  }
 }
 
 /* The released Course Feedback Record for this cycle, if any. */
@@ -191,13 +229,20 @@ function validateReviewStage_(stage, type, program, f) {
 function saveReviewStage(token, payload, final) {
   const x = reviewByToken_(token);
   if (x.error) throw new Error(x.error);
-  const rl = checkRateLimit_(x.access.email, 'review_save', 120);
+  /* Drafts and submits are counted separately, so autosaves can never use up Submit. */
+  const bucket = final ? 'review_submit' : 'review_save';
+  const rl = checkRateLimit_(x.access.email, bucket, 120);
   if (!rl.allowed) throw new Error('Too many saves in an hour. Please wait a few minutes.');
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     const S = C_().SHEETS;
+    /* Read again now that we hold the lock: another request may have saved or submitted meanwhile. */
+    invalidateTable_(S.REVIEWS);
     const r = reviewById_(x.review.Review_ID);
+    if (!r || r.Secure_Token !== token || r.Status !== x.review.Status) {
+      throw new Error('This review has moved on since you opened it (it may have been submitted by someone else). Reload the page to see where it is.');
+    }
     const stage = x.access.stage;
     const f = pickStageFields_(stage, payload);
     const target = { student: 'Student_Payload', advisor: 'Advisor_Payload', ack: 'Response_Payload' }[stage];
@@ -230,12 +275,7 @@ function saveReviewStage(token, payload, final) {
     Object.assign(updates, { Status: next, Secure_Token: t.token, Token_Expiry: t.expiry, Reminder_Count: 0, Last_Reminder: '', Stage_Started: todayIso_() });
     if (next === 'ADVISOR_PENDING') {
       updates.Due_Date = r.Type === 'ANNUAL' ? annualCycleDates_(Number(r.Cycle)).advisorDue : r.Due_Date;
-      splitList_(r.Advisor_Emails).forEach(function(a) {
-        if (r.Type === 'ANNUAL') sendTemplate_('AR-3', a, firstNameFor_(a), { studentName: student.Name, studentFirstName: student.Preferred_First || student.Name,
-          url: appUrl_({ t: t.token }), dueLong: dateLong_(updates.Due_Date), coAdvised: splitList_(r.Advisor_Emails).length > 1 }, r.Review_ID);
-        else sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterLabel_(r.Cycle), url: appUrl_({ t: t.token }),
-          dueLong: dateLong_(updates.Due_Date), isInterim: false }, r.Review_ID);
-      });
+      notifyAdvisorStage_(r, student, t.token, updates.Due_Date);
     }
     if (next === 'PROGRAM_PENDING') updates.Due_Date = r.Type === 'ANNUAL' ? annualCycleDates_(Number(r.Cycle)).lettersRelease : addDays_(todayIso_(), 14);
     updateRow_(S.REVIEWS, r._row, updates);
@@ -247,13 +287,33 @@ function saveReviewStage(token, payload, final) {
   }
 }
 
-/* After acknowledgement: build and share the PDF, complete the review, send AR-8 and the survey (AR-12). */
+/* The advisor stage opens: AR-3 (annual) or AR-13 (check-in) to every advisor, with the new link. */
+function notifyAdvisorStage_(r, student, token, dueIso) {
+  const advisors = splitList_(r.Advisor_Emails);
+  advisors.forEach(function(a) {
+    if (r.Type === 'ANNUAL') {
+      sendTemplate_('AR-3', a, firstNameFor_(a), { studentName: student.Name, studentFirstName: student.Preferred_First || student.Name,
+        url: appUrl_({ t: token }), dueLong: dateLong_(dueIso), coAdvised: advisors.length > 1 }, r.Review_ID);
+    } else {
+      sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterLabel_(r.Cycle), url: appUrl_({ t: token }),
+        dueLong: dateLong_(dueIso), isInterim: r.Program !== 'MA' }, r.Review_ID);
+    }
+  });
+}
+
+/* After acknowledgement: build and share the PDF, complete the review, send AR-8 and the survey (AR-12).
+   It does nothing unless the review is still PDF_GENERATING, so a retry never builds a second PDF.
+   opts.fromRetry: called by the dead-letter queue. opts.noEnqueue: a failure is only logged (the
+   pending-PDF sweep in Health.gs tries again on its next run). */
 function finishReview_(reviewId, opts) {
   opts = opts || {};
+  invalidateTable_(C_().SHEETS.REVIEWS);
   const r = reviewById_(reviewId);
+  if (!r || r.Status !== 'PDF_GENERATING') return;
   const student = studentByEmail_(r.Student_Email) || {};
+  const enqueue = !opts.fromRetry && !opts.noEnqueue;
   try {
-    const pdf = generateReviewPdf_(reviewId, { enqueue: !opts.fromRetry });
+    const pdf = generateReviewPdf_(reviewId, { enqueue: enqueue });
     if (!pdf) return;
     updateRow_(C_().SHEETS.REVIEWS, r._row, { Status: 'COMPLETED', Final_PDF_ID: pdf.id, Updated_At: nowIso_() });
     const people = [normEmail_(r.Student_Email)].concat(splitList_(r.Advisor_Emails));
@@ -317,7 +377,7 @@ function programViewData(subfield) {
         year: yearInProgram_(s.Entry_Quarter, quarterForDate_(todayIso_())), status: r.Status, escalatedFrom: r.Escalated_From || '',
         due: r.Due_Date || '', recommendedRating: ap.recommendedRating || '', accomplishments: ap.accomplishments || '',
         developmentAreas: ap.developmentAreas || [], concerns: ap.concerns || {}, letterParagraph: ap.letterParagraph || '',
-        finalRating: pp.finalRating || '', letterText: pp.letterText || defaultLetter_(s, ap), statusAction: pp.statusAction || 'none',
+        finalRating: pp.finalRating || '', overrideReason: pp.overrideReason || '', letterText: pp.letterText || defaultLetter_(s, ap), statusAction: pp.statusAction || 'none',
         alertQuarter: pp.alertQuarter || defaultAlertQuarter_(year, C_().SUMMER_REGISTRATION_REQUIRED),
         flags: computeFlags_(s, r), timeLimitDecision: pp.timeLimitDecision || '', returnUntil: r.Advisor_Return_Until || '',
         gpcOnlyPresent: hasConfidential_(r.Review_ID),
@@ -354,12 +414,27 @@ function saveProgramStage(reviewId, payload) {
   const x = reviewForReviewer_(reviewId);
   const f = pickStageFields_('program', payload);
   const pp = parseJson_(x.r.Program_Payload);
+  const action = f.statusAction !== undefined ? f.statusAction : pp.statusAction;
+  const alertQuarter = f.alertQuarter !== undefined ? f.alertQuarter : pp.alertQuarter;
+  if ((action === 'Alert' || action === 'Final Alert') && alertQuarter && !isKnownQuarter_(alertQuarter)) {
+    throw new Error('The Alert quarter "' + alertQuarter + '" is not a quarter with dates in CoreDates.gs. Use a code like AUT2027 or SUM2027 (later years need adding to the calendar).');
+  }
   Object.keys(f).forEach(function(k) {
     if (k === 'calibrationNotes') writeConfidential_(reviewId, 'program', k, f[k]);
     else pp[k] = f[k];
   });
   updateRow_(C_().SHEETS.REVIEWS, x.r._row, { Program_Payload: jsonCell_(pp), Updated_At: nowIso_() });
   return true;
+}
+
+/* True for a quarter code with dates in CoreDates.gs, such as AUT2027. */
+function isKnownQuarter_(code) {
+  try {
+    quarterDates_(String(code));
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 
 /* Sends an advisor passage back for revision; the advisor's fields reopen for 5 days (§5.3). */
@@ -382,6 +457,18 @@ function returnToAdvisor(reviewId, reason) {
 /* Releases the letter: the GPC confirms the narrative check, the rating and the letter text;
    a nearing-time-limit flag needs a recorded decision (§6). */
 function releaseLetter(reviewId, narrativeChecked) {
+  /* A double click must not release twice (two AR-7s, two interim reviews). */
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    invalidateTable_(C_().SHEETS.REVIEWS);
+    return releaseLetterLocked_(reviewId, narrativeChecked);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function releaseLetterLocked_(reviewId, narrativeChecked) {
   const x = reviewForReviewer_(reviewId);
   const r = x.r;
   if (r.Status !== 'PROGRAM_PENDING') throw new Error('This review is not at the program stage.');
@@ -414,18 +501,69 @@ function releaseLetter(reviewId, narrativeChecked) {
 
 /* The GPC's three ways out of ESCALATED (build-spec §1.1). */
 function resolveEscalationAction(reviewId, action, reason, newDueIso) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    invalidateTable_(C_().SHEETS.REVIEWS);
+    return resolveEscalationLocked_(reviewId, action, reason, newDueIso);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* The planned due date if it is still ahead, otherwise two weeks from today. */
+function freshDue_(plannedIso) {
+  const today = todayIso_();
+  const planned = String(plannedIso || '').slice(0, 10);
+  if (planned && daysBetween_(today, planned) > 0) return planned;
+  return addDays_(today, 14);
+}
+
+function resolveEscalationLocked_(reviewId, action, reason, newDueIso) {
   const x = reviewForReviewer_(reviewId);
   const r = x.r;
   const upd = resolveEscalation_({ status: r.Status, escalatedFrom: r.Escalated_From, type: r.Type, program: r.Program,
     onProgramTail: r.Type === 'INTERIM' && REVIEW_FLOWS_.ESCALATED_TAIL.indexOf(r.Escalated_From) !== -1 }, action, { reason: reason, newDueIso: newDueIso });
-  const fields = { Status: upd.status, Escalated_From: '', Updated_At: nowIso_() };
+  const fields = { Status: upd.status, Escalated_From: '', Last_Reminder: '', Updated_At: nowIso_() };
   if (upd.dueDate) fields.Due_Date = upd.dueDate;
   if (upd.reminderCount !== undefined) fields.Reminder_Count = upd.reminderCount;
   if (upd.skippedStage) fields.Skipped_Stage = upd.skippedStage;
-  if (upd.status !== 'EXEMPT') { const t = newToken_(); fields.Secure_Token = t.token; fields.Token_Expiry = t.expiry; fields.Stage_Started = todayIso_(); }
+  /* Skip: the next stage gets the due date a normal submit would give it, moved forward if already past. */
+  if (action === 'skip' && upd.status === 'ADVISOR_PENDING') {
+    fields.Due_Date = freshDue_(r.Type === 'ANNUAL' ? annualCycleDates_(Number(r.Cycle)).advisorDue : r.Due_Date);
+  }
+  if (action === 'skip' && upd.status === 'PROGRAM_PENDING') {
+    fields.Due_Date = r.Type === 'ANNUAL' ? annualCycleDates_(Number(r.Cycle)).lettersRelease : addDays_(todayIso_(), 14);
+  }
+  if (action === 'skip' && upd.status === 'STUDENT_ACK_PENDING') fields.Due_Date = addDays_(todayIso_(), 14);
+  const t = newToken_();
+  if (upd.status !== 'EXEMPT') { fields.Secure_Token = t.token; fields.Token_Expiry = t.expiry; fields.Stage_Started = todayIso_(); }
   updateRow_(C_().SHEETS.REVIEWS, r._row, fields);
   logEvent_({ action: C_().ACTIONS.ESCALATION_RESOLVED, evaluationId: reviewId, oldStatus: 'ESCALATED', newStatus: upd.status, details: { action: action, reason: reason }, actorEmail: x.email });
+  notifyAfterEscalation_(r, x.s, action, upd.status, t.token, fields.Due_Date || r.Due_Date);
+  if (upd.status === 'PDF_GENERATING') finishReview_(reviewId);
   return upd.status;
+}
+
+/* The old link stops working, so whoever acts next gets the new one: the reminder emails
+   (as Automation.gs sends them), for both Extend and Skip. */
+function notifyAfterEscalation_(r, student, action, status, token, dueIso) {
+  const url = appUrl_({ t: token });
+  const due = String(dueIso || '').slice(0, 10);
+  const studentEmail = normEmail_(r.Student_Email);
+  const studentFirst = student.Preferred_First || 'there';
+  if (status === 'STUDENT_PENDING') {
+    if (r.Type === 'ANNUAL') sendTemplate_('AR-2', studentEmail, studentFirst, { url: url, dueLong: dateLong_(due), dueShort: dateShort_(due) }, r.Review_ID);
+    else sendTemplate_('AR-10', studentEmail, studentFirst, { quarter: quarterLabel_(r.Cycle), url: url, dueLong: dateLong_(due), isInterim: false }, r.Review_ID);
+  }
+  /* Skip and Extend both send AR-4 (annual) or AR-13 (check-in): AR-3 would say the student has finished, which is not true after a skip. */
+  if (status === 'ADVISOR_PENDING') {
+    splitList_(r.Advisor_Emails).forEach(function(a) {
+      if (r.Type === 'ANNUAL') sendTemplate_('AR-4', a, firstNameFor_(a), { studentName: student.Name, url: url, dueLong: dateLong_(due), dueShort: dateShort_(due) }, r.Review_ID);
+      else sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterLabel_(r.Cycle), url: url, dueLong: dateLong_(due), isInterim: r.Program !== 'MA' }, r.Review_ID);
+    });
+  }
+  if (status === 'STUDENT_ACK_PENDING') sendTemplate_('AR-7', studentEmail, studentFirst, { url: url, ackDueLong: dateLong_(due) }, r.Review_ID);
 }
 
 /* GPC-only notes for the reviewer (logged). */
@@ -441,9 +579,16 @@ function alertTracker() {
     const s = studentByEmail_(r.Student_Email) || {};
     return r.Alert_Quarter && canReviewStudent_(email, s);
   }).map(function(r) {
-    const d = alertDeadline_(r.Alert_Quarter);
-    return { reviewId: r.Review_ID, student: (studentByEmail_(r.Student_Email) || {}).Name, quarter: quarterLabel_(r.Alert_Quarter), due: dateLong_(d.due),
-             petitionUntil: dateLong_(d.petitionUntil), sent: r.Alert_Sent_Date || '' };
+    const out = { reviewId: r.Review_ID, student: (studentByEmail_(r.Student_Email) || {}).Name, quarter: quarterLabel_(r.Alert_Quarter),
+                  due: '', petitionUntil: '', sent: r.Alert_Sent_Date || '' };
+    try {
+      const d = alertDeadline_(r.Alert_Quarter);
+      out.due = dateLong_(d.due);
+      out.petitionUntil = dateLong_(d.petitionUntil);
+    } catch (err) {
+      out.due = 'Not a known quarter: check the Alert quarter';
+    }
+    return out;
   });
 }
 

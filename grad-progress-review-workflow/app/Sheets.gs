@@ -98,6 +98,47 @@ function findOne_(name, field, value) {
   return findRows_(name, field, value)[0] || null;
 }
 
+/* User text must be stored as typed. Without the plain-text format, Sheets turns '3-4' or '1/2' into a date
+   and text starting with = + - @ into a formula. So every non-empty string cell gets the '@' (plain text)
+   format before its value is written. Numbers, booleans and Date objects are written as before. */
+function isTextValue_(v) {
+  return typeof v === 'string' && v !== '';
+}
+
+/* Range.setValue and setValues always read a value beginning with '=' as a formula (Apps Script
+   reference), so those strings are written as a Rich Text value instead, which is meant to hold text. */
+function startsLikeFormula_(v) {
+  return isTextValue_(v) && v.charAt(0) === '=';
+}
+
+function writeTextCell_(range, text) {
+  range.setNumberFormat('@');
+  if (startsLikeFormula_(text)) {
+    const rich = SpreadsheetApp.newRichTextValue().setText(text).build();
+    range.setRichTextValue(rich);
+    return;
+  }
+  range.setValue(text);
+}
+
+/* Writes a number, boolean, date or ''. A cell left as plain text by an earlier string write goes back
+   to the automatic format first, so a number or boolean keeps its type. */
+function writeTypedCell_(range, value) {
+  if (value !== '' && range.getNumberFormat() === '@') range.setNumberFormat('General');
+  range.setValue(value);
+}
+
+/* Column number to letters: 1 -> A, 27 -> AA. Builds A1 addresses without a call to the sheet. */
+function columnLetters_(n) {
+  let letters = '';
+  while (n > 0) {
+    const m = (n - 1) % 26;
+    letters = String.fromCharCode(65 + m) + letters;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letters;
+}
+
 /* Appends objects as rows in header order. Returns the first new row number. */
 function appendObjects_(name, objs) {
   if (!objs.length) return 0;
@@ -105,7 +146,19 @@ function appendObjects_(name, objs) {
   const headers = headersOf_(name);
   const rows = objs.map(function(o) { return headers.map(function(h) { return o[h] === undefined ? '' : o[h]; }); });
   const start = sheet.getLastRow() + 1;
-  sheet.getRange(start, 1, rows.length, headers.length).setValues(rows);
+  const textCells = [];
+  const formulaLike = [];
+  rows.forEach(function(row, r) {
+    row.forEach(function(v, c) {
+      if (!isTextValue_(v)) return;
+      textCells.push(columnLetters_(c + 1) + (start + r));
+      if (startsLikeFormula_(v)) formulaLike.push({ row: start + r, col: c + 1, text: v });
+    });
+  });
+  if (textCells.length) sheet.getRangeList(textCells).setNumberFormat('@');
+  const safeRows = rows.map(function(row) { return row.map(function(v) { return startsLikeFormula_(v) ? '' : v; }); });
+  sheet.getRange(start, 1, rows.length, headers.length).setValues(safeRows);
+  formulaLike.forEach(function(x) { writeTextCell_(sheet.getRange(x.row, x.col), x.text); });
   invalidateTable_(name);
   return start;
 }
@@ -117,7 +170,10 @@ function updateRow_(name, rowNum, fields) {
   Object.keys(fields).forEach(function(k) {
     const i = headers.indexOf(k);
     if (i === -1) throw new Error('Unknown column ' + k + ' in ' + name);
-    sheet.getRange(rowNum, i + 1).setValue(fields[k]);
+    const cell = sheet.getRange(rowNum, i + 1);
+    const value = fields[k];
+    if (isTextValue_(value)) writeTextCell_(cell, value);
+    else writeTypedCell_(cell, value);
   });
   invalidateTable_(name);
 }

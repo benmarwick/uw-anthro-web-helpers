@@ -258,7 +258,7 @@
 
   function missingForm(names) {
     if (!names.length) return '<p class="ok">Every instructor has an email.</p>';
-    return '<h3>Instructors without an email</h3><p class="muted">Launch stays disabled until each has one. Check new names in the UW Directory.</p>' + names.map(function (n, i) {
+    return '<h3>Instructors without an email</h3><p class="muted">Launch stays disabled until each has one. Check new names in the UW Directory. A graduate student is never asked: choose "graduate student" and leave the email blank.</p>' + names.map(function (n, i) {
       return '<div class="card"><strong>' + esc(n) + '</strong><div class="grid2"><div><label for="em' + i + '">UW email</label><input type="email" id="em' + i + '"></div>' +
         '<div><label for="ap' + i + '">Appointment</label><select id="ap' + i + '"><option value="">As found in the CEC</option><option>faculty</option><option>graduate student</option><option>other</option></select></div></div>' +
         '<button data-save="' + i + '" data-name="' + esc(n) + '">Save</button></div>';
@@ -279,7 +279,12 @@
     var i = e.target.getAttribute('data-save');
     if (i === null) return;
     call('saveInstructor', e.target.getAttribute('data-name'), document.getElementById('em' + i).value, document.getElementById('ap' + i).value)
-      .then(function () { e.target.textContent = 'Saved'; e.target.disabled = true; loadPages(); }).catch(function (er) { say(er.message, 'bad'); });
+      .then(function (res) {
+        e.target.textContent = 'Saved';
+        e.target.disabled = true;
+        if (res && res.gradStudent) say('Saved as a graduate student, who is never asked. Click Import again to update the pages.', 'ok');
+        loadPages();
+      }).catch(function (er) { say(er.message, 'bad'); });
   });
 
   document.getElementById('preview').onclick = function () {
@@ -288,7 +293,7 @@
   };
   document.getElementById('import').onclick = function () {
     say('Importing…');
-    call('importCourseFeedback', q(), REG, TSD).then(function (p) { showPreview(p); say('Imported: ' + p.created + ' new instructor page(s).', 'ok'); tip('bridgeTip', 'Imported ' + p.created + ' new page(s). Nothing is emailed yet. Next: add any missing instructor emails under "Instructor pages this quarter".'); loadPages(); }).catch(function (e) { say(e.message, 'bad'); });
+    call('importCourseFeedback', q(), REG, TSD).then(function (p) { showPreview(p); say('Imported: ' + p.created + ' new instructor page(s).' + (p.invited ? ' ' + p.invited + ' address(es) added to page(s) already sent were emailed the page link.' : ''), 'ok'); tip('bridgeTip', 'Imported ' + p.created + ' new page(s). ' + (p.invited ? 'Only addresses added to pages already sent were emailed. ' : 'Nothing is emailed yet. ') + 'Next: add any missing instructor emails under "Instructor pages this quarter".'); loadPages(); }).catch(function (e) { say(e.message, 'bad'); });
   };
   document.getElementById('launch').onclick = function () {
     if (!confirm('Send every new instructor page for ' + q() + ' now?')) return;
@@ -348,7 +353,7 @@
 
   document.getElementById('pages').addEventListener('click', function (e) {
     var co = e.target.getAttribute('data-co'), re = e.target.getAttribute('data-reissue');
-    if (co) call('addCoInstructor', co, document.getElementById('co_' + co).value).then(function () { say('Co-instructor added.', 'ok'); loadPages(); }).catch(function (er) { say(er.message, 'bad'); });
+    if (co) call('addCoInstructor', co, document.getElementById('co_' + co).value).then(function (res) { say(res && res.invited ? 'Co-instructor added and emailed the page link.' : 'Co-instructor added.', 'ok'); loadPages(); }).catch(function (er) { say(er.message, 'bad'); });
     if (re) call('reissueRequest', re, document.getElementById('re_' + re).value).then(function () { say('Page re-sent.', 'ok'); loadPages(); }).catch(function (er) { say(er.message, 'bad'); });
   });
 

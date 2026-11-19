@@ -17,11 +17,22 @@ function sendAdminAlert_(params) {
   try { rawSendEmail_(emailParams); } catch (err) { logError_('Health.sendAdminAlert', 'Alert email failed', { error: err.message }); }
 }
 
-/* Reviews left in PDF_GENERATING (for example after a timeout) are finished on the hourly run. */
+/* Reviews left in PDF_GENERATING (for example after a timeout) are finished on the next run.
+   The lock keeps this from racing a Submit that is building the same PDF; if it is busy, the next
+   run tries again. A failure here is only logged: this sweep is itself the retry, so it never adds
+   dead-letter entries (one would be added every run while the PDF keeps failing). */
 function generatePendingPdfs_() {
-  readTable_(C_().SHEETS.REVIEWS).filter(function(r) { return r.Status === 'PDF_GENERATING'; }).slice(0, 5).forEach(function(r) {
-    finishReview_(r.Review_ID);
-  });
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;
+  try {
+    invalidateTable_(C_().SHEETS.REVIEWS);
+    const pending = readTable_(C_().SHEETS.REVIEWS).filter(function(r) { return r.Status === 'PDF_GENERATING'; }).slice(0, 5);
+    pending.forEach(function(r) {
+      finishReview_(r.Review_ID, { noEnqueue: true });
+    });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function getQuotaStatus_() {

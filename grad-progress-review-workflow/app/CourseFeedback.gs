@@ -22,7 +22,8 @@ function launchCourseFeedback_(quarter, actor) {
     const t = newToken_();
     const students = activeStudentsForRequest_(r);
     if (!students.length) { updateRow_(S.REQUESTS, r._row, { Status: 'CLOSED' }); return; }
-    updateRow_(S.REQUESTS, r._row, { Status: 'SENT', Secure_Token: t.token, Token_Expiry: new Date(isoToUtc_(w.release) + 30 * 86400000).toISOString(), Due_Date: w.due });
+    updateRow_(S.REQUESTS, r._row, { Status: 'SENT', Secure_Token: t.token, Token_Expiry: new Date(isoToUtc_(w.release) + 30 * 86400000).toISOString(), Due_Date: w.due,
+      Reminder_Count: remindersPassed_(w, todayIso_()) });
     splitList_(r.Instructor_Emails).forEach(function(em) {
       sendTemplate_('CF-1', em, firstNameFor_(em), {
         course: r.Offering, quarter: quarterLabel_(quarter), n: students.length, url: appUrl_({ f: t.token }),
@@ -40,6 +41,12 @@ function launchCourseFeedbackFromPage(quarter) {
   const actor = assertAdminOrGpc_();
   if (!/^(AUT|WIN|SPR|SUM)\d{4}$/.test(String(quarter))) throw new Error('Choose a quarter.');
   return launchCourseFeedback_(quarter, actor);
+}
+
+/* How many of the window's reminder dates fall on or before `today`. A page sent after a reminder date
+   starts with that reminder counted, so the daily run's catch-up does not send it the day after CF-1. */
+function remindersPassed_(w, today) {
+  return w.reminders.filter(function(d) { return d <= today; }).length;
 }
 
 function activeStudentsForRequest_(req) {
@@ -65,10 +72,20 @@ function loadRequestForInstructor_(token) {
   if (isExpired_(r.Token_Expiry)) return { error: 'This link has expired. Reply to the invitation email and we will send a new one.' };
   const email = activeEmail_();
   if (!email) return { error: 'Sign in with your UW Google account to open this page.' };
-  if (splitList_(r.Instructor_Emails).indexOf(email) === -1 && !isAdmin_(email)) {
+  const isInstructor = splitList_(r.Instructor_Emails).indexOf(email) !== -1;
+  if (!isInstructor && !isAdmin_(email)) {
     return { error: 'This page is for the instructors of ' + r.Offering + '. You are signed in as ' + email + '.' };
   }
-  return { request: r, email: email };
+  /* The administrator may open the page to look at it (privacy notice), but never takes the lock or saves. */
+  return { request: r, email: email, viewOnly: !isInstructor };
+}
+
+/* For saving and "Not my course": only a listed instructor. */
+function loadRequestForEditing_(token) {
+  const a = loadRequestForInstructor_(token);
+  if (a.error) throw new Error(a.error);
+  if (a.viewOnly) throw new Error('Only the instructors of ' + a.request.Offering + ' can change this page. You can view it.');
+  return a;
 }
 
 function pageClosed_(r) { return r.Status === 'CLOSED' || r.Status === 'NOT_MY_COURSE' || (r.Due_Date && daysBetween_(r.Due_Date, todayIso_()) > 0); }
@@ -85,7 +102,7 @@ function loadFeedbackPage(token) {
   const closed = pageClosed_(r);
   const lock = lockDecision_(r.Lock_Owner, r.Lock_Until ? new Date(r.Lock_Until).getTime() : 0, a.email, Date.now(), C_().CF_LOCK_MINUTES);
   const shared = splitList_(r.Instructor_Emails).length > 1;
-  if (shared && lock.allowed && !closed) updateRow_(S.REQUESTS, r._row, { Lock_Owner: a.email, Lock_Until: new Date(lock.until).toISOString() });
+  if (shared && lock.allowed && !closed && !a.viewOnly) updateRow_(S.REQUESTS, r._row, { Lock_Owner: a.email, Lock_Until: new Date(lock.until).toISOString() });
   const comments = {};
   commentsForRequest_(r.Request_ID).forEach(function(c) { comments[normEmail_(c.Student_Email)] = c; });
   const students = activeStudentsForRequest_(r).map(function(e) {
@@ -104,7 +121,7 @@ function loadFeedbackPage(token) {
   });
   return {
     offering: r.Offering, quarter: quarterLabel_(r.Quarter), due: r.Due_Date ? dateLong_(r.Due_Date) : '', closed: closed,
-    readOnlyLock: shared && !lock.allowed, lockOwner: lock.allowed ? '' : lock.owner, levels: CF_LEVELS_, students: students,
+    readOnlyLock: shared && !lock.allowed && !a.viewOnly, lockOwner: lock.allowed ? '' : lock.owner, viewOnly: !!a.viewOnly, levels: CF_LEVELS_, students: students,
     signature: r.Signature || '', minutes: r.Minutes_Bucket || '', status: r.Status
   };
 }
@@ -123,10 +140,13 @@ function validateFeedbackEntry_(f, final) {
   return '';
 }
 
-/* Saves a draft (final=false) or submits the page (final=true). */
+/* Saves a draft (final=false) or submits the page (final=true).
+   Every entry and the signature are checked first; nothing is written unless the whole save is valid.
+   A draft save never changes a comment that has already been submitted (any status past DRAFT): that
+   would put unchecked text into a comment the GPC has checked, or will release as it stands. Changes
+   to a submitted comment go in with Submit, which sends it back through the GPC's check. */
 function saveFeedbackPage(token, data, final) {
-  const a = loadRequestForInstructor_(token);
-  if (a.error) throw new Error(a.error);
+  const a = loadRequestForEditing_(token);
   const rl = checkRateLimit_(a.email, 'cf_save', 120);
   if (!rl.allowed) throw new Error('Too many saves in an hour. Please wait a few minutes.');
   const lockSvc = LockService.getScriptLock();
@@ -134,6 +154,7 @@ function saveFeedbackPage(token, data, final) {
   try {
     const S = C_().SHEETS;
     const r = findOne_(S.REQUESTS, 'Request_ID', a.request.Request_ID);
+    if (['NOT_MY_COURSE', 'REISSUED'].indexOf(r.Status) !== -1) throw new Error('This page has been passed to another instructor and can no longer be changed.');
     const shared = splitList_(r.Instructor_Emails).length > 1;
     const lock = lockDecision_(r.Lock_Owner, r.Lock_Until ? new Date(r.Lock_Until).getTime() : 0, a.email, Date.now(), C_().CF_LOCK_MINUTES);
     if (shared && !lock.allowed) throw new Error('A co-instructor (' + lock.owner + ') is editing this page. It will open for you when they finish.');
@@ -143,7 +164,11 @@ function saveFeedbackPage(token, data, final) {
     const allowed = {};
     activeStudentsForRequest_(r).forEach(function(e) { allowed[normEmail_(e.Student_Email)] = e; });
     const entries = (data && data.students) || {};
+
+    /* Pass 1: check everything and plan the writes. */
     const problems = [];
+    const planned = [];
+    let skipped = 0;
     Object.keys(entries).forEach(function(em) {
       const email = normEmail_(em);
       const enr = allowed[email];
@@ -152,13 +177,15 @@ function saveFeedbackPage(token, data, final) {
       const c = existing[email];
       const returnedOpen = c && (c.Status === 'RETURNED' || c.Status === 'STUDENT_ONLY') && c.Return_Until && daysBetween_(todayIso_(), c.Return_Until) >= 0;
       if (closed && !returnedOpen) return;
+      const alreadySubmitted = c && c.Status && c.Status !== 'DRAFT';
+      if (!final && alreadySubmitted) { skipped++; return; }
       const msg = validateFeedbackEntry_(f, final);
       if (msg) { problems.push((findOne_(S.STUDENTS, 'Email', email) || {}).Name + ': ' + msg); return; }
       let status = 'DRAFT';
       if (final) {
         if (returnedOpen) status = c.Status === 'RETURNED' ? nextCommentStatus_('RETURNED', 'revise') : nextCommentStatus_('STUDENT_ONLY', 'revise');
         else status = initialCommentStatus_(f.contact);
-      } else if (c && c.Status && c.Status !== 'DRAFT') status = c.Status;
+      }
       const fields = {
         Contact: f.contact || '', Rating_Written: f.contact === 'enough' ? f.written : '', Rating_Discussion: f.contact === 'enough' ? f.discussion : '',
         Rating_Literature: f.contact === 'enough' ? f.literature : '', Strength: f.contact === 'enough' ? sanitizeText_(f.strength, 500) : '',
@@ -166,31 +193,44 @@ function saveFeedbackPage(token, data, final) {
         Followup_Note: f.followup ? sanitizeText_(f.followupNote, 1000) : '', Status: status
       };
       if (final) { fields.Submitted_By = a.email; fields.Submitted_At = nowIso_(); }
-      if (c) updateRow_(S.COMMENTS, c._row, fields);
-      else appendObjects_(S.COMMENTS, [Object.assign({ Feedback_ID: newId_('FB'), Request_ID: r.Request_ID, Quarter: r.Quarter, Student_Email: email,
-        Course: enr.Curric + ' ' + enr.Course_Number, Instructor_Names: r.Instructor_Names }, fields)]);
-      if (final && f.followup) openFollowup_(r, email);
+      planned.push({ email: email, enr: enr, existing: c, fields: fields, followup: final && !!f.followup });
     });
     if (problems.length) throw new Error('Please ' + problems.join('; ') + '.');
+    if (final && !String((data && data.signature) || '').trim()) throw new Error('Please type your name to sign.');
+    if (final && closed && !planned.length) throw new Error('This page has closed. Only a comment the GPC returned to you can still be revised.');
+
+    /* Pass 2: write. */
+    planned.forEach(function(p) {
+      if (p.existing) updateRow_(S.COMMENTS, p.existing._row, p.fields);
+      else appendObjects_(S.COMMENTS, [Object.assign({ Feedback_ID: newId_('FB'), Request_ID: r.Request_ID, Quarter: r.Quarter, Student_Email: p.email,
+        Course: p.enr.Curric + ' ' + p.enr.Course_Number, Instructor_Names: r.Instructor_Names }, p.fields)]);
+      if (p.followup) openFollowup_(r, p.email);
+    });
     const reqFields = { Lock_Owner: shared ? a.email : '', Lock_Until: shared ? new Date(Date.now() + C_().CF_LOCK_MINUTES * 60000).toISOString() : '' };
     if (final) {
-      if (!String(data.signature || '').trim()) throw new Error('Please type your name to sign.');
-      Object.assign(reqFields, { Status: 'SUBMITTED', Signature: sanitizeText_(data.signature, 200, false), Submitted_By: a.email, Submitted_At: nowIso_(),
+      /* Submitting releases the co-taught lock (build-spec §1.2). A closed page keeps its status. */
+      reqFields.Lock_Owner = '';
+      reqFields.Lock_Until = '';
+      if (!closed) reqFields.Status = 'SUBMITTED';
+      Object.assign(reqFields, { Signature: sanitizeText_(data.signature, 200, false), Submitted_By: a.email, Submitted_At: nowIso_(),
         Minutes_Bucket: ['under 5', '5 to 15', 'over 15'].indexOf(data.minutes) !== -1 ? data.minutes : '' });
       logEvent_({ action: C_().ACTIONS.CF_SUBMITTED, evaluationId: r.Request_ID, actorEmail: a.email });
     } else if (r.Status === 'SENT') reqFields.Status = 'DRAFT';
     updateRow_(S.REQUESTS, r._row, reqFields);
-    return { ok: true, final: !!final };
+    return { ok: true, final: !!final, skipped: skipped };
   } finally {
     lockSvc.releaseLock();
   }
 }
 
-/* "Not my course" (build-spec §1.2): the page ends, the instructor is thanked, the administrator is alerted. */
+/* "Not my course" (build-spec §1.2): the page ends, the instructor is thanked, the administrator is alerted.
+   Only from SENT or DRAFT. */
 function notMyCourse(token, suggested) {
-  const a = loadRequestForInstructor_(token);
-  if (a.error) throw new Error(a.error);
+  const a = loadRequestForEditing_(token);
   const r = a.request;
+  if (['SENT', 'DRAFT'].indexOf(r.Status) === -1) {
+    throw new Error('This page can no longer be marked "Not my course". If it is not your course, reply to the invitation email and we will sort it out.');
+  }
   updateRow_(C_().SHEETS.REQUESTS, r._row, { Status: 'NOT_MY_COURSE', Not_Mine_By: a.email, Not_Mine_Suggested: sanitizeText_(suggested, 200, false) });
   sendTemplate_('CF-4', a.email, firstNameFor_(a.email), { course: r.Offering }, r.Request_ID);
   if (C_().ADMIN_EMAIL) {
@@ -211,9 +251,14 @@ function reissueRequest(requestId, instructorEmails) {
   if (!emails.length) throw new Error('Enter at least one @uw.edu address.');
   const t = newToken_();
   const id = newId_('CF');
-  appendObjects_(S.REQUESTS, [{ Request_ID: id, Request_Key: r.Request_Key, Quarter: r.Quarter, Offering: r.Offering, Instructor_Names: '',
+  const names = emails.map(instructorNameForEmail_);
+  let reminderCount = 0;
+  try {
+    reminderCount = remindersPassed_(courseFeedbackWindow_(r.Quarter, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES), todayIso_());
+  } catch (err) { reminderCount = 0; }
+  appendObjects_(S.REQUESTS, [{ Request_ID: id, Request_Key: r.Request_Key, Quarter: r.Quarter, Offering: r.Offering, Instructor_Names: names.join(' / '),
     Instructor_Emails: emails.join(', '), Status: 'SENT', Secure_Token: t.token, Token_Expiry: r.Token_Expiry || t.expiry, Due_Date: r.Due_Date,
-    Reminder_Count: 0, Created_At: nowIso_() }]);
+    Reminder_Count: reminderCount, Created_At: nowIso_() }]);
   updateRow_(S.REQUESTS, r._row, { Status: 'REISSUED' });   // the new row carries the same Request_Key
   const n = activeStudentsForRequest_(r).length;
   emails.forEach(function(em) {
@@ -222,6 +267,12 @@ function reissueRequest(requestId, instructorEmails) {
   });
   logEvent_({ action: C_().ACTIONS.MANUAL_OVERRIDE, evaluationId: id, details: { reissuedFrom: requestId }, actorEmail: actor });
   return id;
+}
+
+/* The Time Schedule name the Instructors sheet holds for an address (e.g. 'Marwick,B'), or the address itself. */
+function instructorNameForEmail_(email) {
+  const rec = findOne_(C_().SHEETS.INSTRUCTORS, 'Email', normEmail_(email));
+  return rec && rec.TS_Name ? String(rec.TS_Name) : email;
 }
 
 /* ---------- Follow-up flags (course-feedback plan §5.3) ---------- */
@@ -307,33 +358,59 @@ function returnComment(feedbackId, reason, gpcNote) {
   return until;
 }
 
-/* Releases the quarter's comments for the students the caller reviews (§6.2 step 3). */
+/* Resolves a comment that went to the student only (build-spec §1.2: STUDENT_ONLY → RESOLVED). */
+function resolveComment(feedbackId) {
+  const x = loadCommentForReviewer_(feedbackId);
+  if (x.c.Status !== 'STUDENT_ONLY') throw new Error('Only a comment released to the student only can be resolved; this one is ' + x.c.Status + ' and cannot be.');
+  updateRow_(C_().SHEETS.COMMENTS, x.c._row, { Status: nextCommentStatus_('STUDENT_ONLY', 'resolve') });
+  logEvent_({ action: C_().ACTIONS.CF_CHECKED, evaluationId: feedbackId, oldStatus: 'STUDENT_ONLY', newStatus: 'RESOLVED', actorEmail: x.email });
+  return true;
+}
+
+/* Releases the quarter's comments for the students the caller reviews (§6.2 step 3).
+   The student gets CF-9 only if a comment with text was released to them; the advisor gets CF-10 only
+   for comments they can see (RELEASED, not STUDENT_ONLY). NO_CONTACT rows are still released, for the
+   coverage line, but on their own send no email. Runs under the script lock so a double click
+   cannot release twice. */
 function releaseQuarter(quarter) {
   const email = activeEmail_();
   const mine = reviewableStudents_(email);
-  const S = C_().SHEETS;
-  const comments = readTable_(S.COMMENTS).filter(function(c) { return c.Quarter === quarter && mine.indexOf(normEmail_(c.Student_Email)) !== -1 && !c.Released_At; });
-  const unchecked = comments.filter(function(c) { return c.Status === 'SUBMITTED' || c.Status === 'REVISED'; });
-  if (unchecked.length) throw new Error(unchecked.length + ' comment(s) still need your check before release.');
-  const now = nowIso_(), notified = {}, advisorCounts = {};
-  comments.forEach(function(c) {
-    let status = c.Status;
-    if (status === 'CHECKED') status = nextCommentStatus_('CHECKED', 'release');
-    else if (status === 'RETURNED') status = nextCommentStatus_('RETURNED', 'releaseDay');
-    else if (status !== 'NO_CONTACT') return;
-    updateRow_(S.COMMENTS, c._row, { Status: status, Released_At: now });
-    notified[normEmail_(c.Student_Email)] = true;
-  });
-  Object.keys(notified).forEach(function(st) {
-    const s = findOne_(S.STUDENTS, 'Email', st) || {};
-    sendTemplate_('CF-9', st, s.Preferred_First || firstNameFor_(st), { quarter: quarterLabel_(quarter), url: appUrl_({ view: 'student' }) }, quarter);
-    splitList_(s.Advisor_Emails).forEach(function(a) { advisorCounts[a] = (advisorCounts[a] || 0) + 1; });
-  });
-  Object.keys(advisorCounts).forEach(function(a) {
-    sendTemplate_('CF-10', a, firstNameFor_(a), { quarter: quarterLabel_(quarter), n: advisorCounts[a], url: appUrl_({ view: 'advisor' }) }, quarter);
-  });
-  logEvent_({ action: C_().ACTIONS.CF_RELEASED, evaluationId: quarter, details: { students: Object.keys(notified).length }, actorEmail: email });
-  return Object.keys(notified).length;
+  const lockSvc = LockService.getScriptLock();
+  lockSvc.waitLock(20000);
+  try {
+    const S = C_().SHEETS;
+    const comments = readTable_(S.COMMENTS).filter(function(c) { return c.Quarter === quarter && mine.indexOf(normEmail_(c.Student_Email)) !== -1 && !c.Released_At; });
+    const unchecked = comments.filter(function(c) { return c.Status === 'SUBMITTED' || c.Status === 'REVISED'; });
+    if (unchecked.length) throw new Error(unchecked.length + ' comment(s) still need your check before release.');
+    const now = nowIso_();
+    const notified = {};
+    const advisorSees = {};
+    const advisorCounts = {};
+    comments.forEach(function(c) {
+      let status = c.Status;
+      if (status === 'CHECKED') status = nextCommentStatus_('CHECKED', 'release');
+      else if (status === 'RETURNED') status = nextCommentStatus_('RETURNED', 'releaseDay');
+      else if (status !== 'NO_CONTACT') return;
+      updateRow_(S.COMMENTS, c._row, { Status: status, Released_At: now });
+      const st = normEmail_(c.Student_Email);
+      if (status === 'NO_CONTACT') return;
+      notified[st] = true;
+      if (commentVisibility_(status).advisor) advisorSees[st] = true;
+    });
+    Object.keys(notified).forEach(function(st) {
+      const s = findOne_(S.STUDENTS, 'Email', st) || {};
+      sendTemplate_('CF-9', st, s.Preferred_First || firstNameFor_(st), { quarter: quarterLabel_(quarter), url: appUrl_({ view: 'student' }) }, quarter);
+      if (!advisorSees[st]) return;
+      splitList_(s.Advisor_Emails).forEach(function(a) { advisorCounts[a] = (advisorCounts[a] || 0) + 1; });
+    });
+    Object.keys(advisorCounts).forEach(function(a) {
+      sendTemplate_('CF-10', a, firstNameFor_(a), { quarter: quarterLabel_(quarter), n: advisorCounts[a], url: appUrl_({ view: 'advisor' }) }, quarter);
+    });
+    logEvent_({ action: C_().ACTIONS.CF_RELEASED, evaluationId: quarter, details: { students: Object.keys(notified).length }, actorEmail: email });
+    return Object.keys(notified).length;
+  } finally {
+    lockSvc.releaseLock();
+  }
 }
 
 /* Records a follow-up conversation. createInterim: the GPC confirms an interim check-in. */

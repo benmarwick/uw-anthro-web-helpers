@@ -15,7 +15,7 @@ function rosterPageData(quarter) {
     quarterLabel: quarterLabel_(q),
     curriculaFilter: C_().CF_ALL_DEPARTMENTS ? null : C_().CF_CURRICULA_PHASE1,
     window: q ? courseFeedbackWindow_(q, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES) : null,
-    missingEmails: readTable_(C_().SHEETS.INSTRUCTORS).filter(function(r) { return !r.Email; }).map(function(r) { return r.TS_Name; }),
+    missingEmails: readTable_(C_().SHEETS.INSTRUCTORS).filter(function(r) { return !r.Email && !isGradStudentAppointment_(r.Appointment); }).map(function(r) { return r.TS_Name; }),
     requests: (function() {
       const inst = instructorsMap_();
       return readTable_(C_().SHEETS.REQUESTS).filter(function(r) { return r.Quarter === q; }).map(function(r) {
@@ -149,6 +149,38 @@ function pageMissingInstructors_(req, instructors) {
   });
 }
 
+function isGradStudentAppointment_(appointment) {
+  return String(appointment || '').toLowerCase() === 'graduate student';
+}
+
+/* The addresses of instructors marked as graduate students in the Instructors sheet. */
+function gradStudentEmails_() {
+  const emails = {};
+  readTable_(C_().SHEETS.INSTRUCTORS).forEach(function(r) {
+    if (r.Email && isGradStudentAppointment_(r.Appointment)) emails[normEmail_(r.Email)] = true;
+  });
+  return emails;
+}
+
+/* Pages that have been sent and can still be edited (co-instructors may edit until the page closes, plan §4.3). */
+var LATE_INVITE_STATUSES_ = ['SENT', 'DRAFT', 'SUBMITTED'];
+
+/* A page already sent (it has a link and is still open) gives each address added later its own CF-1, with the
+   same link and due date the others had. A page not yet sent waits for Launch. Returns how many were sent. */
+function sendLateInvitations_(req, newEmails) {
+  if (!newEmails.length) return 0;
+  if (LATE_INVITE_STATUSES_.indexOf(req.Status) === -1) return 0;
+  if (!req.Secure_Token || pageClosed_(req)) return 0;
+  const n = activeStudentsForRequest_(req).length;
+  newEmails.forEach(function(em) {
+    sendTemplate_('CF-1', em, firstNameFor_(em), {
+      course: req.Offering, quarter: quarterLabel_(req.Quarter), n: n, url: appUrl_({ f: req.Secure_Token }),
+      notMineUrl: appUrl_({ f: req.Secure_Token, nmc: 1 }), dueLong: dateLong_(req.Due_Date)
+    }, req.Request_ID);
+  });
+  return newEmails.length;
+}
+
 function instructorsMap_() {
   const map = {};
   readTable_(C_().SHEETS.INSTRUCTORS).forEach(function(r) {
@@ -169,9 +201,12 @@ function previewCourseFeedback(quarter, mygrad, tsData) {
   assertAdminOrGpc_();
   validateRosterInputs_(quarter, mygrad, tsData);
   const instructors = instructorsMap_();
+  /* The same appointments Import would write: new names take the CEC's, known names only when blank. */
   Object.keys(tsData.appointments || {}).forEach(function(k) {
     const name = normalizeInstructorName_(k);
-    if (instructors[name] && !instructors[name].appointment) instructors[name].appointment = tsData.appointments[k].appointment;
+    const appointment = tsData.appointments[k].appointment;
+    if (!instructors[name]) instructors[name] = { email: '', appointment: appointment };
+    else if (!instructors[name].appointment) instructors[name].appointment = appointment;
   });
   const res = joinRegistrations_(mygrad.registrations, tsData.sections, studentsMap_(), instructors,
     { curricula: C_().CF_ALL_DEPARTMENTS ? null : C_().CF_CURRICULA_PHASE1 });
@@ -230,15 +265,30 @@ function importCourseFeedback(quarter, mygrad, tsData) {
     }));
 
     /* Feedback_Requests: one per page; keep tokens and status, and any co-instructor added by hand. */
-    const reqs = {};
-    readTable_(S.REQUESTS).forEach(function(r) { if (r.Quarter === quarter && r.Status !== 'REISSUED') reqs[r.Request_Key] = r; });
+    const reqs = {}, reissued = {};
+    readTable_(S.REQUESTS).forEach(function(r) {
+      if (r.Quarter !== quarter) return;
+      if (r.Status === 'REISSUED') reissued[r.Request_Key] = true;
+      else reqs[r.Request_Key] = r;
+    });
     const created = [];
+    let invited = 0;
     res.requests.forEach(function(r) {
       const ex = reqs[r.requestKey];
       if (ex) {
+        /* A page re-sent after "Not my course" keeps the addresses the administrator chose. */
         const emails = splitList_(ex.Instructor_Emails);
-        r.instructorEmails.forEach(function(em) { if (emails.indexOf(em) === -1) emails.push(em); });
+        const added = [];
+        if (!reissued[r.requestKey]) {
+          r.instructorEmails.forEach(function(em) {
+            const address = normEmail_(em);
+            if (emails.indexOf(address) !== -1) return;
+            emails.push(address);
+            added.push(address);
+          });
+        }
         updateRow_(S.REQUESTS, ex._row, { Offering: r.offering, Instructor_Emails: emails.join(', ') });
+        invited += sendLateInvitations_(Object.assign({}, ex, { Instructor_Emails: emails.join(', ') }), added);
         delete reqs[r.requestKey];
       } else {
         created.push({ Request_ID: newId_('CF'), Request_Key: r.requestKey, Quarter: quarter, Offering: r.offering,
@@ -253,56 +303,88 @@ function importCourseFeedback(quarter, mygrad, tsData) {
     });
     logEvent_({ action: C_().ACTIONS.ROSTER_IMPORTED, evaluationId: quarter, details: res.counts, actorEmail: actor });
     SpreadsheetApp.flush();   // commit every write before the lock is released and the page reloads its list
-    return { summary: joinSummary_(res.counts), created: created.length, missingInstructors: res.missingInstructors, canLaunch: res.canLaunch };
+    return { summary: joinSummary_(res.counts), created: created.length, invited: invited, missingInstructors: res.missingInstructors, canLaunch: res.canLaunch };
   } finally {
     lock.releaseLock();
   }
 }
 
-/* Fills in an instructor's email (and optionally confirms the appointment) from the Roster page. */
+/* Fills in an instructor's email (and optionally confirms the appointment) from the Roster page.
+   A graduate student is never asked (principle 8): their email is optional and never goes on a page. */
 function saveInstructor(tsName, email, appointment) {
   const actor = assertAdminOrGpc_();
   email = normEmail_(email);
-  if (!/^[^@\s]+@uw\.edu$/.test(email)) throw new Error('Enter a @uw.edu address.');
   if (appointment && ['faculty', 'graduate student', 'other'].indexOf(appointment) === -1) throw new Error('Unknown appointment.');
   const row = readTable_(C_().SHEETS.INSTRUCTORS).filter(function(r) { return normalizeInstructorName_(r.TS_Name) === normalizeInstructorName_(tsName); })[0];
-  const fields = { Email: email, Checked_By: actor, Checked_At: nowIso_() };
+  const effectiveAppointment = appointment || (row ? row.Appointment : '');
+  const gradStudent = isGradStudentAppointment_(effectiveAppointment);
+  if (!gradStudent && !/^[^@\s]+@uw\.edu$/.test(email)) throw new Error('Enter a @uw.edu address.');
+  if (email && !/^[^@\s]+@uw\.edu$/.test(email)) throw new Error('Enter a @uw.edu address, or leave it blank for a graduate student.');
+  const fields = { Checked_By: actor, Checked_At: nowIso_() };
+  if (email) fields.Email = email;
   if (appointment) { fields.Appointment = appointment; fields.Appointment_Source = 'administrator'; }
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     if (row) updateRow_(C_().SHEETS.INSTRUCTORS, row._row, fields);
-    else appendObjects_(C_().SHEETS.INSTRUCTORS, [Object.assign({ TS_Name: tsName }, fields)]);
+    else appendObjects_(C_().SHEETS.INSTRUCTORS, [Object.assign({ TS_Name: tsName, Email: '' }, fields)]);
     /* Pages not yet sent that name this instructor get the address now, so Launch does not need a second Import.
-       A page already sent keeps its list: an instructor added to it later would never have had CF-1. */
+       A page already sent keeps its list: an instructor added to it later would never have had CF-1.
+       A graduate student's address never goes on a page; Import again to update the exclusions. */
     const name = normalizeInstructorName_(tsName);
     let pages = 0;
-    readTable_(C_().SHEETS.REQUESTS).forEach(function(r) {
-      if (r.Status !== 'NOT_STARTED') return;
-      const names = String(r.Instructor_Names || '').split(/\s*\/\s*/).map(normalizeInstructorName_);
-      if (names.indexOf(name) === -1) return;
-      const emails = splitList_(r.Instructor_Emails);
-      if (emails.indexOf(email) !== -1) return;
-      emails.push(email);
-      updateRow_(C_().SHEETS.REQUESTS, r._row, { Instructor_Emails: emails.join(', ') });
-      pages++;
-    });
+    if (gradStudent) {
+      /* An address put on an unsent page before this person was marked a graduate student comes off again. */
+      const remove = [email, row ? normEmail_(row.Email) : ''].filter(Boolean);
+      readTable_(C_().SHEETS.REQUESTS).forEach(function(r) {
+        if (r.Status !== 'NOT_STARTED') return;
+        const emails = splitList_(r.Instructor_Emails);
+        const kept = emails.filter(function(em) { return remove.indexOf(em) === -1; });
+        if (kept.length === emails.length) return;
+        updateRow_(C_().SHEETS.REQUESTS, r._row, { Instructor_Emails: kept.join(', ') });
+        pages++;
+      });
+    } else {
+      readTable_(C_().SHEETS.REQUESTS).forEach(function(r) {
+        if (r.Status !== 'NOT_STARTED') return;
+        const names = String(r.Instructor_Names || '').split(/\s*\/\s*/).map(normalizeInstructorName_);
+        if (names.indexOf(name) === -1) return;
+        const emails = splitList_(r.Instructor_Emails);
+        if (emails.indexOf(email) !== -1) return;
+        emails.push(email);
+        updateRow_(C_().SHEETS.REQUESTS, r._row, { Instructor_Emails: emails.join(', ') });
+        pages++;
+      });
+    }
     SpreadsheetApp.flush();
-    return { pages: pages };
+    return { pages: pages, gradStudent: gradStudent };
   } finally {
     lock.releaseLock();
   }
 }
 
-/* Adds a co-instructor the Time Schedule does not show (course-feedback plan §4.2). */
+/* Adds a co-instructor the Time Schedule does not show (course-feedback plan §4.2). On a page already sent,
+   the new address gets CF-1 at once (sendLateInvitations_); a page not yet sent waits for Launch. */
 function addCoInstructor(requestId, email) {
   assertAdminOrGpc_();
   email = normEmail_(email);
   if (!/^[^@\s]+@uw\.edu$/.test(email)) throw new Error('Enter a @uw.edu address.');
-  const r = findOne_(C_().SHEETS.REQUESTS, 'Request_ID', requestId);
-  if (!r) throw new Error('Page not found.');
-  const emails = splitList_(r.Instructor_Emails);
-  if (emails.indexOf(email) === -1) emails.push(email);
-  updateRow_(C_().SHEETS.REQUESTS, r._row, { Instructor_Emails: emails.join(', ') });
-  return emails;
+  if (gradStudentEmails_()[email]) throw new Error('That address belongs to an instructor marked as a graduate student, who is never asked.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const r = findOne_(C_().SHEETS.REQUESTS, 'Request_ID', requestId);
+    if (!r) throw new Error('Page not found.');
+    const open = r.Status === 'NOT_STARTED' || (LATE_INVITE_STATUSES_.indexOf(r.Status) !== -1 && !pageClosed_(r));
+    if (!open) throw new Error('This page is closed, so a co-instructor cannot be added.');
+    const emails = splitList_(r.Instructor_Emails);
+    if (emails.indexOf(email) !== -1) return { emails: emails, invited: false };
+    emails.push(email);
+    updateRow_(C_().SHEETS.REQUESTS, r._row, { Instructor_Emails: emails.join(', ') });
+    SpreadsheetApp.flush();
+    const invited = sendLateInvitations_(Object.assign({}, r, { Instructor_Emails: emails.join(', ') }), [email]) > 0;
+    return { emails: emails, invited: invited };
+  } finally {
+    lock.releaseLock();
+  }
 }

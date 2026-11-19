@@ -40,7 +40,7 @@
       ['Satisfactory', 'Satisfactory with concerns', 'Unsatisfactory'].map(function (x) { return '<option' + (x === r.finalRating ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></div>' +
       '<div><label for="sa_' + id + '">Status action (separate from the rating)</label><select id="sa_' + id + '">' + ['none', 'Notification', 'Alert', 'Final Alert'].map(function (x) {
         return '<option' + (x === r.statusAction ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></div></div>' +
-      '<label for="or_' + id + '">Reason for a different rating (required if it differs from the advisor\'s)</label><input type="text" id="or_' + id + '">' +
+      '<label for="or_' + id + '">Reason for a different rating (required if it differs from the advisor\'s)</label><input type="text" id="or_' + id + '" value="' + esc(r.overrideReason) + '">' +
       '<label for="aq_' + id + '">Alert quarter (autumn by default; Anthropology does not require summer registration)</label><input type="text" id="aq_' + id + '" value="' + esc(r.alertQuarter) + '">' +
       (r.flags.some(function (f) { return f.needsDecision; }) ? '<label for="td_' + id + '">Time-limit decision (Alert, extension, or why neither applies)</label><input type="text" id="td_' + id + '" value="' + esc(r.timeLimitDecision) + '">' : '') +
       '<label for="lt_' + id + '">Letter</label><textarea id="lt_' + id + '" style="min-height:220px">' + esc(r.letterText) + '</textarea>' +
@@ -67,7 +67,7 @@
         a.map(function (x) { return '<tr><td>' + esc(x.student) + '</td><td>' + esc(x.quarter) + '</td><td>' + esc(x.due) + '</td><td>' + esc(x.petitionUntil) + '</td><td>' +
           (x.sent ? esc(x.sent) : '<label class="sr-only" for="as_' + esc(x.reviewId) + '">Date sent</label><input type="date" id="as_' + esc(x.reviewId) + '"><button data-asent="' + esc(x.reviewId) + '">Record</button>') + '</td></tr>'; }).join('') + '</tbody></table>'
         : '<p class="muted">No Alert recommendations.</p>';
-    }).catch(function () {});
+    }).catch(function (e) { document.getElementById('alerts').innerHTML = '<div class="warnbox">The Alert tracker could not load: ' + esc(e.message) + '</div>'; });
   }
 
   function payload(id) {

@@ -75,6 +75,7 @@ function generateReviewPdf_(reviewId, opts) {
   } catch (err) {
     if (doc) { try { DriveApp.getFileById(doc.getId()).setTrashed(true); } catch (e) {} }
     logEvent_({ action: C_().ACTIONS.PDF_FAILED, evaluationId: reviewId, details: { error: err.message }, actorEmail: 'SYSTEM' });
+    logError_('PdfEngine.generateReviewPdf', 'PDF generation failed', { reviewId: reviewId, error: err.message }, { evaluationId: reviewId });
     if (opts.enqueue) { enqueueDeadLetter_(DLQ_ACTIONS.GENERATE_PDF, { reviewId: reviewId }, err); return null; }
     throw err;
   }
