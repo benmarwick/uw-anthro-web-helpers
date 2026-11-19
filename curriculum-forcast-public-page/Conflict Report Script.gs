@@ -3,6 +3,7 @@
  * Triggered via the custom menu in Google Sheets.
  */
 function runScheduleChecks() {
+  requireDirectRun_();
   let ss = SpreadsheetApp.getActiveSpreadsheet();
   
   // The forAdmin tabs: one per prefix on the Settings tab.

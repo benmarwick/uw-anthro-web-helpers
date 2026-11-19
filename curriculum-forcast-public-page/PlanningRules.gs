@@ -22,6 +22,7 @@ const RULE_MARK = 'N("planning-rule")=0';
 const SORT_KEY_NOTE = 'Sort key: fills itself from Quarter (column B)';
 
 function applyPlanningRulesFromMenu() {
+  requireDirectRun_();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const src = planningSources_(ss);
   const out = [];

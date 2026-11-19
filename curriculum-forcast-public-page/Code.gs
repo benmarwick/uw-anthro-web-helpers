@@ -81,8 +81,7 @@ function getCourseData() {
         courseNum: num,
         title: idxTit > -1 ? row[idxTit] : "",
         instructor: idxInst > -1 ? row[idxInst] : "",
-        genEd: ref.codes,
-        wCredit: ref.w === "TRUE",
+        genEd: ref.codes,
         description: ref.desc,
         options: optData
       });

@@ -168,3 +168,81 @@ assert.deepStrictEqual(fs1.prefixes.map(p => [p.prefix, p.mode, p.sheetId.length
 assert.strictEqual(fs1.department, 'Geography'); assert.deepStrictEqual(fs1.options, []); assert.deepStrictEqual(fs1.genEd, ['NSc', 'DIV']);
 assert.deepStrictEqual(fs1.phrases, defaults.phrases, 'empty phrase boxes keep the defaults');
 console.log('Setup form helpers: 11 checks pass');
+
+// Scraper (Scraper.gs): Gen Ed codes from catalog headers, which write A&H as A&amp;H. Lines copied from the live ANTH page, 19 Nov 2026.
+const catalogHtml = '<a name="anth203"><p><b>ANTH 203 Introduction to Anthropological Linguistics (5) SSc/A&amp;H</b><br/>Linguistic methods. Offered: jointly with LING 203.<br/><a href="x">View course details in MyPlan: ANTH 203</a></p></a>' +
+  '<a name="anth358"><p><b>ANTH 358 Culture and Cognition (5) SSc/NSc</b><br/>Surveys theories.<br/><a href="x">View course details in MyPlan: ANTH 358</a></p></a>' +
+  '<a name="anth394"><p><b>ANTH 394 Embodied Liberation Theory and Praxis (3/5) A&amp;H/SSc, DIV</b><br/>Explores praxis.<br/><a href="x">View course details in MyPlan: ANTH 394</a></p></a>';
+const parsed = plain(S('parseCatalogPage_')(catalogHtml, anthro.prefixes, defaults.genEd));
+assert.deepStrictEqual(parsed.map(r => r[0] + ': ' + r[1]), ['ANTH 203: SSc, A&H', 'ANTH 358: NSc, SSc', 'ANTH 394: SSc, A&H, DIV'], 'Gen Ed codes, including A&H written as A&amp;H');
+assert.strictEqual(S('decodeEntities_')('A&amp;H&nbsp;&lt;b&gt;'), 'A&H <b>');
+
+// Reference tabs are left alone when a page failed, nothing was found, or the list shrank by more than half.
+const fakeSheet = oldRows => {
+  const sh = { written: null, cleared: false, getName: () => 'Ref_GenEd', getLastRow: () => oldRows + 1, clear: () => { sh.cleared = true; } };
+  sh.getRange = () => ({ setValues: v => { if (v.length > 1 || sh.cleared) sh.written = (sh.written || []).concat(v); return { setFontWeight: () => {} }; } });
+  return sh;
+};
+ctx.SpreadsheetApp = { flush: () => {} };
+const rowsOf = n => Array.from({ length: n }, (_, i) => ['ANTH ' + (100 + i), '', 'FALSE', 'd']);
+const update = S('updateReferenceTab_');
+let sh = fakeSheet(170);
+assert(/could not be read/.test(update(sh, ['A'], rowsOf(100), ['ARCHY catalog page could not be read (timeout)'])) && !sh.cleared, 'a failed page leaves the tab as it was');
+sh = fakeSheet(170);
+assert(/no courses found/.test(update(sh, ['A'], [], [])) && !sh.cleared, 'nothing found leaves the tab as it was');
+sh = fakeSheet(170);
+assert(/under half/.test(update(sh, ['A'], rowsOf(80), [])) && !sh.cleared, 'a list under half the old one leaves the tab as it was');
+sh = fakeSheet(170);
+assert.strictEqual(update(sh, ['A'], rowsOf(160), []), '', 'a normal update is written');
+assert(sh.cleared, 'a normal update rewrites the tab');
+sh = fakeSheet(0);
+assert.strictEqual(update(sh, ['A'], rowsOf(5), []), '', 'an empty tab is filled');
+// A failed fetch is reported, not swallowed.
+ctx.SpreadsheetApp = { getActiveSpreadsheet: () => ({ getSheetByName: n => n === 'Settings' ? { getDataRange: () => ({ getDisplayValues: () => tabRows }) } : null }) };
+vm.runInContext('settingsCache_ = null', ctx);
+ctx.UrlFetchApp = { fetch: url => { if (/archeo/.test(url)) throw new Error('timeout'); return { getContentText: () => catalogHtml }; } };
+const scraped = plain(S('scrapeMasterGenEd_')());
+assert.deepStrictEqual(scraped.failures, ['ARCHY catalog page could not be read (Error: timeout)'], 'the failed page is named');
+ctx.UrlFetchApp = { fetch: () => ({ getContentText: () => '<html>Site maintenance</html>' }) };
+assert.strictEqual(plain(S('scrapeMasterGenEd_')()).failures.length, 3, 'a page with no courses counts as a failure');
+console.log('Scraper: 11 checks pass');
+
+// Access (Settings.gs): writing functions refuse calls from the web page.
+const asUser = (active, runsAs, triggerIds) => {
+  ctx.Session = { getActiveUser: () => ({ getEmail: () => active }), getEffectiveUser: () => ({ getEmail: () => runsAs }) };
+  ctx.ScriptApp = { getProjectTriggers: () => (triggerIds || []).map(id => ({ getUniqueId: () => id })) };
+};
+const allowed = e => { try { S('requireDirectRun_')(e); return true; } catch (err) { return false; } };
+asUser('owner@uw.edu', 'owner@uw.edu'); assert(allowed(), 'the owner running it from the spreadsheet');
+asUser('Editor@uw.edu', 'editor@uw.edu'); assert(allowed(), 'an editor running it from the spreadsheet (the script runs as them)');
+asUser('student@uw.edu', 'owner@uw.edu'); assert(!allowed(), 'a visitor to the web page');
+asUser('', 'owner@uw.edu'); assert(!allowed(), 'a visitor whose address is hidden');
+asUser('', 'owner@uw.edu', ['123']); assert(allowed({ triggerUid: '123' }), 'the monthly trigger');
+asUser('student@uw.edu', 'owner@uw.edu', ['123']); assert(!allowed({ triggerUid: '999' }), 'a made-up trigger ID');
+asUser('student@uw.edu', 'owner@uw.edu');
+for (const f of ['applySettings', 'getSetupState', 'checkSetup', 'runSetup', 'saveWebAppUrl', 'runFullUpdate', 'runDataCheck', 'runScheduleChecks', 'applyPlanningRulesFromMenu']) {
+  assert.throws(() => S(f)({}), /only be run from the forecast spreadsheet/, f + ' refuses a web page visitor');
+}
+// Every function a page can call (no trailing _) either is meant for the pages, needs objects a page cannot send, or checks access.
+const pageSafe = ['doGet', 'getCourseData', 'getScheduleData', 'getPageSettings', 'getGenEdMap', 'getOptionsMap', 'getMinutesFromMidnight', 'daysOverlap', 'timesOverlap', 'onOpen', 'openSetupForm'];
+for (const f of files) for (const m of fs.readFileSync(path.join(DIR, f), 'utf8').matchAll(/^function\s+([A-Za-z0-9_$]*[A-Za-z0-9$])\s*\(([^)]*)\)\s*\{\s*\n\s*(.*)/gm)) {
+  if (m[1].endsWith('_') || pageSafe.includes(m[1])) continue;
+  assert(/requireDirectRun_\(/.test(m[3]), m[1] + ' (' + f + ') can be called from the web page but does not call requireDirectRun_ first');
+}
+console.log('Access: 15 checks pass, every other callable function checks access');
+ctx.SpreadsheetApp = { flush: () => {} };
+sh = fakeSheet(170);
+assert.strictEqual(update(sh, ['A'], rowsOf(30), [], true), '', 'Set up may shorten the list (a prefix or option removed)');
+sh = fakeSheet(170);
+assert(/could not be read/.test(update(sh, ['A'], rowsOf(30), ['x could not be read'], true)) && !sh.cleared, 'but not when a page failed');
+// Option pages: one with none of our courses, or with no address, is a note; a page that cannot be read blocks the update.
+ctx.SpreadsheetApp = { getActiveSpreadsheet: () => ({ getSheetByName: n => n === 'Settings' ? { getDataRange: () => ({ getDisplayValues: () => tabRows }) } : null }) };
+vm.runInContext('settingsCache_ = null', ctx);
+const quiet = { log() {}, warn() {}, error() {} };
+ctx.console = quiet;
+ctx.UrlFetchApp = { fetch: url => { if (/HEB/.test(url)) throw new Error('404'); return { getContentText: () => /MAGH/.test(url) ? 'Core Coursework ANTH 203 Approved Electives ARCHY 205' : 'nothing here' }; } };
+const opts = plain(S('scrapeMasterOptions_')());
+ctx.console = console;
+assert.deepStrictEqual(opts.failures, ['Option HEB page could not be read (Error: 404)'], 'only the unreadable option page blocks');
+assert.deepStrictEqual(opts.rows.map(r => r[0] + ' ' + r[1]), ['ANTH 203 MAGH', 'ARCHY 205 MAGH']);
+console.log('Scraper (Set up and option pages): 4 checks pass');

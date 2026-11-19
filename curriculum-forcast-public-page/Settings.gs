@@ -141,6 +141,20 @@ function phrasePattern_(list) {
   return new RegExp(list.map(function(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|'), 'i');
 }
 
+/* Every function that changes something, or shows sheet IDs, calls this first.
+   The web pages run as the owner, and a visitor can call any function whose name does not end in _ from the
+   browser console. Allowed: a person running it directly (a menu, the setup form, the script editor), where the
+   active user and the user the script runs as are the same person; and the monthly trigger, recognised by its ID. */
+function requireDirectRun_(e) {
+  const active = String(Session.getActiveUser().getEmail() || '').toLowerCase();
+  const runsAs = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
+  if (active && active === runsAs) return;
+  const triggerId = e && e.triggerUid ? String(e.triggerUid) : '';
+  const isOurTrigger = triggerId && ScriptApp.getProjectTriggers().some(function(t) { return t.getUniqueId() === triggerId; });
+  if (isOurTrigger) return;
+  throw new Error('This can only be run from the forecast spreadsheet (its menus or the script editor).');
+}
+
 /* For the web pages: the values they show. No sheet IDs. */
 function getPageSettings() {
   const s = settings_();

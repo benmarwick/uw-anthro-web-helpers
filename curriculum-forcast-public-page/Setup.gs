@@ -64,6 +64,7 @@ function summariesBlock_(prefix, i) {
  * reported, and deleted only when removeOld is true. Run from the editor, or from the setup form.
  */
 function applySettings(removeOld) {
+  requireDirectRun_();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   settingsCache_ = null;
   const s = settings_();
@@ -176,6 +177,7 @@ function ownerStatus_(ss) {
 
 /* What the form shows when it opens. */
 function getSetupState() {
+  requireDirectRun_();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   settingsCache_ = null;
   const s = settings_();
@@ -207,6 +209,7 @@ function settingsFromForm_(form) {
 
 /* Check: writes nothing. Returns { items: [{ level: 'ok'|'warn'|'error', text }], catalog: { prefix: url } }. */
 function checkSetup(form) {
+  requireDirectRun_();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const s = settingsFromForm_(form);
   const years = dashboardYears_(ss);
@@ -281,6 +284,7 @@ function addCheckerYears_(file, years) {
 
 /* Set up: writes everything. Returns { log: [...], options: [...], refTabs: [...], dataCheck: '...', created: [...] }. */
 function runSetup(form) {
+  requireDirectRun_();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const own = ownerStatus_(ss);
   if (!own.isOwner) throw new Error('Set up must be run by the spreadsheet\'s owner (' + (own.owner || 'unknown') + '). You are signed in as ' + (own.me || 'unknown') + '.');
@@ -330,7 +334,7 @@ function runSetup(form) {
   if (!triggers.length) { ScriptApp.newTrigger('runFullUpdate').timeBased().onMonthDay(1).atHour(0).create(); log.push('Created the monthly catalog update (1st of each month, midnight to 1 am).'); }
   else log.push('The monthly catalog update already exists (' + triggers.length + ').');
   // First catalog update, then the per-option counts.
-  runFullUpdate();
+  updateReferenceTabs_(true).forEach(function(p) { log.push('Catalog update: ' + p); });
   const opt = {};
   const ro = ss.getSheetByName('Ref_Options');
   if (ro && ro.getLastRow() > 1) ro.getRange(2, 1, ro.getLastRow() - 1, 5).getValues().forEach(function(r) {
@@ -352,6 +356,7 @@ function runSetup(form) {
 
 /* Saves the web app address on the Settings tab. */
 function saveWebAppUrl(url) {
+  requireDirectRun_();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const u = String(url || '').trim();
   if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(u)) throw new Error('That does not look like a web app address; it should start with https://script.google.com/ and end in /exec.');

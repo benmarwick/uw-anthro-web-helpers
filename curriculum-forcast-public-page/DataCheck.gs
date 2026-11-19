@@ -11,6 +11,7 @@
 const QUARTER_KEYS = { AU: 1, WI: 2, SP: 3 };
 
 function runDataCheck() {
+  requireDirectRun_();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const src = planningSources_(ss);
   const catalog = catalogCourses_(ss);

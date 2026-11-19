@@ -4,7 +4,7 @@ This folder contains the scripts behind the Anthropology Curriculum Forecast. Th
 
 1.  Faculty and staff plan each academic year's courses in one Google Sheet per course prefix (for us: ANTH, ARCHY and BIO A).
 2.  Staff and the curriculum coordinator discuss each change in a comment thread on the cell concerned, so the reason for the change stays next to the data.
-3.  A forecast spreadsheet combines the planning sheets with `IMPORTRANGE`, adds Gen Ed, W-credit and major-option information read from UW web pages, and checks the schedule for conflicts and data-entry mistakes.
+3.  A forecast spreadsheet combines the planning sheets with `IMPORTRANGE`, adds Gen Ed and major-option information read from UW web pages, and checks the schedule for conflicts and data-entry mistakes.
 4.  A Google Apps Script web app shows the forecast spreadsheet to students as a filterable course list, and the department website links to it.
 
 Ours:
@@ -65,7 +65,7 @@ All ten files (seven scripts and three HTML pages) belong in one Apps Script pro
 | `Setup.gs` | **Forecast setup \> Set up or change settings**: checks the values, makes planning sheets, and rebuilds the admin tabs, combining formulas and Summaries for any number of prefixes. |
 | `SetupForm.html` | The setup form. |
 | `Code.gs` | Serves the web page and sends it data: `getCourseData` for the course list, `getScheduleData` for the schedule view, `getPageSettings` for the department's names and links. |
-| `Index.html` | The student course list, with filters for prefix, quarter, year, Gen Ed, W credit, major option and instructor. |
+| `Index.html` | The student course list, with filters for prefix, quarter, year, Gen Ed, major option and instructor. |
 | `ScheduleDashboard.html` | A weekly timetable chart of one quarter, with a "pathway checker" that plots any set of courses together. |
 | `Scraper.gs` | `runFullUpdate` reads the UW course catalog pages and the major option pages, and rewrites the `Ref_GenEd` and `Ref_Options` tabs. |
 | `Conflict Report Script.gs` | Adds the **Admin Tools** and **Forecast setup** menus. **Run Schedule Validation** checks start times against the UW block schedule and lists overlapping classes in the `Conflict Report` tab. |
@@ -235,7 +235,7 @@ The page heading, subtitle and contact address come from the form. The rest of t
 4.  Click **Deploy**, approve the permissions, and copy the **Web app URL** (it ends in `/exec`).
 5.  Back in the spreadsheet, open **Forecast setup \> Set up or change settings**, paste the address under **Web page address** and click **Save address**. **Open the page** then opens it; add `?page=schedule` to see the schedule view.
 
-"Execute as Me" lets the page read the spreadsheets with the owner's permissions, so students need no spreadsheet access. Visitors must sign in with a UW NetID.
+"Execute as Me" lets the page read the spreadsheets with the owner's permissions, so students need no spreadsheet access. Visitors must sign in with a UW NetID. Because the page runs as the owner, a visitor could call any script function from the browser console. Every function that changes something, or shows sheet IDs, therefore refuses unless it is run from the spreadsheet itself (a menu, the setup form or the script editor) or by the monthly trigger.
 
 ### Updating the Page After Code Changes
 
@@ -264,7 +264,7 @@ Use the address saved in the form (or **Deploy \> Manage deployments**) so that 
 2.  Choose **Admin Tools \> Run Schedule Validation** and settle each line of the **Conflict Report** with the coordinator, in comments on the planning sheet.
 3.  Check **TA needs** and **Summaries** against your TA budget and your balance of course levels.
 
-**Automatic.** On the 1st of each month, `runFullUpdate` refreshes **Ref_GenEd** and **Ref_Options**.
+**Automatic.** On the 1st of each month, `runFullUpdate` refreshes **Ref_GenEd** and **Ref_Options**. If a catalog or option page cannot be read, has no courses, or the new list is under half the old one, the tab is left as it was and the run ends with an error, so Google emails the trigger's owner. If the drop is real (say, an option was removed), clear the tab and run `runFullUpdate` from the script editor.
 
 ## How the Checks Work
 
