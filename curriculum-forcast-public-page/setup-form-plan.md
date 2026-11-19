@@ -59,6 +59,7 @@ One tab, laid out as labelled blocks so a person can read it, with the form as t
 | Major options (one row each, optional) | Short code; page URL | `Index.html`, the option-page reader |
 | Gen Ed codes | Default `NSc, SSc, A&H, DIV` | catalog reader, `Index.html` filter |
 | Option-page phrases (advanced, prefilled) | Core phrases; required phrases; approved phrases, one per line | option-page reader |
+| Planning template | File ID of the planning template the form copies (default: ours, `1Fx3asQB6QjXnjsz0nxGQvF_23SsN_EM66icjySsCxDA`) | "make a planning sheet for me" |
 | Web app | `/exec` address, last tested date | result screen, README link check |
 | Setup log | Last run, who ran it, what changed | troubleshooting |
 
@@ -73,7 +74,8 @@ One tab, laid out as labelled blocks so a person can read it, with the form as t
 | Entry rules on each planning tab for each Dashboard year (only its own rules; other dropdowns stay) | Typed values in planning sheets, except lowercase `x` and `q` in the day columns, which become capitals |
 | Data Check tab (rewritten by the Data Check run at the end) | |
 | The monthly trigger (exactly one) | Conflict Report (the menu owns it) |
-| Named ranges it created | Calculation settings, sharing |
+| Named ranges it created | Calculation settings, sharing (planning sheets are shared by hand, Part 1 of the README) |
+| Year list in each planning sheet's overlap checker (B1): adds the Dashboard years, removes none | |
 
 Removing a prefix in the form deletes its forAdmin tab and its line in each combining formula. The form asks for confirmation first, because a deleted forAdmin tab loses its typed row 1. Its planning sheet is not deleted.
 
@@ -110,7 +112,8 @@ One rule replaces the three `BIOA` patches: build a map from each configured pre
   - found in the catalog index, and the catalog page it found;
   - planning sheet opens, has a tab named like `2027-28` for each Dashboard year, and row 1 matches columns A to S of the column rules;
   - for each option, the page loads and contains at least one configured course.
-- **Set up** writes Settings, then builds or rebuilds the forAdmin tabs, combining formulas and Summaries, applies the entry rules (`applyPlanningRules_`) to each planning sheet's tab for each Dashboard year, creates the trigger if missing, runs the monthly update once, runs the Data Check, and shows the result screen with the Data Check's counts.
+- **Who may run it:** **Set up** creates the monthly trigger, which belongs to whoever runs it. The form compares the person running it with the spreadsheet's owner (`Spreadsheet.getOwner()`, which needs no Drive permission) and refuses with an explanation if they differ.
+- **Set up** writes Settings, then builds or rebuilds the forAdmin tabs, combining formulas and Summaries, applies the entry rules (`applyPlanningRules_`) to each planning sheet's tab for each Dashboard year, adds those years to each planning sheet's overlap checker dropdown, creates the trigger if missing, runs the monthly update once, runs the Data Check, and shows the result screen with the Data Check's counts.
 - **Result screen:** what changed; per option, counts such as "MAGH: 8 Core, 0 Reqd, 12 Aprvd" so wrong phrases are obvious; any tab that still shows `#REF!`; the deployment steps; a box for the `/exec` address with a **Test** button.
 
 ## Already Built: Entry Rules and Data Check (18 November 2026)
@@ -173,7 +176,7 @@ Stop point: you review the generated formulas against the live ones.
 
 ### Phase 3: The Form (about one day)
 
-- `SetupForm.html` with **Check** and **Set up**, planning sheet creation (if test 3 passed), trigger creation, first update, result screen and `/exec` test.
+- `SetupForm.html` with **Check** and **Set up**, the owner check, planning sheet creation (if test 3 passed), the overlap checker years, trigger creation, first update, result screen and `/exec` test.
 - Menu item in `onOpen`.
 
 Stop point: you click through the form in a scratch copy.
@@ -190,12 +193,12 @@ Stop point: you read the tester's notes; fixes loop back to Phase 3.
 
 Order matters, because the monthly trigger runs the newest saved code and the menu items do too, while the web page stays on version 39 until redeployed.
 
-1.  Name a version of the live spreadsheet in **File \> Version history**, export it, and record today's course count on the live page.
+1.  Name a version of the live spreadsheet in **File \> Version history**, export it, record today's course count on the live page, and run **Run Data Check** (keep its counts).
 2.  Add the Settings tab to the live spreadsheet, filled with ANTH, ARCHY and BIO A and their current sheet IDs, before any new code arrives. (With the fallback in place this is a second safeguard.)
 3.  Push the new code to the live project. If Google asks for permission again (new scopes for Drive or triggers), you approve it.
 4.  Run **Check** in the live form; run **Set up** only after you agree, since it rewrites the combining formulas (and fixes R7).
 5.  Deploy a new version of the existing deployment (Part 5 of the README), at the same address.
-6.  Check the live page lists the same courses as in step 1, the schedule view loads, and **Run Schedule Validation** gives the same report.
+6.  Check the live page lists the same courses as in step 1, the schedule view loads, **Run Schedule Validation** gives the same report, and **Run Data Check** gives the same counts as in step 1 (a different count means a prefix or sheet ID went wrong).
 7.  Confirm exactly one monthly trigger exists.
 
 If step 6 fails: redeploy version 39 (the page returns at once), restore the named version, and push the previous code.
@@ -213,13 +216,14 @@ If step 6 fails: redeploy version 39 (the page returns at once), restore the nam
 - Find the dry-run tester.
 - Be present for the live cutover and approve **Set up** on the live spreadsheet.
 - Deploy new web app versions on the live project, or watch me do it.
+- Keep the planning template (`1Fx3asQB6QjXnjsz0nxGQvF_23SsN_EM66icjySsCxDA`) and the forecast template shared with UW as viewer, and do not delete them; other departments' copies depend on them.
 
 ## Acceptance Checks
 
 - Node tests pass, including formula equality with the 18 November export.
 - In a scratch copy, the page, schedule view and conflict report match the live system on the same day.
 - The dry run succeeds without the tester editing a script or a formula.
-- After cutover, the live page lists the same courses as before it, at the same address.
+- After cutover, the live page lists the same courses as before it, at the same address, and the Data Check counts are unchanged.
 - The template contains no Anthropology data, comments or addresses (same export search as 18 November).
 
 ## Risks
@@ -231,10 +235,15 @@ If step 6 fails: redeploy version 39 (the page returns at once), restore the nam
 | A stale file survives in a project after a rename. | Delete in the editor and confirm with a fresh `clasp clone`, as on 18 November. |
 | Option-page phrases do not fit another department's pages. | Result screen shows per-option counts; phrases are editable in the form. |
 | Removing a prefix deletes a forAdmin tab someone customised. | Confirmation step; row 1 headings are regenerated, so nothing else is lost. |
+| The planning template is deleted or un-shared, so "make a planning sheet for me" fails for other departments. | Its file ID is a Settings value with a note; keep it shared with UW as viewer (see Steps Only You Can Do). The form falls back to "use this sheet" with a message if the copy fails. |
+| Someone other than the owner runs **Set up** and ends up owning the trigger. | The owner check in the form. |
 
-## Open Questions for You
+## Decisions (18 November 2026)
 
-1.  Retire the Dashboard key cells and named ranges in favour of the Settings tab? (Recommended: yes; it removes the three-prefix limit.)
-2.  Offer "make a planning sheet for me", which needs Drive permission? (Recommended: yes, if Phase 0 test 3 shows a clean consent screen.)
-3.  Who can do the Phase 4 dry run?
-4.  Should the form also share each new planning sheet with listed staff addresses, or leave sharing to the README?
+1.  **Dashboard key cells:** retired. Planning sheet IDs live only in Settings and go into the generated formulas as text; `ANTHkey`, `BIOAkey`, `ARCHYkey` and Dashboard rows 14 to 16 are removed in Phase 6.
+2.  **"Make a planning sheet for me":** offered if Phase 0 test 3 shows an acceptable permission screen; otherwise the form accepts only an existing sheet's URL, with a link to the planning template.
+3.  **Sharing new planning sheets:** left to the README (Part 1). The form shares nothing.
+
+## Open Question
+
+1.  Who can do the Phase 4 dry run? Needed before Phase 4, not before.
