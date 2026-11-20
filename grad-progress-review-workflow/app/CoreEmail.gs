@@ -28,10 +28,10 @@ var EMAIL_TEMPLATES_ = {
   /* ---------- Course feedback ---------- */
   'CF-1': function(p) {
     return {
-      subject: 'A few minutes on your graduate students in ' + p.course + ' (' + p.quarter + ')',
+      subject: 'Requesting your feedback on our graduate students in ' + p.course + ' (' + p.quarter + ')',
       body: [
         'Thank you for teaching ' + p.course + ' this quarter. ' + sentenceNumber_(p.n) + ' Anthropology graduate ' + plural_(p.n, 'student', 'students') + ' took it, and we would be grateful for a short note on each.',
-        "For each student, you'll first say whether you saw enough of their work to comment. \"Not enough contact\" is a perfectly good answer for someone you barely got to know. If you did see their work, you'll give three quick ratings, one thing they did well, and the one thing that would most strengthen their work next. It takes about 3 to 4 minutes for each student you comment on.",
+        "For each student, please first say whether you saw enough of their work to comment. \"Not enough contact\" is a perfectly good answer for someone you barely got to know, for example in a large class. If you did see their work, please give three quick ratings, one thing they did well, and the one thing that would most strengthen their work next. It takes about 3 to 4 minutes for each student you comment on.",
         "Students read these notes with your name on them and use them to plan their next steps. They become part of the student's education record, so please describe the work rather than the person.",
         "[Open your page](" + p.url + "). It's due " + p.dueLong + '.',
         "If this isn't your course, [let us know](" + p.notMineUrl + ") and we'll find the right person."
@@ -45,7 +45,7 @@ var EMAIL_TEMPLATES_ = {
     var grades = '';
     if (p.gradesDueLong) grades = (p.gradesDuePassed ? 'Grades were due ' : 'Grades are due ') + p.gradesDueLong + '. ';
     return {
-      subject: 'Gentle reminder: your graduate students in ' + p.course,
+      subject: 'Gentle reminder: our graduate students in your ' + p.course,
       body: [
         grades + 'Thank you for all the work the end of the quarter takes. When you have a few minutes, your page for ' + p.course + " is still open: [Open your page](" + p.url + "). It's due " + p.dueLong + '.',
         'Even a quick "Not enough contact" helps; it tells us the page has been seen.'
