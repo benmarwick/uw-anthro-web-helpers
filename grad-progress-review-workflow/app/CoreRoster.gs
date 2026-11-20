@@ -1,6 +1,5 @@
 /* ============================================================
-   CoreRoster.gs: joining MyGrad registrations to Time Schedule sections (course-feedback plan
-   §4.2, §4.3). Pure functions, tested in tests/run.js.
+   CoreRoster.gs: joining MyGrad registrations to Time Schedule sections. Pure functions, tested in tests/run.js.
 
    Inputs
      mygradRows: [{ quarter:'AUT2026', studentEmail, curric:'ANTH', number:'512', section:'A', grade:'X' }]
@@ -31,7 +30,7 @@ function parseCourseCell_(cell) {
   return { curric: tokens.slice(0, -2).join(' ').toUpperCase(), number: number, section: section };
 }
 
-/* Withdrawals stay on the transcript as W plus the week, e.g. W3 (course-feedback plan §4.2). */
+/* Withdrawals stay on the transcript as W plus the week, e.g. W3. */
 function isWithdrawnGrade_(grade) {
   return /^W\d*$/.test(String(grade || '').trim());
 }
@@ -108,7 +107,7 @@ function joinRegistrations_(mygradRows, sections, students, instructors, options
     var names = (s.instructors || []).filter(function(n) { return !isPlaceholderInstructor_(n); });
     if (!names.length) { exclude(EXCLUSION_.NO_INSTRUCTOR); enrollments.push(e); return; }
     e.instructorNames = names;
-    /* A graduate-student instructor is never asked (principle 8), so their email is never needed. The appointment
+    /* A graduate-student instructor is never asked , so their email is never needed. The appointment
        is checked first; only the other instructors need an email. */
     var emails = [], gradCount = 0;
     names.forEach(function(n) {

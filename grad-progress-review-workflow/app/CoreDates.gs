@@ -121,11 +121,11 @@ function gradeDeadline_(code) {
   return d;
 }
 
-/* The course feedback page for a quarter (course-feedback plan §5.4):
+/* The course feedback page for a quarter:
    opens the Monday of finals week; closes on a Friday at least 10 days after the grade deadline
    (moved a week later if that Friday is a holiday); reminders the Wednesday after grades are due
    and three days before the due date; comments released 7 days after the page closes, or the
-   number of days in releaseOffsets for that quarter type (spring: 14, course-feedback plan §5.4).
+   number of days in releaseOffsets for that quarter type (spring: 14).
    overrides: { AUT2026: { opens, reminders, due, release } } replaces any of these dates for one quarter. */
 function courseFeedbackWindow_(code, releaseOffsets, overrides) {
   var q = quarterDates_(code);
@@ -159,7 +159,7 @@ function springWeekFriday_(year, week) {
   return addDays_(monday, (week - 1) * 7 + 4);
 }
 
-/* The annual review calendar for the spring of `year` (annual review plan §4.4). */
+/* The annual review calendar for the spring of `year`. */
 function annualCycleDates_(year) {
   var launch = quarterDates_('SPR' + year).firstDay;
   var letters = springWeekFriday_(year, 9);
@@ -184,12 +184,12 @@ function alertDeadline_(code) {
 }
 
 /* The quarter an Alert decided in spring `year` takes effect: autumn by default, because
-   Anthropology does not require summer registration (annual review plan §4.4). */
+   Anthropology does not require summer registration. */
 function defaultAlertQuarter_(springYear, startInSummer) {
   return (startInSummer ? 'SUM' : 'AUT') + springYear;
 }
 
-/* Due date of an interim check-in created on fromIso (annual review plan §4.2). A student missing a
+/* Due date of an interim check-in created on fromIso. A student missing a
    milestone or with a GPA below 3.0 is checked in 3 months; otherwise the advisor's choice of 3 or 6. */
 function interimDueDate_(fromIso, advisorMonths, missingMilestoneOrLowGpa) {
   var months = missingMilestoneOrLowGpa ? 3 : (Number(advisorMonths) === 6 ? 6 : 3);

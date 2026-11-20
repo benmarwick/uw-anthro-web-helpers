@@ -13,7 +13,7 @@ function dailyRun(e) {
   try { pruneOldLogs_(C_().LOG_RETENTION_DAYS); } catch (err) { logWarn_('Automation.dailyRun', 'Log pruning failed', { error: err.message }); }
 }
 
-/* Between the end of spring finals and the start of autumn, only check-ins get reminders (§4.4). */
+/* Between the end of spring finals and the start of autumn, only check-ins get reminders. */
 function inSummerQuiet_(today) {
   const year = Number(today.slice(0, 4));
   try {
@@ -30,7 +30,7 @@ function runReviewReminders_(today) {
     if (quiet && r.Type === 'ANNUAL') return;
     const count = Number(r.Reminder_Count) || 0;
     const student = studentByEmail_(r.Student_Email) || {};
-    /* Every pending stage escalates, including the acknowledgement (build-spec §1.1). */
+    /* Every pending stage escalates, including the acknowledgement. */
     if (shouldEscalate_(r.Status, count, max, String(r.Due_Date).slice(0, 10), today)) {
       updateRow_(S.REVIEWS, r._row, { Status: 'ESCALATED', Escalated_From: r.Status, Updated_At: nowIso_() });
       const reviewer = reviewerFor_(student);

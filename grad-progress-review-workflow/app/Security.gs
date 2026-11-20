@@ -1,7 +1,7 @@
 /* ============================================================
    Security.gs: who is calling, what they may see, and input cleaning.
    The web app runs as the system account and checks the signed-in user on every call, so recusal is
-   enforced in the app (annual review plan, principle 5).
+   enforced in the app .
    ============================================================ */
 
 /* ---------- Rate limit and input cleaning (from the TA system) ---------- */

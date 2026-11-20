@@ -1,6 +1,6 @@
 /* Tests for the pure modules (Core*.gs) and the Time Schedule parser.
    Run with:  node --test grad-progress-review-workflow/app/tests/run.js
-   Numbers in test names refer to the acceptance tests in build-spec.md §4. */
+   Numbers in some test names are the original acceptance-test numbers; the README (How it works) describes the rules. */
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -21,7 +21,7 @@ const fixture = fs.readFileSync(path.join(__dirname, 'fixtures', 'timeschedule-s
 
 /* ---------------- Calendar ---------------- */
 
-test('course feedback windows match the plan table (course-feedback §5.4)', () => {
+test('course feedback windows match the plan table', () => {
   const offsets = { SPR: 14 };
   const w = ctx.courseFeedbackWindow_('WIN2027', offsets);
   deq([w.opens, w.gradesDue, w.reminders[0], w.reminders[1], w.due, w.release],
@@ -34,7 +34,7 @@ test('course feedback windows match the plan table (course-feedback §5.4)', () 
     ['2026-12-14', '2026-12-22', '2026-12-23', '2027-01-05', '2027-01-08']);
 });
 
-test('annual cycle 2027 dates (annual review §4.4)', () => {
+test('annual cycle 2027 dates', () => {
   const c = ctx.annualCycleDates_(2027);
   assert.equal(c.launch, '2027-03-29');
   assert.equal(c.recordRelease, '2027-04-09');

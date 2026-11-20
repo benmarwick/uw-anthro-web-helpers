@@ -1,8 +1,8 @@
 /* ============================================================
-   CoreEmail.gs: every email text from build-spec.md §3, and the renderer. Pure functions,
+   CoreEmail.gs: every email text, and the renderer. Pure functions,
    tested in tests/run.js.
 
-   Rules (build-spec §3.1): course feedback emails never name a student and never include a comment,
+   Rules: course feedback emails never name a student and never include a comment,
    rating or flag; annual review emails name a student only in the body, only to someone who can
    already see that review, and never reveal a rating or whether a letter raises a concern. Links
    are written [label](url) and rendered as a link in HTML and as "label <url>" in plain text.
@@ -326,7 +326,7 @@ function renderEmailTemplate_(id, params, common) {
 }
 
 /* True when any of the names appears in the subject or body (case-insensitive). Used to check
-   that no course feedback email names a student (build-spec test 13). */
+   that no course feedback email names a student . */
 function emailMentionsAny_(rendered, names) {
   var hay = (rendered.subject + '\n' + rendered.text).toLowerCase();
   return (names || []).some(function(n) { return n && hay.indexOf(String(n).toLowerCase()) !== -1; });

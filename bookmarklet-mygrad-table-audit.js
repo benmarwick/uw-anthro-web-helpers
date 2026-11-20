@@ -917,8 +917,7 @@ function updateCounts(g){
 
 
 /* ============================================================
-   APP BRIDGE (course-feedback plan §4.5, task R1;
-   annual review plan §9.3)
+   APP BRIDGE 
 
    When the graduate review app opens this tab, the bookmarklet
    tells the app it is ready, waits for the app's request, reads

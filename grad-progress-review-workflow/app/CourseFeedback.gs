@@ -1,7 +1,6 @@
 /* ============================================================
    CourseFeedback.gs: launch, the instructor page, "Not my course", the GPC's quarterly check and
-   release, follow-up flags and the yearly Course Feedback Record (course-feedback plan §5–§6;
-   build-spec.md §1.2, §2).
+   release, follow-up flags and the yearly Course Feedback Record .
    ============================================================ */
 
 /* ---------- Launch ---------- */
@@ -13,7 +12,7 @@ function launchCourseFeedback_(quarter, actor) {
   const w = courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES);
   if (todayIso_() < w.opens) throw new Error('Course feedback for ' + quarterLabel_(quarter) + ' opens on ' + dateLong_(w.opens) + '. Launch is available from that day.');
   const pending = readTable_(S.REQUESTS).filter(function(r) { return r.Quarter === quarter && r.Status === 'NOT_STARTED'; });
-  /* Every instructor who should be asked needs an email (course-feedback plan §4.5); see pageMissingInstructors_. */
+  /* Every instructor who should be asked needs an email; see pageMissingInstructors_. */
   const inst = instructorsMap_();
   const noEmail = pending.filter(function(r) { return pageMissingInstructors_(r, inst).length > 0 || !splitList_(r.Instructor_Emails).length; });
   if (noEmail.length) throw new Error(noEmail.length + ' page(s) are missing an instructor email. Add the missing emails on the Roster page first.');
@@ -208,7 +207,7 @@ function saveFeedbackPage(token, data, final) {
     });
     const reqFields = { Lock_Owner: shared ? a.email : '', Lock_Until: shared ? new Date(Date.now() + C_().CF_LOCK_MINUTES * 60000).toISOString() : '' };
     if (final) {
-      /* Submitting releases the co-taught lock (build-spec §1.2). A closed page keeps its status. */
+      /* Submitting releases the co-taught lock. A closed page keeps its status. */
       reqFields.Lock_Owner = '';
       reqFields.Lock_Until = '';
       if (!closed) reqFields.Status = 'SUBMITTED';
@@ -223,7 +222,7 @@ function saveFeedbackPage(token, data, final) {
   }
 }
 
-/* "Not my course" (build-spec §1.2): the page ends, the instructor is thanked, the administrator is alerted.
+/* "Not my course": the page ends, the instructor is thanked, the administrator is alerted.
    Only from SENT or DRAFT. */
 function notMyCourse(token, suggested) {
   const a = loadRequestForEditing_(token);
@@ -275,7 +274,7 @@ function instructorNameForEmail_(email) {
   return rec && rec.TS_Name ? String(rec.TS_Name) : email;
 }
 
-/* ---------- Follow-up flags (course-feedback plan §5.3) ---------- */
+/* ---------- Follow-up flags ---------- */
 
 function openFollowup_(req, studentEmail) {
   const S = C_().SHEETS;
@@ -288,7 +287,7 @@ function openFollowup_(req, studentEmail) {
   logEvent_({ action: C_().ACTIONS.FOLLOWUP_OPENED, evaluationId: c.Feedback_ID, actorEmail: 'SYSTEM' });
 }
 
-/* ---------- The GPC's quarterly check and release (§6.2) ---------- */
+/* ---------- The GPC's quarterly check and release ---------- */
 
 /* Comments the caller may check: the GPC sees every student except their own advisees; the alternate
    sees only those. */
@@ -358,7 +357,7 @@ function returnComment(feedbackId, reason, gpcNote) {
   return until;
 }
 
-/* Resolves a comment that went to the student only (build-spec §1.2: STUDENT_ONLY → RESOLVED). */
+/* Resolves a comment that went to the student only (STUDENT_ONLY → RESOLVED). */
 function resolveComment(feedbackId) {
   const x = loadCommentForReviewer_(feedbackId);
   if (x.c.Status !== 'STUDENT_ONLY') throw new Error('Only a comment released to the student only can be resolved; this one is ' + x.c.Status + ' and cannot be.');
@@ -367,7 +366,7 @@ function resolveComment(feedbackId) {
   return true;
 }
 
-/* Releases the quarter's comments for the students the caller reviews (§6.2 step 3).
+/* Releases the quarter's comments for the students the caller reviews.
    The student gets CF-9 only if a comment with text was released to them; the advisor gets CF-10 only
    for comments they can see (RELEASED, not STUDENT_ONLY). NO_CONTACT rows are still released, for the
    coverage line, but on their own send no email. Runs under the script lock so a double click
@@ -430,10 +429,10 @@ function closeFollowup(followupId, outcome, contactDate, createInterim) {
   return interimId;
 }
 
-/* ---------- Yearly Course Feedback Record (§6) ---------- */
+/* ---------- Yearly Course Feedback Record ---------- */
 
 /* The window for the record released in spring `year`: the previous spring and summer, autumn and
-   this winter (decision 1). */
+   this winter. */
 function recordWindow_(year) {
   return { label: 'SPR' + (year - 1) + '–WIN' + year, quarters: ['SPR' + (year - 1), 'SUM' + (year - 1), 'AUT' + (year - 1), 'WIN' + year] };
 }
@@ -488,7 +487,7 @@ function recordsForReviewer_(email) {
   });
 }
 
-/* The GPC's optional 2–4 sentence synthesis, written without AI drafting (§6.1). */
+/* The GPC's optional 2–4 sentence synthesis, written without AI drafting. */
 function saveSynthesis(recordId, text) {
   const email = activeEmail_();
   const r = findOne_(C_().SHEETS.RECORDS, 'Record_ID', recordId);

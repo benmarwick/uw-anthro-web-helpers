@@ -1,6 +1,6 @@
 /* ============================================================
-   CoreRecords.gs: the Course Feedback Record (course-feedback plan §6.1), the annual review PDF
-   content (annual review plan §9.1, §10) and metric suppression (§9.5). Pure functions, tested in
+   CoreRecords.gs: the Course Feedback Record, the annual review PDF
+   content and metric suppression. Pure functions, tested in
    tests/run.js.
    ============================================================ */
 
@@ -25,7 +25,7 @@ function buildFeedbackRecord_(offerings, comments, followups, viewer, synthesis)
   var nInstructors = Object.keys(instructors).length;
   var coverage = (offerings || []).length + ' ' + plural_((offerings || []).length, 'course', 'courses') + '; feedback from ' +
     nInstructors + ' ' + plural_(nInstructors, 'instructor', 'instructors') + "; " + noContact + " 'not enough contact'" + coveredPart + '; ' + notReceived + ' not received.';
-  /* The student hears about a follow-up in the conversation (course-feedback plan §5.3) and sees its
+  /* The student hears about a follow-up in the conversation and sees its
      outcome (privacy notice), so a flag with no recorded outcome is left out of what the student and
      the PDF copy show. The advisor, who is told about the flag (CF-7), and calibration still see it. */
   var shownFollowups = (followups || []).filter(function(f) {
@@ -42,7 +42,7 @@ function buildFeedbackRecord_(offerings, comments, followups, viewer, synthesis)
       ? shownFollowups.map(function(f) { return { quarter: f.quarter, quarterLabel: quarterLabel_(f.quarter), outcome: f.outcome || 'Open', contactDate: f.contactDate || '' }; }) : [],
     synthesis: synthesis || ''
   };
-  if (viewer === 'calibration') return record; // summary only: no free text (decision 7)
+  if (viewer === 'calibration') return record; // summary only: no free text
   record.comments = withText.map(function(c) {
     return { course: c.course, quarter: c.quarter, quarterLabel: quarterLabel_(c.quarter), instructors: (c.instructorNames || []).join(', '), strength: c.strength,
              nextStep: c.nextStep, gpcNote: viewer === 'student' && c.status !== 'RELEASED' ? (c.gpcNote || '') : '' };
@@ -54,7 +54,7 @@ function buildFeedbackRecord_(offerings, comments, followups, viewer, synthesis)
 /* ---------- Annual review PDF ---------- */
 
 /* The only payload fields that can reach the PDF. Anything else, including every GPC-only field,
-   the development modules and calibration notes, is left out by design (annual review plan §9.1, §10). */
+   the development modules and calibration notes, is left out by design. */
 var PDF_FIELDS_ = {
   student: ['status', 'milestones', 'behindSchedule', 'coursework', 'courseFeedbackResponse', 'research', 'publications',
             'presentations', 'grants', 'appointments', 'service', 'lastGoals', 'nextPlan', 'funding', 'actionItemsProgress',
@@ -100,7 +100,7 @@ function pdfModelLeaks_(model, confidentialValues) {
 
 /* ---------- Metrics ---------- */
 
-/* Replaces every count from 1 to min-1 with '<min' (annual review plan §9.5). Zero stays 0. */
+/* Replaces every count from 1 to min-1 with '<min'. Zero stays 0. */
 function suppressSmallCounts_(table, min) {
   var limit = min || 5, out = {};
   Object.keys(table).forEach(function(k) {

@@ -1,5 +1,5 @@
 /* ============================================================
-   EmailEngine.gs: sending. Every text comes from CoreEmail.gs (build-spec.md §3). A failed send is
+   EmailEngine.gs: sending. Every text comes from CoreEmail.gs. A failed send is
    queued in the dead-letter queue and retried.
    ============================================================ */
 

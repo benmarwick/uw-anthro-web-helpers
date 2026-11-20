@@ -1,22 +1,21 @@
 /* ============================================================
    Config.gs: settings for the graduate review system (annual review and course feedback).
-   Fill in the IDs and emails before running "Initialize". Plans: grad-annual-review-plan.md,
-   course-feedback-plan.md; details: build-spec.md.
+   Fill in the IDs and emails before running "Initialize". The rules are described in the README (How it works).
    ============================================================ */
 const CONFIG = {
   /* ---- Set these when installing ---- */
   SPREADSHEET_ID: '1mdkZo7d2e2WElWzjzGFgbQUUC0dxB_1hGmGRW_QDi1Q',  // the main spreadsheet (Reviews, Students, course feedback tabs, logs)
-  CONFIDENTIAL_SPREADSHEET_ID: '1cHgReD-TfNRXBQzQw8RySnBp-KxxZYCJhd8awqIsz6Y',  // a separate spreadsheet shared with no person (annual review plan §8)
+  CONFIDENTIAL_SPREADSHEET_ID: '1cHgReD-TfNRXBQzQw8RySnBp-KxxZYCJhd8awqIsz6Y',  // a separate spreadsheet shared with no person
   ARCHIVE_FOLDER_ID: '1OJjLmo2DU12-v1lh87-4X07LHvpGvfK6',  // Drive folder for PDFs and CV uploads, owned by the owner account
   APP_URL: 'https://script.google.com/a/macros/uw.edu/s/AKfycbz5Ux91ZrBe-V8gH3aCg6DZBIHYES4_CyhcJFtTvBGOXHAFA5tM0Iy_9kzPW-Twjwxn/exec',  // the web app deployment
   ADMIN_EMAIL: 'agp-advisor@uw.edu',  // Graduate Student Administrator: runs menus and the Roster page; gets "not my course" notices
   GPC_EMAIL: 'bmarwick@uw.edu',     // Graduate Program Coordinator; also owns the script, the spreadsheets and the triggers
   GPC_NAME: 'Ben Marwick',          // signs every email
-  ALTERNATE_EMAIL: 'csaulter@uw.edu',  // alternate reviewer for the GPC's advisees (default: department chair; decision 16)
+  ALTERNATE_EMAIL: 'csaulter@uw.edu',  // alternate reviewer for the GPC's advisees (default: department chair)
   ALERT_EMAIL: 'bmarwick@uw.edu',   // who maintains the system: receives system alerts (failed emails, trigger health, quotas)
   SUBFIELD_COORDINATORS: {},        // { 'Archaeology': 'x@uw.edu', 'Sociocultural': ..., 'Biological': ..., 'MA': ... }
   PRIVACY_URL: 'https://github.com/benmarwick/uw-anthro-web-helpers/blob/main/grad-progress-review-workflow/README.md#privacy-notice',
-  SURVEY_URL: '',                   // the anonymous post-cycle survey (annual review plan §9.5)
+  SURVEY_URL: '',                   // the anonymous post-cycle survey
   DEPARTMENT_DIRECTORY_URL: 'https://anthropology.washington.edu/people', // public people page; the Roster page suggests instructor emails from it ('' turns this off)
 
   /* ---- Annual review ---- */
@@ -25,23 +24,23 @@ const CONFIG = {
   REMINDER_INTERVAL_DAYS: 5,
   TOKEN_TTL_DAYS: 45,
   ADVISOR_RETURN_DAYS: 5,
-  EXPECTED_TTD_YEARS: null,         // switched off until the faculty set it (decision 18)
+  EXPECTED_TTD_YEARS: null,         // switched off until the faculty set it
   GS_LIMIT_YEARS: { PHD: 10, MA: 6 },
   GS_LIMIT_FLAG_FROM_YEAR: { PHD: 8, MA: 5 },
-  SUMMER_REGISTRATION_REQUIRED: false,  // confirmed 17 Nov 2026 (annual review plan §4.4)
+  SUMMER_REGISTRATION_REQUIRED: false,  // Anthropology does not require summer registration
 
   /* ---- Course feedback ---- */
   CF_CURRICULA_PHASE1: ['ANTH', 'ARCHY', 'BIO A'],
-  CF_ALL_DEPARTMENTS: false,        // phase 2 from autumn 2027 (decision 4)
+  CF_ALL_DEPARTMENTS: false,        // true asks instructors in every department
   CF_RELEASE_OFFSET_DAYS: { SPR: 14 },   // otherwise 7 days after the page closes
-  /* Dates that replace the usual rule for one quarter (course-feedback plan §5.4). Autumn 2026, set 18 Nov 2026:
+  /* Dates that replace the usual rule for one quarter. Autumn 2026, set 18 Nov 2026:
      open in the last week of classes, close on the last day of finals, release after the winter break. */
   CF_WINDOW_OVERRIDES: {
     AUT2026: { opens: '2026-12-07', reminders: ['2026-12-14', '2026-12-16'], due: '2026-12-18', release: '2027-01-08' }
   },
   CF_RETURN_DAYS: 5,
   CF_LOCK_MINUTES: 30,
-  CF_QUARTERS_ON: { AUT2026: true, WIN2027: true, SPR2027: true, SUM2027: false },  // decision 9: first use Autumn 2026 (set 18 Nov 2026); summer off by default
+  CF_QUARTERS_ON: { AUT2026: true, WIN2027: true, SPR2027: true, SUM2027: false },  // first use Autumn 2026 (set 18 Nov 2026); summer off by default
 
   /* ---- Sheets ---- */
   SHEETS: {
@@ -100,7 +99,7 @@ const SCHEMA_ = {
   Confidential: ['Review_ID', 'Author_Role', 'Field', 'Text', 'Timestamp']
 };
 
-/* The rating scale for course feedback (decision 8) and the annual review rating (§6). */
+/* The rating scale for course feedback and the annual review rating. */
 const CF_LEVELS_ = ["Below what I'd expect at this stage", 'Approaching', 'Meeting', 'Beyond', 'Not observed'];
 const REVIEW_RATINGS_ = ['Satisfactory', 'Satisfactory with concerns', 'Unsatisfactory'];
 

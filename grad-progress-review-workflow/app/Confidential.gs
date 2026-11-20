@@ -1,8 +1,8 @@
 /* ============================================================
-   Confidential.gs: the separate spreadsheet for GPC-only text (annual review plan §8). The main
+   Confidential.gs: the separate spreadsheet for GPC-only text. The main
    review row keeps only a yes/no flag. The reviewer (GPC or alternate) reads it through the web app,
    and every read is logged. The advisor's "advising challenges" note is stored here too and shown
-   to the student at acknowledgement (decision 13).
+   to the student at acknowledgement.
    ============================================================ */
 
 /* Saves one note. Empty text clears a saved note, so the author can remove it; it never adds a row. */

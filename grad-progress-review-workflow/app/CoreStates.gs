@@ -1,5 +1,5 @@
 /* ============================================================
-   CoreStates.gs: states and transitions from build-spec.md §1. Pure functions, tested in
+   CoreStates.gs: states and transitions. Pure functions, tested in
    tests/run.js. Each function returns a new state description; the caller writes it to the sheet
    and the audit log.
    ============================================================ */
@@ -18,7 +18,7 @@ var PENDING_STAGES_ = ['STUDENT_PENDING', 'ADVISOR_PENDING', 'PROGRAM_PENDING', 
 function flowFor_(type, program) {
   if (type === 'ANNUAL') return REVIEW_FLOWS_.ANNUAL;
   if (type === 'INTERIM') return program === 'MA' ? REVIEW_FLOWS_.INTERIM_MA : REVIEW_FLOWS_.INTERIM_PHD;
-  throw new Error('Unknown review type: ' + type + ' (FIRST_YEAR and COMPACT are phase 2)');
+  throw new Error('Unknown review type: ' + type + ' (FIRST_YEAR and COMPACT are not built)');
 }
 
 /* The status after a stage is submitted. opts.escalateToProgram: the advisor chose "escalate to
@@ -48,7 +48,7 @@ function reminderDue_(status, reminderCount, maxReminders, lastIso, todayIso, in
   return PENDING_STAGES_.indexOf(status) !== -1 && reminderCount < maxReminders && daysBetween_(lastIso, todayIso) >= intervalDays;
 }
 
-/* The GPC's three ways out of ESCALATED (build-spec §1.1). Returns the update to apply.
+/* The GPC's three ways out of ESCALATED. Returns the update to apply.
    action: 'extend' (needs newDueIso) | 'skip' | 'exempt'. A reason is always required. */
 function resolveEscalation_(row, action, opts) {
   opts = opts || {};
@@ -70,7 +70,7 @@ function resolveEscalation_(row, action, opts) {
   throw new Error('Unknown action: ' + action);
 }
 
-/* ---------- Course feedback comments (build-spec §1.2) ---------- */
+/* ---------- Course feedback comments ---------- */
 
 var COMMENT_TRANSITIONS_ = {
   SUBMITTED: { check: 'CHECKED', 'return': 'RETURNED' },
@@ -107,7 +107,7 @@ function initialCommentStatus_(contact) {
 
 /* ---------- Follow-up flags ---------- */
 
-/* Day 0 is the submission day; reminder on day 14; overdue from day 21 (build-spec §1.2). */
+/* Day 0 is the submission day; reminder on day 14; overdue from day 21. */
 function followupTiming_(openedIso, todayIso, status, reminderSentIso) {
   var day = daysBetween_(openedIso, todayIso);
   return {

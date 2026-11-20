@@ -1,6 +1,6 @@
 /* ============================================================
    Reviews.gs: the annual review, interim check-ins and MA quarterly check-ins
-   (grad-annual-review-plan.md §4–§7; build-spec.md §1.1).
+   .
    ============================================================ */
 
 function studentByEmail_(email) { return findOne_(C_().SHEETS.STUDENTS, 'Email', normEmail_(email)); }
@@ -15,7 +15,7 @@ function createReviewRow_(f) {
   return row;
 }
 
-/* Last year's goals and action items, and the MyGrad data, for the student's form (§5.1). */
+/* Last year's goals and action items, and the MyGrad data, for the student's form. */
 function prefillStudent_(student) {
   const last = readTable_(C_().SHEETS.REVIEWS).filter(function(r) {
     return normEmail_(r.Student_Email) === normEmail_(student.Email) && r.Type === 'ANNUAL' && r.Status === 'COMPLETED';
@@ -58,7 +58,7 @@ function launchAnnualCycle_(year, actor) {
   return launched;
 }
 
-/* MA students: a short check-in at the end of every enrolled quarter, including spring (decision 4).
+/* MA students: a short check-in at the end of every enrolled quarter, including spring.
    It opens on the Monday of finals week and is due with that quarter's course feedback. */
 function launchMaCheckins_(quarter, actor) {
   const S = C_().SHEETS, w = courseFeedbackWindow_(quarter, C_().CF_RELEASE_OFFSET_DAYS, C_().CF_WINDOW_OVERRIDES);
@@ -79,7 +79,7 @@ function launchMaCheckins_(quarter, actor) {
   return n;
 }
 
-/* An interim check-in (§4.2; build-spec §1.1). A PhD interim has an advisor stage only, unless the
+/* An interim check-in . A PhD interim has an advisor stage only, unless the
    advisor escalates. An MA interim follows the MA check-in flow and starts with the student; the
    advisor gets AR-13 when the student submits. */
 function createInterimReview_(student, parentId, advisorMonths, missingOrLowGpa, actor) {
@@ -106,7 +106,7 @@ function createInterimReview_(student, parentId, advisorMonths, missingOrLowGpa,
 
 /* ---------- Loading and saving a stage ---------- */
 
-/* The advisor may also edit while a narrative return is open (§5.3). */
+/* The advisor may also edit while a narrative return is open. */
 function reviewAccess_(review) {
   if (review.Status === 'PROGRAM_PENDING' && review.Advisor_Return_Until && daysBetween_(todayIso_(), review.Advisor_Return_Until) >= 0) {
     const email = activeEmail_();
@@ -135,13 +135,13 @@ function loadReview(token) {
     reviewId: r.Review_ID, type: r.Type, program: r.Program, cycle: r.Cycle, stage: stage, status: r.Status, due: r.Due_Date ? dateLong_(r.Due_Date) : '',
     studentName: student.Name || r.Student_Email, coAdvised: splitList_(r.Advisor_Emails).length > 1, returned: !!x.access.returned,
     levels: CF_LEVELS_, ratings: REVIEW_RATINGS_,
-    /* Flags are for the advisor and the GPC (annual review plan §6), never the student. */
+    /* Flags are for the advisor and the GPC, never the student. */
     flags: stage === 'advisor' ? computeFlags_(student, r) : []
   };
   const sp = parseJson_(r.Student_Payload), ap = parseJson_(r.Advisor_Payload), pp = parseJson_(r.Program_Payload), dp = parseJson_(r.Development_Payload);
   if (stage === 'student') {
     out.draft = stageDraft_(r, stage, sp, dp); out.prefill = sp.prefill || {}; out.development = dp;
-    /* What the first box of the report asks the student to check (annual review plan §5.1). */
+    /* What the first box of the report asks the student to check. */
     out.onFile = { program: student.Program === 'MA' ? 'MA (Archaeological Heritage)' : 'PhD', subfield: student.Subfield || '',
                    advisors: splitList_(student.Advisor_Emails), chair: student.Chair_Email || '', gsr: student.GSR_Email || '',
                    entryQuarter: quarterLabel_(student.Entry_Quarter || ''), leaveEnds: student.Leave_Ends ? quarterLabel_(student.Leave_Ends) : '' };
@@ -331,13 +331,13 @@ function finishReview_(reviewId, opts) {
   }
 }
 
-/* ---------- Flags (§6) ---------- */
+/* ---------- Flags ---------- */
 
 function computeFlags_(student, review) {
   const flags = [];
   const year = yearInProgram_(student.Entry_Quarter, quarterForDate_(todayIso_()));
   const program = student.Program === 'MA' ? 'MA' : 'PHD';
-  if (C_().EXPECTED_TTD_YEARS && year && year > C_().EXPECTED_TTD_YEARS && program === 'PHD') flags.push({ code: 'pastExpected', text: 'Past the expected time to degree: a plan to completion is required (§4.6).' });
+  if (C_().EXPECTED_TTD_YEARS && year && year > C_().EXPECTED_TTD_YEARS && program === 'PHD') flags.push({ code: 'pastExpected', text: 'Past the expected time to degree: a plan to completion is required.' });
   if (year && year >= C_().GS_LIMIT_FLAG_FROM_YEAR[program]) flags.push({ code: 'nearLimit', text: 'Year ' + year + ' of a ' + C_().GS_LIMIT_YEARS[program] + '-year Graduate School limit. Policy 1.1: students nearing or past the limit "should be placed on Academic Alert". Record a decision.', needsDecision: true });
   if (!student.Chair_Email && program === 'PHD' && year >= 2) flags.push({ code: 'noChair', text: 'No committee Chair on record (Policy 4.2.4).' });
   if (student.GPA !== '' && student.GPA !== undefined && Number(student.GPA) > 0 && Number(student.GPA) < 3.0) flags.push({ code: 'lowGpa', text: 'Cumulative GPA below 3.0 (MyGrad uses the Graduate School definition; checked 18 Nov 2026).' });
@@ -387,7 +387,7 @@ function programViewData(subfield) {
   };
 }
 
-/* A starting letter (§7), which the GPC edits. */
+/* A starting letter, which the GPC edits. */
 function defaultLetter_(s, ap) {
   const lines = ['Dear ' + (s.Preferred_First || s.Name || '') + ','];
   if (ap.accomplishments) lines.push('Recognition of your accomplishments this year: ' + ap.accomplishments);
@@ -437,7 +437,7 @@ function isKnownQuarter_(code) {
   }
 }
 
-/* Sends an advisor passage back for revision; the advisor's fields reopen for 5 days (§5.3). */
+/* Sends an advisor passage back for revision; the advisor's fields reopen for 5 days. */
 function returnToAdvisor(reviewId, reason) {
   const x = reviewForReviewer_(reviewId);
   if (x.r.Status !== 'PROGRAM_PENDING') throw new Error('Only a review at the program stage can be returned.');
@@ -455,7 +455,7 @@ function returnToAdvisor(reviewId, reason) {
 }
 
 /* Releases the letter: the GPC confirms the narrative check, the rating and the letter text;
-   a nearing-time-limit flag needs a recorded decision (§6). */
+   a nearing-time-limit flag needs a recorded decision. */
 function releaseLetter(reviewId, narrativeChecked) {
   /* A double click must not release twice (two AR-7s, two interim reviews). */
   const lock = LockService.getScriptLock();
@@ -499,7 +499,7 @@ function releaseLetterLocked_(reviewId, narrativeChecked) {
   return true;
 }
 
-/* The GPC's three ways out of ESCALATED (build-spec §1.1). */
+/* The GPC's three ways out of ESCALATED. */
 function resolveEscalationAction(reviewId, action, reason, newDueIso) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -572,7 +572,7 @@ function gpcOnlyNotes(reviewId) {
   return readConfidentialForReviewer_(x.r, x.s, x.email);
 }
 
-/* The Alert tracker: recommendations and their deadlines (§4.4, Policy 3.7.3). */
+/* The Alert tracker: recommendations and their deadlines (Policy 3.7.3). */
 function alertTracker() {
   const email = activeEmail_();
   return readTable_(C_().SHEETS.REVIEWS).filter(function(r) {

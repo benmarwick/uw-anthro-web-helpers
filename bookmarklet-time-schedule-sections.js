@@ -1,13 +1,13 @@
 /* ============================================================
    Time Schedule sections for the graduate review app
-   (course-feedback plan §4.2, §4.5, task R2)
+   
 
    Run on any UW Time Schedule page. When the graduate review app opened this tab, the bookmarklet
    tells the app it is ready, receives the quarter and the curricula it needs, fetches only those
    departments' Time Schedule pages, and sends back every section: SLN, section ID, credits or type
    (QZ marks a quiz section), instructors, the joint-listing flag and the meeting time. It also looks
    up each instructor's appointment type in the Course Evaluation Catalog (CEC) index, so graduate
-   student instructors can be excluded (course-feedback plan §4.3). It answers only an Apps Script
+   student instructors can be excluded. It answers only an Apps Script
    page (https://*-script.googleusercontent.com). Without an opener tab, the same data downloads as CSV.
 
    What the pages look like (checked on the Autumn 2026 ANTH, ARCHY and BIO A pages, 17 Nov 2026):

@@ -1,6 +1,5 @@
 /* ============================================================
-   RosterImport.gs: the Roster page's server side (course-feedback plan §4.4–4.5; annual review
-   plan §9.3). The page receives MyGrad and Time Schedule data from the bookmarklets by postMessage
+   RosterImport.gs: the Roster page's server side . The page receives MyGrad and Time Schedule data from the bookmarklets by postMessage
    (or CSV) and sends it here.
    ============================================================ */
 
@@ -95,7 +94,7 @@ function launchReviewData(quarter) {
   };
 }
 
-/* ---------- MyGrad prefill (annual review plan §9.3) ---------- */
+/* ---------- MyGrad prefill ---------- */
 
 /* Updates Students from the bridge's prefill data. Columns the administrator maintains (subfield,
    advisors, chair, GSR, alternate reviewer, status) are never overwritten. */
@@ -148,7 +147,7 @@ function studentsMap_() {
 }
 
 /* The instructors named on a page who should be asked but have no email yet. A graduate-student instructor is
-   never asked (principle 8), so a page they co-teach needs emails only for the others (course-feedback plan §4.5). */
+   never asked , so a page they co-teach needs emails only for the others. */
 function pageMissingInstructors_(req, instructors) {
   return String(req.Instructor_Names || '').split(/\s*\/\s*/).filter(Boolean).filter(function(n) {
     if (isPlaceholderInstructor_(n)) return false;
@@ -171,7 +170,7 @@ function gradStudentEmails_() {
   return emails;
 }
 
-/* Pages that have been sent and can still be edited (co-instructors may edit until the page closes, plan §4.3). */
+/* Pages that have been sent and can still be edited (co-instructors may edit until the page closes). */
 var LATE_INVITE_STATUSES_ = ['SENT', 'DRAFT', 'SUBMITTED'];
 
 /* A page already sent (it has a link and is still open) gives each address added later its own CF-1, with the
@@ -320,7 +319,7 @@ function importCourseFeedback(quarter, mygrad, tsData) {
 }
 
 /* Fills in an instructor's email (and optionally confirms the appointment) from the Roster page.
-   A graduate student is never asked (principle 8): their email is optional and never goes on a page. */
+   A graduate student is never asked : their email is optional and never goes on a page. */
 /* Suggested emails for the named instructors, from the department's public people page
    (CoreDirectory.gs). Returns { suggestions: { name: match }, error }. Nothing is saved here. */
 function suggestInstructorEmails(names) {
@@ -396,7 +395,7 @@ function saveInstructor(tsName, email, appointment) {
   }
 }
 
-/* Adds a co-instructor the Time Schedule does not show (course-feedback plan §4.2). On a page already sent,
+/* Adds a co-instructor the Time Schedule does not show. On a page already sent,
    the new address gets CF-1 at once (sendLateInvitations_); a page not yet sent waits for Launch. */
 function addCoInstructor(requestId, email) {
   assertAdminOrGpc_();

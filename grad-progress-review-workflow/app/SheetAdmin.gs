@@ -1,5 +1,5 @@
 /* ============================================================
-   SheetAdmin.gs: the spreadsheet menu (annual review plan §9.1; course-feedback plan §7).
+   SheetAdmin.gs: the spreadsheet menu.
    Only the Graduate Student Administrator runs these. The GPC works through the web app.
    ============================================================ */
 

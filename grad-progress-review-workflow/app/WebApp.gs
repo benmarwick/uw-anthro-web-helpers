@@ -44,7 +44,7 @@ function include_(name) {
   return HtmlService.createHtmlOutputFromFile(name).getContent();
 }
 
-/* CV upload (annual review plan §9.1): the page passes its <form>, so the file arrives as a Blob.
+/* CV upload: the page passes its <form>, so the file arrives as a Blob.
    PDF only, at most 10 MB. */
 function uploadCv(token, form) {
   const x = reviewByToken_(token);

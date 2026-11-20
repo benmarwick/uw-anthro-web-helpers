@@ -97,7 +97,7 @@
     if (v && typeof v === 'object') return Object.keys(v).map(function (k) { return '<div><strong>' + esc(k) + ':</strong> ' + nl2br(v[k]) + '</div>'; }).join('');
     return v === '' || v == null ? '<span class="muted">Not answered</span>' : nl2br(v);
   }
-  /* The Course Feedback Record (course-feedback plan §6.1), for any reader. */
+  /* The Course Feedback Record, for any reader. */
   function recordHtml(rec) {
     if (!rec) return '<p class="muted">No course feedback has been released yet.</p>';
     var h = '<p><strong>' + esc(rec.coverage) + '</strong></p>' + (rec.thinNote ? '<p class="muted">' + esc(rec.thinNote) + '</p>' : '');

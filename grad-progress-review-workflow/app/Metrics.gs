@@ -1,5 +1,5 @@
 /* ============================================================
-   Metrics.gs: program metrics (annual review plan §9.5). Only counts are reported, and every count
+   Metrics.gs: program metrics. Only counts are reported, and every count
    from 1 to 4 is shown as "<5" (suppressSmallCounts_ in CoreRecords.gs).
    ============================================================ */
 

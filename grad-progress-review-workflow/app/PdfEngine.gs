@@ -2,7 +2,7 @@
    PdfEngine.gs: the completed review as a PDF, built only from buildReviewPdfModel_() (CoreRecords.gs),
    which leaves out GPC-only fields, the development modules and calibration notes by design. The PDF
    is shared with the UW accounts of the student, advisor(s), committee chair and reviewer, and emails
-   link to it; it is never an attachment (annual review plan §4.1, §7).
+   link to it; it is never an attachment.
    ============================================================ */
 
 const PDF_LABELS_ = {

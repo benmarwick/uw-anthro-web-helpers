@@ -187,7 +187,7 @@ function executeEscalationRetry_(payload) {
 }
 
 /* Completion emails carry a link to the PDF shared with the reader's UW account, never an
-   attachment (annual review plan §7), so a retry simply resends the email. */
+   attachment, so a retry simply resends the email. */
 function executeCompletionRetry_(payload) {
   rawSendEmail_(payload.emailParams || payload);
 }
