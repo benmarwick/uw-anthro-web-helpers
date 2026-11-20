@@ -27,7 +27,7 @@
       return '<label class="radio"><input type="radio" name="' + id + 'c" value="' + val + '" data-f="contact"' + (s.contact === val ? ' checked' : '') + dis + '> ' + label + '</label>';
     };
     return '<section class="card" data-student="' + esc(s.email) + '"><h2 style="margin-top:0">' + esc(s.name) + '</h2>' +
-      '<p class="muted">' + esc(s.program) + (s.subfield ? ' · ' + esc(s.subfield) : '') + (s.year ? ' · year ' + esc(s.year) + ' in the program' : '') + ' · ' + esc(s.course) + '</p>' +
+      '<p class="muted">' + esc(s.program) + (s.subfield ? ' · ' + esc(s.subfield) : '') + (s.year ? ' · year ' + esc(s.year) + ' in the program' : '') + (s.candidacy ? ' · ' + esc(s.candidacy) : '') + ' · ' + esc(s.course) + '</p>' +
       (s.returnedReason ? '<div class="warnbox"><strong>The GPC asked you to look again at this comment:</strong> ' + nl2br(s.returnedReason) + '</div>' : '') +
       '<fieldset><legend>Did you have enough contact to comment?</legend>' + radio('enough', 'Enough contact to comment') +
       radio('not_enough', 'Not enough contact (e.g. in a big class)') + (s.isAdvisee ? radio('covered', 'Covered in my annual review (you are this student\'s advisor)') : '') + '</fieldset>' +

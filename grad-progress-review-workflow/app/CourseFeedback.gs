@@ -62,6 +62,26 @@ function yearInProgram_(entryQuarter, quarter) {
   return acad(b) - acad(a) + 1;
 }
 
+/* A PhD student's candidacy, for the instructor page: 'PhD candidate since June 2024', 'PhD candidate'
+   (granted, date unknown), 'pre-candidacy', or '' when unknown (MA student, or MyGrad data not loaded yet).
+   Candidacy_Date holds what the MyGrad bookmarklet sent: a date such as 6/12/2024 (or 2024-06-12 once
+   Sheets has read it as a date), 'yes' when granted without a date, or '' when not granted. */
+function candidacyStatus_(student) {
+  const s = student || {};
+  if (s.Program === 'MA') return '';
+  const raw = String(s.Candidacy_Date || '').trim();
+  if (!raw) return s.Entry_Quarter ? 'pre-candidacy' : '';
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  let month = 0;
+  let year = 0;
+  const us = raw.match(/^(\d{1,2})\/\d{1,2}\/(\d{4})$/);
+  const iso = raw.match(/^(\d{4})-(\d{2})-\d{2}/);
+  if (us) { month = Number(us[1]); year = Number(us[2]); }
+  if (iso) { month = Number(iso[2]); year = Number(iso[1]); }
+  if (month >= 1 && month <= 12 && year) return 'PhD candidate since ' + months[month - 1] + ' ' + year;
+  return 'PhD candidate';
+}
+
 /* ---------- The instructor page ---------- */
 
 function loadRequestForInstructor_(token) {
@@ -110,7 +130,7 @@ function loadFeedbackPage(token) {
     const returned = c.Status === 'RETURNED' || c.Status === 'STUDENT_ONLY';
     return {
       email: normEmail_(e.Student_Email), name: s.Name || e.Student_Email, program: s.Program === 'MA' ? 'MA (Archaeological Heritage)' : 'PhD',
-      subfield: s.Subfield || '', year: yearInProgram_(s.Entry_Quarter, r.Quarter), course: e.Curric + ' ' + e.Course_Number,
+      subfield: s.Subfield || '', year: yearInProgram_(s.Entry_Quarter, r.Quarter), candidacy: candidacyStatus_(s), course: e.Curric + ' ' + e.Course_Number,
       isAdvisee: splitList_(e.Advisee_Of).indexOf(a.email) !== -1,
       contact: c.Contact || '', written: c.Rating_Written || '', discussion: c.Rating_Discussion || '', literature: c.Rating_Literature || '',
       strength: c.Strength || '', nextStep: c.Next_Step || '', followup: c.Followup_Flag === true || c.Followup_Flag === 'TRUE',

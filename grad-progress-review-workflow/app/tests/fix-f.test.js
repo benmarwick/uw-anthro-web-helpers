@@ -189,3 +189,18 @@ test('email sentences start with a word, not a numeral', () => {
   assert.match(ar5.body[0], /^Three of 5 reviews in Archaeology/);
   assert.match(ar5.body[0], /\. One is still waiting/);
 });
+
+test('the instructor page shows a PhD student\'s candidacy', () => {
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(APP, 'CourseFeedback.gs'), 'utf8'), ctx);
+  const c = s => ctx.candidacyStatus_(s);
+  assert.equal(c({ Program: 'PHD', Entry_Quarter: 'AUT2022', Candidacy_Date: '6/12/2024' }), 'PhD candidate since June 2024');
+  assert.equal(c({ Program: 'PHD', Entry_Quarter: 'AUT2022', Candidacy_Date: '2025-03-04' }), 'PhD candidate since March 2025', 'a cell Sheets read as a date');
+  assert.equal(c({ Program: 'PHD', Entry_Quarter: 'AUT2022', Candidacy_Date: 'yes' }), 'PhD candidate', 'granted, no date');
+  assert.equal(c({ Program: 'PHD', Entry_Quarter: 'AUT2024', Candidacy_Date: '' }), 'pre-candidacy');
+  assert.equal(c({ Program: 'PHD', Entry_Quarter: '', Candidacy_Date: '' }), '', 'MyGrad data not loaded: say nothing');
+  assert.equal(c({ Program: 'MA', Entry_Quarter: 'AUT2025', Candidacy_Date: '' }), '', 'MA students have no candidacy');
+  const html = fs.readFileSync(path.join(APP, 'FeedbackForm.html'), 'utf8');
+  assert.match(html, /\(s\.candidacy \? ' · ' \+ esc\(s\.candidacy\) : ''\)/, 'the page shows it after the year');
+});
