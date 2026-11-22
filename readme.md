@@ -357,11 +357,21 @@ This app provides an online workflow the department's "[Academic Student Employe
 
 #### How to use:
 
--   The app is deployed as a [Google Apps Script web app](https://script.google.com/macros/s/AKfycbyseoid07zdu5E6YmHy3S9of35FlhQn1PqjPBYUqIcVKakjVLyk_Lp1vaDMIthssQXNMg/exec) with its master [spreadsheet](https://docs.google.com/spreadsheets/d/1hCvDujkSyjmbtH9ZOyntV6Va1c8ye7Hxt0RbSOFIxDc/edit). Set the coordinator email, archive Drive folder, and app URL in `Config.gs`.
--   Open the [Apps Script project](https://script.google.com/home/projects/17tiixPCukHffnZMe8Ph48qL1Y8x7Lz3pmeX4IgHK_TV3Vd--Kjb5qrTU), push the code with [clasp](https://developers.google.com/apps-script/guides/clasp) (`clasp push`), and deploy it as a Web App.
--   In the master spreadsheet, use the **TA Evaluation System** menu to run *Initialize Sheets*, select the `NOT_STARTED` rows, and run *Launch Selected Evaluation(s)* to email the instructor their evaluation link.
--   The instructor completes and signs the evaluation, the ASE adds a self-evaluation, and the instructor reviews this self-evaluation and gives a final sign-off — each step is emailed to the next party as a new tokenized link.
+-   The app is deployed as a [Google Apps Script web app](https://script.google.com/a/macros/uw.edu/s/AKfycbxjtb3CKSgW2YnCkNa_Zk6EZVxs8Ddk38JWuTUu6puNs6BTcA6dnmD42dzKQYR4LXD2/exec) with its master [spreadsheet](https://docs.google.com/spreadsheets/d/1hCvDujkSyjmbtH9ZOyntV6Va1c8ye7Hxt0RbSOFIxDc/edit). Set the coordinator email, archive Drive folder, and app URL in `Config.gs`.
+-   Open the [Apps Script project](https://script.google.com/home/projects/1_PrgQr69MHSwukvT4HNUIdcA03iaYlBtogtrDWvjA8F2lojDMZHX2NTu), push the code with [clasp](https://developers.google.com/apps-script/guides/clasp) (`clasp push`), and deploy it as a Web App.
+-   In the master spreadsheet, use the **TA Evaluation System** menu to run *Initialize Sheets*, mark rows `NOT_STARTED`, and run *Launch Selected Evaluation(s)* to email each instructor their `[TA Evaluation]` link.
+-   The instructor completes and signs the TA evaluation, the ASE adds a self-evaluation and uploads a time sheet, and the instructor reviews the self-evaluation and gives a final sign-off; each step is emailed to the next party as a new tokenized link.
 -   The completed evaluation is rendered as a signed PDF, emailed to both the instructor and the ASE, and archived in Google Drive. Every step is written to the audit log.
+
+## Graduate Review System Google Apps Script
+
+#### Overview
+
+This web app runs two connected graduate-student academic progress processes in UW Anthropology under Graduate School [Policy 3.7](https://grad.uw.edu/policies/3-7-academic-performance-and-progress/): quarterly **Graduate Student Course Feedback** (forest-green emails and instructor forms for graduate students enrolled in courses for credit) and the **Graduate Student Annual Review and Progress Check-Ins** (deep-navy PhD annual reviews and deep-teal MA quarterly / PhD interim check-ins). Both use distinct sender names, `[Grad Student ...]` subject prefixes, color-coded email banners, and form scope boxes so faculty can tell them apart immediately from the purple `[TA Evaluation]` system. The app runs entirely within UW's Google Workspace and uses no AI.
+
+#### Scripts for the App
+
+[grad-progress-review-workflow/](https://github.com/benmarwick/uw-anthro-web-helpers/tree/main/grad-progress-review-workflow), with full documentation, quick links, and privacy notice in its [README](https://github.com/benmarwick/uw-anthro-web-helpers/blob/main/grad-progress-review-workflow/README.md).
 
 ### License
 

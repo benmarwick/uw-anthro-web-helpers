@@ -115,7 +115,7 @@ If a bookmarklet cannot send its data back, it offers a CSV download. Upload it 
 - **"Not my course":** when an instructor says a course is not theirs, you get an email. Find the right instructor and click **Re-send** beside the page; the new instructor gets a fresh page with the same due date.
 - **Reminders** (CF-2 and CF-3) go out by themselves on the two reminder dates.
 
-**Instructor.** Open the link in the email while signed in to UW. For each student, say whether you had enough contact to comment. If you did, give the three ratings, one thing the student did well, and the one next step. Tick "follow up" only for something the GPC should act on this quarter. Sign and click **Submit**. You can edit until the page closes; a change after submitting needs **Submit** again. If the course is not yours, use "let us know" in the email.
+**Instructor.** Open the link in the email while signed in to UW. For each student, say whether you had enough contact to comment. If you did, give the three ratings, one thing the student did well, and the one next step. Tick "follow up" only for something the GPC should act on this quarter. Sign and click **Submit Course Feedback**. You can edit until the page closes; a change after submitting needs **Submit Course Feedback** again. If the course is not yours, use "let us know" in the email or "Report wrong course" in the box at the top of the page.
 
 **GPC, the week after the page closes.**
 
@@ -174,13 +174,13 @@ A task scheduled for one day that is missed (for example because the daily run f
 | Text | File |
 |---|---|
 | Every email | [`app/CoreEmail.gs`](app/CoreEmail.gs) |
-| Instructor page | [`app/FeedbackForm.html`](app/FeedbackForm.html): `guidance()` and `studentBlock()` |
-| Annual report, advisor evaluation, check-ins, acknowledgement | [`app/Index.html`](app/Index.html): `STUDENT_ANNUAL`, `STUDENT_MA`, `ADVISOR_ANNUAL`, `ADVISOR_CHECKIN`, `ACK` |
+| Instructor page | [`app/FeedbackForm.html`](app/FeedbackForm.html): `scopeBox()` and `studentBlock()` |
+| Annual report, advisor evaluation, check-ins, acknowledgement | [`app/Index.html`](app/Index.html): `reviewMeta()`, `scopeBox()`, `STUDENT_ANNUAL`, `STUDENT_MA`, `ADVISOR_ANNUAL`, `ADVISOR_CHECKIN`, `ACK` |
 | Rating levels and review ratings | [`app/Config.gs`](app/Config.gs): `CF_LEVELS_`, `REVIEW_RATINGS_` |
 | GPC checklists | [`app/ReviewRelease.html`](app/ReviewRelease.html), [`app/Program.html`](app/Program.html) (`CHECKS`) |
 | Roster page, student course feedback page | [`app/RosterPage.html`](app/RosterPage.html), [`app/Home.html`](app/Home.html) |
 
-Then run the tests and deploy ([Deploying a change](#deploying-a-change)). Every email follows the [email rules](#email-rules).
+Then run the tests and deploy ([Deploying a change](#deploying-a-change)). Every email follows the [email rules and visual identity](#email-rules-and-visual-identity).
 
 ## How it works
 
@@ -355,7 +355,7 @@ The design follows Graduate School Policy 3.7, the [Provost and Graduate School 
 
 ## Screenshots
 
-The first three are from the deployed app, with invented sample data (three students and sample instructors) uploaded through the Roster page's CSV option.
+The screenshots below predate the November 22, 2026 visual themes (forest green for course feedback, deep navy for annual reviews, deep teal for check-ins) and two-column scope boxes. The first three are from the deployed app, with invented sample data (three students and sample instructors) uploaded through the Roster page's CSV option.
 
 The Roster page after the CSV uploads and Preview.
 
@@ -399,7 +399,7 @@ It is a sibling of [`ta-evaluation-workflow`](../ta-evaluation-workflow) and reu
 
 ### Tests
 
-From the repository root: `node --test "grad-progress-review-workflow/app/tests/*.js"` (118 tests on 19 November 2026). `run.js` covers the pure rules: calendar dates, state transitions, the roster join and exclusions, email texts, the Course Feedback Record, the PDF field list and metric suppression. The `fix-*.test.js` files cover sheet writes, alerting, roster rules, course feedback saving and release, the annual review stages, the MyGrad bridge, privacy rules, and the directory email suggestions.
+From the repository root: `node --test "grad-progress-review-workflow/app/tests/*.js"` (120 tests on 22 November 2026). `run.js` covers the pure rules: calendar dates, state transitions, the roster join and exclusions, email texts (including sender names, subject prefixes, banners, privacy rules, and TA-evaluation disambiguation), the Course Feedback Record, the PDF field list and metric suppression. The `fix-*.test.js` files cover sheet writes, alerting, roster rules, course feedback saving and release, the annual review stages, the MyGrad bridge, privacy rules, and the directory email suggestions.
 
 ### Deploying a change
 
@@ -419,7 +419,8 @@ The `Core*.gs` files hold the rules in [How it works](#how-it-works) as pure fun
 
 | Page | Who | File |
 |---|---|---|
-| Annual review form, MA check-in, advisor stage, advisor's view of advisees' course feedback, coordinator summary | Student, advisor, subfield coordinators | `Index.html` (one page, several modes) |
+| Annual review form, MA check-in, PhD interim check-in, advisor stage, letter acknowledgement | Student, advisor | `Index.html` (one page, several modes) |
+| Student and advisor read-only course feedback views, subfield calibration summary | Student, advisor, subfield coordinators | `Home.html` |
 | Instructor page | Instructors | `FeedbackForm.html` |
 | Roster | Administrator, GPC | `RosterPage.html` |
 | Review and release, follow-ups | GPC (alternate for recused students) | `ReviewRelease.html` |
@@ -433,9 +434,17 @@ Every page checks the signed-in UW account against the row and applies recusal b
 
 **Annual review.** `ANNUAL`: `NOT_STARTED → STUDENT_PENDING → ADVISOR_PENDING → PROGRAM_PENDING → STUDENT_ACK_PENDING → PDF_GENERATING → COMPLETED`. PhD `INTERIM`: `ADVISOR_PENDING → COMPLETED`, or to `PROGRAM_PENDING` when the advisor escalates. MA `INTERIM`: `STUDENT_PENDING → ADVISOR_PENDING → COMPLETED`, or to `PROGRAM_PENDING` on a concern. Any pending stage goes to `ESCALATED` after the due date and two reminders; Extend returns it to that stage, Skip moves to the next, Exempt ends it.
 
-#### Email rules
+#### Email rules and visual identity
 
-Warm, short and plain, with one action and one link. Course feedback emails never name a student and never include a comment, rating or flag. Annual review emails may name the student in the body to someone who already has access, never in the subject, and never carry a rating, comment, flag or whether a letter raises a concern. Letters, records and PDFs live in the app or in a file shared only with the reader's UW account; emails link to them. A sentence never starts with a numeral.
+Warm, short and plain, with one clear action button and a fallback URL. Every workflow uses a distinct sender display name, bracketed subject prefix, email banner color, and web form header color (with UW Purple `#4B2E83` reserved for the separate `[TA Evaluation]` system), plus a two-column scope box at the top of every form separating it from TA/ASE employment evaluations and the other graduate review workflow:
+
+| Workflow | Sender display name | Subject prefix | Color |
+|---|---|---|---|
+| Course feedback (`CF-1` to `CF-11`) | `UW Anthropology: Grad Student Course Feedback` | `[Grad Student Course Feedback]` | Forest green (`#1E5631`) |
+| Annual review (`AR-1` to `AR-9`, `AR-11`, `AR-12`) | `UW Anthropology: Grad Student Annual Review` | `[Grad Student Annual Review]` | Deep navy (`#1B365D`) |
+| Progress check-ins (`AR-10`, `AR-13`) | `UW Anthropology: Grad Student Progress Check-In` | `[Grad Student MA Check-In]` or `[Grad Student Interim Check-In]` | Deep teal (`#14535B`) |
+
+Course feedback emails never name a student and never include a comment, rating or flag. Annual review and check-in emails may name the student in the body to someone who already has access, never in the subject, and never include a rating, comment, flag or whether a letter raises a concern. Letters, records and PDFs live in the app or in a file shared only with the reader's UW account; emails link to them. A sentence never starts with a numeral.
 
 ### Setting it up again
 

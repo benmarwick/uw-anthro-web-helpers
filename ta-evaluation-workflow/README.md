@@ -34,9 +34,9 @@ The menus and emails only work if the Apps Script code is attached to the master
 
 3.  If it is not there, reload the page once. If it is still missing, choose **Extensions \> Apps Script**. This opens the script project attached to this spreadsheet.
 
-4.  Look at the **Files** list on the left of the editor. It should contain these 14 files, with exactly these names:
+4.  Look at the **Files** list on the left of the editor. It should contain these 15 files (plus `appsscript.json`), with exactly these names:
 
-    - script files: `Alerting.gs`, `AuditLog.gs`, `Automation.gs`, `Config.gs`, `DeadLetterQueue.gs`, `EmailEngine.gs`, `Logs.gs`, `PdfEngine.gs`, `Security.gs`, `SheetAdmin.gs`, `WebApp.gs`
+    - script files: `Alerting.gs`, `AuditLog.gs`, `Automation.gs`, `Config.gs`, `DeadLetterQueue.gs`, `EmailEngine.gs`, `Logs.gs`, `PdfEngine.gs`, `Security.gs`, `SheetAdmin.gs`, `Timesheet.gs`, `WebApp.gs`
     - HTML files: `Index.html`, `ErrorView.html`, `CompletedView.html`
 
     If they are all there, the code is attached; ask the maintainer why the menu does not appear. If the list is empty or only has `Code.gs`, set the project up as described below.
@@ -112,7 +112,7 @@ If this is your first time, do a trial run first. Add one row with your own emai
 2.  A message says **Launched N evaluation(s)**. Check that N equals the number of rows you marked in Step 4. If any rows were not launched, the message lists them with the reason: an instructor or TA address that is not a `@uw.edu` address, or the same address for both. Fix those rows and launch again. (A test row with `ADMIN_EMAIL` as both instructor and TA is allowed.)
 3.  In each launched row, `Status` changes to `PROF_EVAL_PENDING` and the system fills in dates, a reminder count and a secure token in columns I to R.
 
-Each instructor receives an email with the subject "Action needed by *due date*: evaluate your TA *TA name* (*course*, *term*)" and a **Start the evaluation** button. The emails are sent from the Google account of the person who chose **Launch**, under the name "UW Anthropology TA Evaluations", and replies go to `ADMIN_EMAIL`.
+Each instructor receives an email with the subject "[TA Evaluation] Action needed by *due date*: evaluate your TA *TA name* (*course*, *term*)", a purple `TA / ASE EMPLOYMENT EVALUATION (PERSONNEL FILE)` identity banner, a note separating paid TA/ASE evaluations from Graduate Student Course Feedback and Graduate Student Annual Reviews, and a **Start TA Evaluation** button. Every email from this system (invitations, reminders, sign-offs, and completion notices) begins with `[TA Evaluation]`. The emails are sent from the Google account of the person who chose **Launch** (and from the script owner for automated reminders), under the name "UW Anthropology: TA Evaluations", and replies go to `ADMIN_EMAIL`.
 
 Every email shows the date the step is due. Due dates are tied to the end of the quarter in the row's `Term`, so the whole evaluation finishes by the last day of finals:
 
@@ -349,9 +349,9 @@ A submission then has to pass:
 
 ### UI (`Index.html`)
 
-Single dynamic page (not a separate template per stage) that renders the active step. Styled to the UW brand (purple `#4B2E83`, gold `#B7A57A`, Inter font) and built for WCAG 2.1 AA: skip link, semantic landmarks, ARIA progress bar, visible keyboard focus, `role="alert"` live regions, print stylesheet, mobile-responsive layout, character counters, and accessible custom radio buttons. The web forms meet current accessibility best practices: every input is labeled, required fields are announced and validated with clear error messages, radio groups use `<fieldset>`/`<legend>`, and all controls have touch targets of at least 44 px. The professor's form auto-saves to the server (1 s debounce). Nothing is kept in the browser; a draft left there by an older version is deleted when the form opens.
+Single dynamic page (not a separate template per stage) that renders the active step. Styled to the UW brand (purple `#4B2E83`, gold `#B7A57A`, Inter font) and built for WCAG 2.1 AA: skip link, semantic landmarks, ARIA progress bar, visible keyboard focus, `role="alert"` live regions, print stylesheet, mobile-responsive layout, character counters, and accessible custom radio buttons. Every step opens with a purple `TA / ASE Employment Evaluation (Personnel File)` header, a permanent two-column scope box distinguishing paid TA evaluations from Graduate Student Course Feedback (forest green) and Graduate Student Annual Reviews / Check-Ins (deep navy or teal), and explicit submit buttons (`Submit TA Evaluation`, `Submit TA Self-Evaluation`, `Sign & Finalize TA Evaluation`). The web forms meet current accessibility best practices: every input is labeled, required fields are announced and validated with clear error messages, radio groups use `<fieldset>`/`<legend>`, and all controls have touch targets of at least 44 px. The professor's form auto-saves to the server (1 s debounce). Nothing is kept in the browser; a draft left there by an older version is deleted when the form opens.
 
-The screenshots below come from one test evaluation run through all three steps of the deployed web app on November 16, 2026. The names and comments are made up: the instructor is "Dr. Smith" and the TA is "Alex Johnson". Both roles use the coordinator's own UW account (`bmarwick@uw.edu`), because each form opens only for the account named in the row, so one person can run the whole test.
+The screenshots below come from one test evaluation run through all three steps of the deployed web app on November 16, 2026 (before the scope box and updated button labels were added on November 22, 2026). The names and comments are made up: the instructor is "Dr. Smith" and the TA is "Alex Johnson". Both roles use the coordinator's own UW account (`bmarwick@uw.edu`), because each form opens only for the account named in the row, so one person can run the whole test.
 
 The TA response and sign-off screenshots were retaken on November 17, 2026, when the time sheet upload was added. They show the same test evaluation, rendered from the deployed version of `Index.html` with a sample time sheet file chosen. The PDF screenshot predates the time sheet and does not show the PDF's "Time Sheet" section.
 
