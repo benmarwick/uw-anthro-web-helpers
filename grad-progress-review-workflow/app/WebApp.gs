@@ -12,13 +12,16 @@
 function doGet(e) {
   const p = (e && e.parameter) || {};
   try {
-    if (p.f) return page_('FeedbackForm', 'Course feedback', { token: String(p.f), notMine: p.nmc === '1' });
-    if (p.t) return page_('Index', 'Annual review', { token: String(p.t) });
+    if (p.f) return page_('FeedbackForm', 'Grad Student Course Feedback', { token: String(p.f), notMine: p.nmc === '1' });
+    if (p.t) return page_('Index', 'Grad Student Annual Review / Check-In', { token: String(p.t) });
     const view = String(p.view || 'student');
-    if (view === 'roster') return page_('RosterPage', 'Roster', {});
-    if (view === 'release') return page_('ReviewRelease', 'Review and release', { quarter: String(p.q || quarterForDate_(todayIso_()) || '') });
-    if (view === 'program') return page_('Program', 'Program stage', {});
-    if (['student', 'advisor', 'coordinator'].indexOf(view) !== -1) return page_('Home', 'Your course feedback', { view: view });
+    if (view === 'roster') return page_('RosterPage', 'Grad Student Course Feedback: Roster', {});
+    if (view === 'release') return page_('ReviewRelease', 'Grad Student Course Feedback: Review and Release', { quarter: String(p.q || quarterForDate_(todayIso_()) || '') });
+    if (view === 'program') return page_('Program', 'Grad Student Annual Review: Program Stage', {});
+    if (['student', 'advisor', 'coordinator'].indexOf(view) !== -1) {
+      const homeTitle = view === 'coordinator' ? 'Grad Student Annual Review: Subfield Summary' : 'Grad Student Course Feedback (Read-Only)';
+      return page_('Home', homeTitle, { view: view });
+    }
     return message_('Page not found.');
   } catch (err) {
     logError_('WebApp.doGet', err.message, {});

@@ -26,7 +26,7 @@ function launchCourseFeedback_(quarter, actor) {
     splitList_(r.Instructor_Emails).forEach(function(em) {
       sendTemplate_('CF-1', em, firstNameFor_(em), {
         course: r.Offering, quarter: quarterLabel_(quarter), n: students.length, url: appUrl_({ f: t.token }),
-        notMineUrl: appUrl_({ f: t.token, nmc: 1 }), dueLong: dateLong_(w.due)
+        notMineUrl: appUrl_({ f: t.token, nmc: 1 }), dueLong: dateLong_(w.due), dueShort: dateShort_(w.due)
       }, r.Request_ID);
     });
     sent++;
@@ -251,7 +251,7 @@ function notMyCourse(token, suggested) {
     throw new Error('This page can no longer be marked "Not my course". If it is not your course, reply to the invitation email and we will sort it out.');
   }
   updateRow_(C_().SHEETS.REQUESTS, r._row, { Status: 'NOT_MY_COURSE', Not_Mine_By: a.email, Not_Mine_Suggested: sanitizeText_(suggested, 200, false) });
-  sendTemplate_('CF-4', a.email, firstNameFor_(a.email), { course: r.Offering }, r.Request_ID);
+  sendTemplate_('CF-4', a.email, firstNameFor_(a.email), { course: r.Offering, quarter: quarterLabel_(r.Quarter) }, r.Request_ID);
   if (C_().ADMIN_EMAIL) {
     sendTemplate_('CF-5', C_().ADMIN_EMAIL, '', { course: r.Offering, section: '', quarter: quarterLabel_(r.Quarter), instructorName: a.email,
       suggested: sanitizeText_(suggested, 200, false), rosterUrl: appUrl_({ view: 'roster' }), dueLong: r.Due_Date ? dateLong_(r.Due_Date) : '' }, r.Request_ID);
@@ -282,7 +282,7 @@ function reissueRequest(requestId, instructorEmails) {
   const n = activeStudentsForRequest_(r).length;
   emails.forEach(function(em) {
     sendTemplate_('CF-1', em, firstNameFor_(em), { course: r.Offering, quarter: quarterLabel_(r.Quarter), n: n, url: appUrl_({ f: t.token }),
-      notMineUrl: appUrl_({ f: t.token, nmc: 1 }), dueLong: dateLong_(r.Due_Date) }, id);
+      notMineUrl: appUrl_({ f: t.token, nmc: 1 }), dueLong: dateLong_(r.Due_Date), dueShort: dateShort_(r.Due_Date) }, id);
   });
   logEvent_({ action: C_().ACTIONS.MANUAL_OVERRIDE, evaluationId: id, details: { reissuedFrom: requestId }, actorEmail: actor });
   return id;
@@ -371,7 +371,7 @@ function returnComment(feedbackId, reason, gpcNote) {
   updateRow_(S.COMMENTS, x.c._row, { Status: next, Returned_Reason: sanitizeText_(reason, 1000), Return_Until: until, GPC_Note: sanitizeText_(gpcNote || '', 1000) });
   const r = findOne_(S.REQUESTS, 'Request_ID', x.c.Request_ID);
   splitList_(r.Instructor_Emails).forEach(function(em) {
-    sendTemplate_('CF-6', em, firstNameFor_(em), { course: r.Offering, url: appUrl_({ f: r.Secure_Token }), reviseByLong: dateLong_(until) }, x.c.Feedback_ID);
+    sendTemplate_('CF-6', em, firstNameFor_(em), { course: r.Offering, quarter: quarterLabel_(r.Quarter), url: appUrl_({ f: r.Secure_Token }), reviseByLong: dateLong_(until) }, x.c.Feedback_ID);
   });
   logEvent_({ action: C_().ACTIONS.CF_RETURNED, evaluationId: feedbackId, details: { reason: reason }, actorEmail: x.email });
   return until;

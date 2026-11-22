@@ -51,7 +51,7 @@ function launchAnnualCycle_(year, actor) {
     const row = createReviewRow_({ Cycle: year, Type: 'ANNUAL', Program: 'PHD', Student_Email: email, Advisor_Emails: s.Advisor_Emails,
       Chair_Email: s.Chair_Email, Status: 'STUDENT_PENDING', Due_Date: dates.studentDue, Secure_Token: t.token, Token_Expiry: t.expiry,
       Student_Payload: jsonCell_({ prefill: prefillStudent_(s) }) });
-    sendTemplate_('AR-1', email, s.Preferred_First || firstNameFor_(email), { year: year, url: appUrl_({ t: t.token }), dueLong: dateLong_(dates.studentDue) }, row.Review_ID);
+    sendTemplate_('AR-1', email, s.Preferred_First || firstNameFor_(email), { year: year, url: appUrl_({ t: t.token }), dueLong: dateLong_(dates.studentDue), dueShort: dateShort_(dates.studentDue) }, row.Review_ID);
     launched++;
   });
   logEvent_({ action: C_().ACTIONS.LAUNCH, evaluationId: 'ANNUAL ' + year, details: { launched: launched }, actorEmail: actor || 'SYSTEM' });
@@ -72,7 +72,7 @@ function launchMaCheckins_(quarter, actor) {
     const row = createReviewRow_({ Cycle: quarter, Type: 'INTERIM', Program: 'MA', Student_Email: email, Advisor_Emails: s.Advisor_Emails,
       Chair_Email: s.Chair_Email, Status: 'STUDENT_PENDING', Due_Date: w.due, Secure_Token: t.token, Token_Expiry: t.expiry,
       Student_Payload: jsonCell_({ prefill: prefillStudent_(s) }) });
-    sendTemplate_('AR-10', email, s.Preferred_First || firstNameFor_(email), { quarter: quarterLabel_(quarter), url: appUrl_({ t: t.token }), dueLong: dateLong_(w.due), isInterim: false }, row.Review_ID);
+    sendTemplate_('AR-10', email, s.Preferred_First || firstNameFor_(email), { quarter: quarterLabel_(quarter), url: appUrl_({ t: t.token }), dueLong: dateLong_(w.due), dueShort: dateShort_(w.due), isInterim: false }, row.Review_ID);
     n++;
   });
   logEvent_({ action: C_().ACTIONS.LAUNCH, evaluationId: 'MA ' + quarter, details: { launched: n }, actorEmail: actor || 'SYSTEM' });
@@ -94,10 +94,10 @@ function createInterimReview_(student, parentId, advisorMonths, missingOrLowGpa,
   const quarterText = quarterLabel_(quarterForDate_(due) || '');
   const url = appUrl_({ t: t.token });
   if (isMa) {
-    sendTemplate_('AR-10', email, student.Preferred_First || 'there', { quarter: quarterText, url: url, dueLong: dateLong_(due), isInterim: true }, row.Review_ID);
+    sendTemplate_('AR-10', email, student.Preferred_First || 'there', { quarter: quarterText, url: url, dueLong: dateLong_(due), dueShort: dateShort_(due), isInterim: true }, row.Review_ID);
   } else {
     splitList_(student.Advisor_Emails).forEach(function(a) {
-      sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterText, url: url, dueLong: dateLong_(due), isInterim: true }, row.Review_ID);
+      sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterText, url: url, dueLong: dateLong_(due), dueShort: dateShort_(due), isInterim: true }, row.Review_ID);
     });
   }
   logEvent_({ action: C_().ACTIONS.INTERIM_CREATED, evaluationId: row.Review_ID, details: { parent: parentId, due: due }, actorEmail: actor || 'SYSTEM' });
@@ -132,7 +132,9 @@ function loadReview(token) {
   const r = x.review, stage = x.access.stage;
   const student = studentByEmail_(r.Student_Email) || {};
   const out = {
-    reviewId: r.Review_ID, type: r.Type, program: r.Program, cycle: r.Cycle, stage: stage, status: r.Status, due: r.Due_Date ? dateLong_(r.Due_Date) : '',
+    reviewId: r.Review_ID, type: r.Type, program: r.Program, cycle: r.Cycle,
+    cycleLabel: r.Type === 'ANNUAL' ? String(r.Cycle || '') : (quarterLabel_(r.Cycle) || String(r.Cycle || '')),
+    stage: stage, status: r.Status, due: r.Due_Date ? dateLong_(r.Due_Date) : '',
     studentName: student.Name || r.Student_Email, coAdvised: splitList_(r.Advisor_Emails).length > 1, returned: !!x.access.returned,
     levels: CF_LEVELS_, ratings: REVIEW_RATINGS_,
     /* Flags are for the advisor and the GPC, never the student. */
@@ -292,11 +294,11 @@ function notifyAdvisorStage_(r, student, token, dueIso) {
   const advisors = splitList_(r.Advisor_Emails);
   advisors.forEach(function(a) {
     if (r.Type === 'ANNUAL') {
-      sendTemplate_('AR-3', a, firstNameFor_(a), { studentName: student.Name, studentFirstName: student.Preferred_First || student.Name,
-        url: appUrl_({ t: token }), dueLong: dateLong_(dueIso), coAdvised: advisors.length > 1 }, r.Review_ID);
+      sendTemplate_('AR-3', a, firstNameFor_(a), { year: r.Cycle, studentName: student.Name, studentFirstName: student.Preferred_First || student.Name,
+        url: appUrl_({ t: token }), dueLong: dateLong_(dueIso), dueShort: dateShort_(dueIso), coAdvised: advisors.length > 1 }, r.Review_ID);
     } else {
       sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterLabel_(r.Cycle), url: appUrl_({ t: token }),
-        dueLong: dateLong_(dueIso), isInterim: r.Program !== 'MA' }, r.Review_ID);
+        dueLong: dateLong_(dueIso), dueShort: dateShort_(dueIso), isInterim: r.Program !== 'MA' }, r.Review_ID);
     }
   });
 }
@@ -322,7 +324,7 @@ function finishReview_(reviewId, opts) {
       const isStudent = p === normEmail_(r.Student_Email);
       sendTemplate_('AR-8', p, isStudent ? (student.Preferred_First || 'there') : firstNameFor_(p), { year: r.Cycle, isStudent: isStudent, studentName: student.Name, pdfUrl: pdf.url }, reviewId);
       if (C_().SURVEY_URL && (isStudent || splitList_(r.Advisor_Emails).indexOf(p) !== -1)) {
-        sendTemplate_('AR-12', p, isStudent ? (student.Preferred_First || 'there') : firstNameFor_(p), { url: C_().SURVEY_URL }, reviewId);
+        sendTemplate_('AR-12', p, isStudent ? (student.Preferred_First || 'there') : firstNameFor_(p), { year: r.Cycle, url: C_().SURVEY_URL }, reviewId);
       }
     });
   } catch (err) {
@@ -448,7 +450,7 @@ function returnToAdvisor(reviewId, reason) {
   pp.returnReason = sanitizeText_(reason, 1000);
   updateRow_(C_().SHEETS.REVIEWS, x.r._row, { Advisor_Return_Until: until, Secure_Token: t.token, Token_Expiry: t.expiry, Program_Payload: jsonCell_(pp), Updated_At: nowIso_() });
   splitList_(x.r.Advisor_Emails).forEach(function(a) {
-    sendTemplate_('AR-6', a, firstNameFor_(a), { studentName: x.s.Name, url: appUrl_({ t: t.token }), returnUntilLong: dateLong_(until) }, reviewId);
+    sendTemplate_('AR-6', a, firstNameFor_(a), { year: x.r.Cycle, studentName: x.s.Name, url: appUrl_({ t: t.token }), returnUntilLong: dateLong_(until) }, reviewId);
   });
   logEvent_({ action: C_().ACTIONS.ADVISOR_RETURNED, evaluationId: reviewId, details: { reason: reason, until: until }, actorEmail: x.email });
   return until;
@@ -553,14 +555,14 @@ function notifyAfterEscalation_(r, student, action, status, token, dueIso) {
   const studentEmail = normEmail_(r.Student_Email);
   const studentFirst = student.Preferred_First || 'there';
   if (status === 'STUDENT_PENDING') {
-    if (r.Type === 'ANNUAL') sendTemplate_('AR-2', studentEmail, studentFirst, { url: url, dueLong: dateLong_(due), dueShort: dateShort_(due) }, r.Review_ID);
-    else sendTemplate_('AR-10', studentEmail, studentFirst, { quarter: quarterLabel_(r.Cycle), url: url, dueLong: dateLong_(due), isInterim: false }, r.Review_ID);
+    if (r.Type === 'ANNUAL') sendTemplate_('AR-2', studentEmail, studentFirst, { year: r.Cycle, url: url, dueLong: dateLong_(due), dueShort: dateShort_(due) }, r.Review_ID);
+    else sendTemplate_('AR-10', studentEmail, studentFirst, { quarter: quarterLabel_(r.Cycle), url: url, dueLong: dateLong_(due), dueShort: dateShort_(due), isInterim: false }, r.Review_ID);
   }
   /* Skip and Extend both send AR-4 (annual) or AR-13 (check-in): AR-3 would say the student has finished, which is not true after a skip. */
   if (status === 'ADVISOR_PENDING') {
     splitList_(r.Advisor_Emails).forEach(function(a) {
-      if (r.Type === 'ANNUAL') sendTemplate_('AR-4', a, firstNameFor_(a), { studentName: student.Name, url: url, dueLong: dateLong_(due), dueShort: dateShort_(due) }, r.Review_ID);
-      else sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterLabel_(r.Cycle), url: url, dueLong: dateLong_(due), isInterim: r.Program !== 'MA' }, r.Review_ID);
+      if (r.Type === 'ANNUAL') sendTemplate_('AR-4', a, firstNameFor_(a), { year: r.Cycle, studentName: student.Name, url: url, dueLong: dateLong_(due), dueShort: dateShort_(due) }, r.Review_ID);
+      else sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterLabel_(r.Cycle), url: url, dueLong: dateLong_(due), dueShort: dateShort_(due), isInterim: r.Program !== 'MA' }, r.Review_ID);
     });
   }
   if (status === 'STUDENT_ACK_PENDING') sendTemplate_('AR-7', studentEmail, studentFirst, { url: url, ackDueLong: dateLong_(due) }, r.Review_ID);

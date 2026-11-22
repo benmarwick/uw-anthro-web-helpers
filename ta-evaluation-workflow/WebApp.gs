@@ -73,8 +73,9 @@ function handleRequest_(e) {
   html.nonce = nonce;
   html.duties = DUTY_LIST_;
   html.privacyUrl = POLICY_LINKS_.privacy;
+  const stageLabels = { prof_eval: 'Instructor Evaluation', ta_respond: 'TA Response', prof_sign: 'Instructor Sign-Off' };
   return html.evaluate()
-    .setTitle('TA Evaluation - ' + stage.replace('_', ' ').toUpperCase())
+    .setTitle('TA Evaluation (' + (stageLabels[stage] || stage) + '): ' + row.courseCode + ' · UW Anthropology')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 

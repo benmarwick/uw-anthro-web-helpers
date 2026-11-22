@@ -85,12 +85,12 @@ function launchReviewData(quarter) {
   const first = pages.filter(function(p) { return p.students.length && p.recipients.length; })[0];
   const sample = first ? renderEmailTemplate_('CF-1', {
     course: first.offering, quarter: quarterLabel_(quarter), n: first.students.length,
-    url: '(link to the page, created at launch)', notMineUrl: '(link, created at launch)', dueLong: dateLong_(w.due)
+    url: '(link to the page, created at launch)', notMineUrl: '(link, created at launch)', dueLong: dateLong_(w.due), dueShort: dateShort_(w.due)
   }, { firstName: first.recipients[0].greeting, gpcName: C_().GPC_NAME || 'The Graduate Program Coordinator', privacyUrl: C_().PRIVACY_URL, reference: first.requestId }) : null;
   return {
     quarterLabel: quarterLabel_(quarter), opensLong: dateLong_(w.opens), dueLong: dateLong_(w.due), launchOpen: todayIso_() >= w.opens,
     pages: pages, excluded: Object.keys(excluded).map(function(k) { return { reason: k, n: excluded[k] }; }),
-    sample: sample ? { offering: first.offering, to: first.recipients[0].email, subject: sample.subject, text: sample.text } : null
+    sample: sample ? { offering: first.offering, to: first.recipients[0].email, senderName: sample.senderName, subject: sample.subject, text: sample.text } : null
   };
 }
 
@@ -183,7 +183,8 @@ function sendLateInvitations_(req, newEmails) {
   newEmails.forEach(function(em) {
     sendTemplate_('CF-1', em, firstNameFor_(em), {
       course: req.Offering, quarter: quarterLabel_(req.Quarter), n: n, url: appUrl_({ f: req.Secure_Token }),
-      notMineUrl: appUrl_({ f: req.Secure_Token, nmc: 1 }), dueLong: dateLong_(req.Due_Date)
+      notMineUrl: appUrl_({ f: req.Secure_Token, nmc: 1 }), dueLong: dateLong_(req.Due_Date),
+      dueShort: typeof dateShort_ === 'function' ? dateShort_(req.Due_Date) : ''
     }, req.Request_ID);
   });
   return newEmails.length;

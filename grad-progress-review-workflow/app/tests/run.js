@@ -233,22 +233,61 @@ test('22. the letter-ready email is identical whatever the letter says', () => {
   assert.equal(a.html, b.html);
 });
 
-test('annual review subjects never carry a student name', () => {
-  const p = { studentName: 'Kim Student', studentFirstName: 'Kim', url: 'https://x', dueLong: 'Friday 7 May 2027', dueShort: 'Fri 7 May',
+test('annual review and check-in subjects never carry a student name and always use clear prefixes', () => {
+  const base = { studentName: 'Kim Student', studentFirstName: 'Kim', url: 'https://x', dueLong: 'Friday 7 May 2027', dueShort: 'Fri 7 May',
     returnUntilLong: 'Monday 10 May 2027', year: 2027, isStudent: false, pdfUrl: 'https://x/p', stage: 'advisor', daysOverdue: 3,
-    quarter: 'Autumn 2027', n: 1, nReady: 3, nTotal: 5, nWaiting: 2, subfield: 'Archaeology', ackDueLong: 'x', coAdvised: true };
-  ['AR-1', 'AR-2', 'AR-3', 'AR-4', 'AR-5', 'AR-6', 'AR-7', 'AR-8', 'AR-9', 'AR-10', 'AR-11', 'AR-12'].forEach(id => {
-    const out = ctx.renderEmailTemplate_(id, p, common);
+    quarter: 'Autumn 2027', n: 1, nReady: 3, nTotal: 5, nWaiting: 2, subfield: 'Archaeology', ackDueLong: 'Friday 11 June 2027', coAdvised: true };
+  ['AR-1', 'AR-2', 'AR-3', 'AR-4', 'AR-5', 'AR-6', 'AR-7', 'AR-8', 'AR-9', 'AR-11', 'AR-12'].forEach(id => {
+    const out = ctx.renderEmailTemplate_(id, base, common);
     assert.equal(out.subject.indexOf('Kim'), -1, id);
+    assert.ok(out.subject.startsWith('[Grad Student Annual Review] '), id + ': ' + out.subject);
+    assert.equal(out.senderName, 'UW Anthropology: Grad Student Annual Review', id);
+    assert.ok(out.html.indexOf('#1B365D') !== -1, id);
+  });
+  ['AR-10', 'AR-13'].forEach(id => {
+    const ma = ctx.renderEmailTemplate_(id, Object.assign({}, base, { isInterim: false }), common);
+    assert.equal(ma.subject.indexOf('Kim'), -1, id + ' MA');
+    assert.ok(ma.subject.startsWith('[Grad Student MA Check-In] '), id + ' MA: ' + ma.subject);
+    assert.equal(ma.senderName, 'UW Anthropology: Grad Student Progress Check-In', id + ' MA');
+    assert.ok(ma.html.indexOf('#14535B') !== -1, id + ' MA');
+    const interim = ctx.renderEmailTemplate_(id, Object.assign({}, base, { isInterim: true }), common);
+    assert.equal(interim.subject.indexOf('Kim'), -1, id + ' interim');
+    assert.ok(interim.subject.startsWith('[Grad Student Interim Check-In] '), id + ' interim: ' + interim.subject);
+    assert.equal(interim.senderName, 'UW Anthropology: Grad Student Progress Check-In', id + ' interim');
+  });
+});
+
+test('course feedback subjects, sender names, banners and TA-evaluation disambiguation', () => {
+  const params = { course: 'ANTH 512', quarter: 'Winter 2027', n: 2, url: 'https://x/y', notMineUrl: 'https://x/n', dueLong: 'Friday 2 April 2027',
+    dueShort: 'Fri 2 Apr', section: 'A', instructorName: 'Quill,Ada M', suggested: '', rosterUrl: 'https://x/r', reviseByLong: 'Wednesday 7 April 2027',
+    isAdvisor: true, deadlineLong: 'Thursday 22 April 2027', deadlineShort: 'Thu 22 Apr', feedbackYear: '2026–27' };
+  ['CF-1', 'CF-2', 'CF-3', 'CF-4', 'CF-5', 'CF-6', 'CF-7', 'CF-8', 'CF-9', 'CF-10', 'CF-11'].forEach(id => {
+    const out = ctx.renderEmailTemplate_(id, params, common);
+    assert.ok(out.subject.startsWith('[Grad Student Course Feedback] '), id + ': ' + out.subject);
+    assert.equal(out.senderName, 'UW Anthropology: Grad Student Course Feedback', id);
+    assert.ok(out.html.indexOf('#1E5631') !== -1, id);
+    assert.ok(out.text.indexOf('=== GRADUATE STUDENT COURSE FEEDBACK ===') !== -1, id);
+  });
+  ['CF-1', 'CF-2', 'CF-3', 'CF-6', 'CF-7', 'CF-10'].forEach(id => {
+    const out = ctx.renderEmailTemplate_(id, params, common);
+    assert.match(out.text, /TA\/ASE/i, id + ' text must distinguish from TA evaluations');
+    assert.match(out.html, /TA\/ASE/i, id + ' html must distinguish from TA evaluations');
+  });
+  const arParams = { studentName: 'Kim Student', studentFirstName: 'Kim', url: 'https://x', dueLong: 'Friday 7 May 2027', dueShort: 'Fri 7 May',
+    returnUntilLong: 'Monday 10 May 2027', year: 2027, quarter: 'Autumn 2027', coAdvised: false, isInterim: false };
+  ['AR-3', 'AR-4', 'AR-6', 'AR-13'].forEach(id => {
+    const out = ctx.renderEmailTemplate_(id, arParams, common);
+    assert.match(out.text, /TA\/ASE/i, id + ' text must distinguish from TA evaluations');
+    assert.match(out.html, /TA\/ASE/i, id + ' html must distinguish from TA evaluations');
   });
 });
 
 test('HTML emails escape text and render links', () => {
-  const out = ctx.renderEmailTemplate_('CF-2', { course: 'ANTH <b>512</b>', url: 'https://x', dueLong: 'Friday 2 April 2027' }, common);
+  const out = ctx.renderEmailTemplate_('CF-2', { course: 'ANTH <b>512</b>', quarter: 'Winter 2027', url: 'https://x', dueLong: 'Friday 2 April 2027', dueShort: 'Fri 2 Apr' }, common);
   assert.ok(out.html.indexOf('&lt;b&gt;') !== -1);
   const inv = ctx.renderEmailTemplate_('CF-9', { quarter: 'Winter 2027', url: 'https://x/f' }, common);
   assert.ok(inv.html.indexOf('<a href="https://x/f"') !== -1);
-  assert.ok(inv.text.indexOf('Read your feedback <https://x/f>') !== -1);
+  assert.ok(inv.text.indexOf('Read Your Course Feedback <https://x/f>') !== -1);
 });
 
 /* ---------------- Records, PDF, metrics ---------------- */

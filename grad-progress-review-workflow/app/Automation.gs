@@ -46,12 +46,12 @@ function runReviewReminders_(today) {
     const url = appUrl_({ t: r.Secure_Token });
     const due = String(r.Due_Date).slice(0, 10);
     if (r.Status === 'STUDENT_PENDING') {
-      if (r.Type === 'ANNUAL') sendTemplate_('AR-2', normEmail_(r.Student_Email), student.Preferred_First || 'there', { url: url, dueLong: dateLong_(due), dueShort: dateShort_(due) }, r.Review_ID);
-      else sendTemplate_('AR-10', normEmail_(r.Student_Email), student.Preferred_First || 'there', { quarter: quarterLabel_(r.Cycle), url: url, dueLong: dateLong_(due), isInterim: false }, r.Review_ID);
+      if (r.Type === 'ANNUAL') sendTemplate_('AR-2', normEmail_(r.Student_Email), student.Preferred_First || 'there', { year: r.Cycle, url: url, dueLong: dateLong_(due), dueShort: dateShort_(due) }, r.Review_ID);
+      else sendTemplate_('AR-10', normEmail_(r.Student_Email), student.Preferred_First || 'there', { quarter: quarterLabel_(r.Cycle), url: url, dueLong: dateLong_(due), dueShort: dateShort_(due), isInterim: false }, r.Review_ID);
     } else if (r.Status === 'ADVISOR_PENDING') {
       splitList_(r.Advisor_Emails).forEach(function(a) {
-        if (r.Type === 'ANNUAL') sendTemplate_('AR-4', a, firstNameFor_(a), { studentName: student.Name, url: url, dueLong: dateLong_(due), dueShort: dateShort_(due) }, r.Review_ID);
-        else sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterLabel_(r.Cycle), url: url, dueLong: dateLong_(due), isInterim: r.Program !== 'MA' }, r.Review_ID);
+        if (r.Type === 'ANNUAL') sendTemplate_('AR-4', a, firstNameFor_(a), { year: r.Cycle, studentName: student.Name, url: url, dueLong: dateLong_(due), dueShort: dateShort_(due) }, r.Review_ID);
+        else sendTemplate_('AR-13', a, firstNameFor_(a), { studentName: student.Name, quarter: quarterLabel_(r.Cycle), url: url, dueLong: dateLong_(due), dueShort: dateShort_(due), isInterim: r.Program !== 'MA' }, r.Review_ID);
       });
     } else {
       sendTemplate_('AR-7', normEmail_(r.Student_Email), student.Preferred_First || 'there', { url: url, ackDueLong: dateLong_(due) }, r.Review_ID);
@@ -82,7 +82,7 @@ function runCourseFeedbackSchedule_(today) {
       if (today >= w.reminders[1] && count < 2) { which = 'CF-3'; newCount = 2; }
       else if (today >= w.reminders[0] && count < 1) { which = 'CF-2'; newCount = 1; }
       if (!which) return;
-      const params = { course: r.Offering, url: appUrl_({ f: r.Secure_Token }), dueLong: dateLong_(w.due), dueShort: dateShort_(w.due),
+      const params = { course: r.Offering, quarter: quarterLabel_(q), url: appUrl_({ f: r.Secure_Token }), dueLong: dateLong_(w.due), dueShort: dateShort_(w.due),
         gradesDueLong: dateLong_(w.gradesDue), gradesDuePassed: today > w.gradesDue };
       splitList_(r.Instructor_Emails).forEach(function(em) {
         sendTemplate_(which, em, firstNameFor_(em), params, r.Request_ID);
@@ -111,7 +111,7 @@ function runFollowups_(today) {
     }
     if (t.reminderDue) {
       const handler = normEmail_(f.Handled_By) || reviewerFor_(s);
-      if (handler) sendTemplate_('CF-8', handler, firstNameFor_(handler), { deadlineLong: dateLong_(t.deadline), deadlineShort: dateShort_(t.deadline), url: url }, f.Followup_ID);
+      if (handler) sendTemplate_('CF-8', handler, firstNameFor_(handler), { quarter: quarterLabel_(f.Quarter), deadlineLong: dateLong_(t.deadline), deadlineShort: dateShort_(t.deadline), url: url }, f.Followup_ID);
       updateRow_(S.FOLLOWUPS, f._row, { Reminder_Sent_At: nowIso_() });
     }
   });
@@ -176,7 +176,7 @@ function runCalibrationNotice_(today) {
     const g = groups[k];
     const marker = 'AR-5 ' + year + ' ' + g.reviewer + ' ' + g.subfield;
     if (taskDone_(marker, C_().ACTIONS.REMINDER_SENT)) return;
-    sendTemplate_('AR-5', g.reviewer, '', { subfield: g.subfield, nReady: g.ready, nTotal: g.total, nWaiting: g.total - g.ready, url: appUrl_({ view: 'program' }) }, 'calibration ' + year);
+    sendTemplate_('AR-5', g.reviewer, '', { year: year, subfield: g.subfield, nReady: g.ready, nTotal: g.total, nWaiting: g.total - g.ready, url: appUrl_({ view: 'program' }) }, 'calibration ' + year);
     logEvent_({ action: C_().ACTIONS.REMINDER_SENT, evaluationId: marker, details: { ready: g.ready, total: g.total }, actorEmail: 'SYSTEM' });
   });
 }

@@ -1,19 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><base target="_top"><meta charset="utf-8"><?!= include_('Styles') ?></head>
-<body>
-<header class="top"><h1 id="title">Course feedback</h1><p id="sub"></p></header>
+<body class="theme-cf">
+<header class="top">
+  <div class="eyebrow">UW Anthropology · Graduate Student Course Feedback</div>
+  <h1 id="title">Graduate Student Course Feedback</h1>
+  <p id="sub"></p>
+</header>
 <main id="main"><p>Loading…</p></main>
 <?!= include_('Common') ?>
 <script>
   var DATA = <?!= dataJson ?>;
   var page = null;
 
-  function guidance() {
-    return '<div class="note"><ul style="margin:0;padding-left:18px">' +
-      '<li>Describe the work, not the person: what they did and what they should do next.</li>' +
-      '<li>The student will read this with your name on it. It is part of their education record.</li>' +
-      "<li>Don't include grades, TA work, or health or personal circumstances. If those matter, tick \"follow up\" and talk to the GPC.</li></ul></div>";
+  function scopeBox() {
+    return '<div class="scope-box" role="region" aria-label="Form purpose and scope">' +
+      '<div class="scope-box-title">Graduate Student Course Feedback · Course Instructor Form</div>' +
+      '<div class="scope-grid">' +
+      '<div class="scope-col"><h3>What you are doing here</h3><ul>' +
+      '<li>Writing brief academic coursework notes on Anthropology graduate students <strong>enrolled in ' + esc(page.offering) + ' (' + esc(page.quarter) + ') for credit</strong>.</li>' +
+      '<li>Describe the coursework, rather than the person: what they did well and what to work on next.</li>' +
+      '<li>Each student reads these notes with your name on them. They become part of the student\'s FERPA education record.</li>' +
+      '</ul></div>' +
+      '<div class="scope-col not-this"><h3>Separate systems (not this form)</h3><ul>' +
+      '<li><strong>Not a TA / ASE Employment Evaluation:</strong> Do not evaluate paid TA or RA teaching duties here. TA evaluations arrive in a separate purple email and form.</li>' +
+      '<li><strong>Not a Graduate Student Annual Review:</strong> Faculty advisors evaluate overall degree progress separately (deep navy form).</li>' +
+      '<li><strong>No grades or personal details:</strong> Do not include course grades, health, or personal circumstances. If those matter, tick "follow up" and talk to the GPC.</li>' +
+      '</ul></div></div>' +
+      '<p class="scope-foot">Did not teach ' + esc(page.offering) + ', or listed only as a TA supervisor? <a href="#" id="notMineLink">Report wrong course</a>.</p>' +
+      '</div>';
   }
 
   function studentBlock(s, i) {
@@ -27,9 +42,11 @@
       return '<label class="radio"><input type="radio" name="' + id + 'c" value="' + val + '" data-f="contact"' + (s.contact === val ? ' checked' : '') + dis + '> ' + label + '</label>';
     };
     return '<section class="card" data-student="' + esc(s.email) + '"><h2 style="margin-top:0">' + esc(s.name) + '</h2>' +
+      '<p style="margin:4px 0 6px"><span class="role-pill">Enrolled grad student in ' + esc(s.course) + '</span>' +
+      (s.isAdvisee ? '<span class="pill">Your advisee</span>' : '') + '</p>' +
       '<p class="muted">' + esc(s.program) + (s.subfield ? ' · ' + esc(s.subfield) : '') + (s.year ? ' · year ' + esc(s.year) + ' in the program' : '') + (s.candidacy ? ' · ' + esc(s.candidacy) : '') + ' · ' + esc(s.course) + '</p>' +
-      (s.returnedReason ? '<div class="warnbox"><strong>The GPC asked you to look again at this comment:</strong> ' + nl2br(s.returnedReason) + '</div>' : '') +
-      '<fieldset><legend>Did you have enough contact to comment?</legend>' + radio('enough', 'Enough contact to comment') +
+      (s.returnedReason ? '<div class="warnbox"><strong>The GPC asked you to look again at this course feedback comment:</strong> ' + nl2br(s.returnedReason) + '</div>' : '') +
+      '<fieldset><legend>Did you have enough contact with their coursework to comment?</legend>' + radio('enough', 'Enough contact to comment') +
       radio('not_enough', 'Not enough contact (e.g. in a big class)') + (s.isAdvisee ? radio('covered', 'Covered in my annual review (you are this student\'s advisor)') : '') + '</fieldset>' +
       '<div data-details style="' + (s.contact === 'enough' ? '' : 'display:none') + '">' +
       '<div class="grid2"><div>' + levels('written', 'Written work submitted by the student') + '</div><div>' + levels('discussion', 'Student\'s contribution to class discussion and quality of their presentations, if any') + '</div></div>' +
@@ -43,21 +60,24 @@
   }
 
   function render() {
-    document.getElementById('title').textContent = 'Course feedback: ' + page.offering;
-    document.getElementById('sub').textContent = page.quarter + (page.due ? ' · due ' + page.due : '');
+    document.title = 'Grad Student Course Feedback: ' + page.offering + ' · UW Anthropology';
+    document.getElementById('title').textContent = 'Graduate Student Course Feedback: ' + page.offering;
+    document.getElementById('sub').textContent = page.quarter + ' · Your role: Course Instructor' + (page.due ? ' · Due ' + page.due : '');
     var h = '';
     if (page.viewOnly) h += '<div class="warnbox">You are viewing this page as the administrator. Only the instructors can change or submit it.</div>';
     if (page.readOnlyLock) h += '<div class="warnbox">' + esc(page.lockOwner) + ' is editing this shared page. It will open for you when they finish (within 30 minutes).</div>';
     if (page.closed) h += '<div class="warnbox">This page has closed. You can still revise any comment the GPC returned to you.</div>';
-    h += guidance() + '<p class="muted">About 30 seconds for a student you could not comment on, and 3 to 4 minutes for one you could.</p>';
+    h += scopeBox() + '<p class="muted">About 30 seconds for a student you could not comment on, and 3 to 4 minutes for one you could.</p>';
     h += page.students.map(studentBlock).join('');
-    h += '<section class="card"><label for="sig">Type your name to sign</label><input type="text" id="sig" value="' + esc(page.signature) + '">' +
+    h += '<section class="card"><label for="sig">Type your name to sign this Graduate Student Course Feedback for ' + esc(page.offering) + '</label><input type="text" id="sig" value="' + esc(page.signature) + '">' +
       '<label for="mins">How long did this take? <span class="help">Optional, for the pilot</span></label><select id="mins"><option value="">Choose…</option>' +
       ['under 5', '5 to 15', 'over 15'].map(function (m) { return '<option' + (m === page.minutes ? ' selected' : '') + '>' + m + '</option>'; }).join('') + '</select></section>';
-    h += '<div class="status"><button id="save">Save draft</button><button id="submit" class="primary">Submit</button><div id="msg" role="status" aria-live="polite"></div></div>' +
-      '<p class="muted">Save draft keeps comments you have not submitted yet. To change a comment you have already submitted, edit it and press Submit again.</p>';
+    h += '<div class="status"><button id="save">Save draft</button><button id="submit" class="primary">Submit Course Feedback</button><div id="msg" role="status" aria-live="polite"></div></div>' +
+      '<p class="muted">Save draft keeps comments you have not submitted yet. To change a comment you have already submitted, edit it and press Submit Course Feedback again.</p>';
     document.getElementById('main').innerHTML = h;
     var main = document.getElementById('main');
+    var nmLink = document.getElementById('notMineLink');
+    if (nmLink) nmLink.onclick = function (e) { e.preventDefault(); notMine(); };
     main.addEventListener('change', function (e) {
       var card = e.target.closest('[data-student]');
       if (!card) return;
@@ -93,19 +113,22 @@
   function send(final) {
     say(final ? 'Submitting…' : 'Saving…');
     call('saveFeedbackPage', DATA.token, gather(), final).then(function (res) {
-      var skippedNote = res && res.skipped ? ' Changes to comments you had already submitted were not saved; press Submit to send them.' : '';
-      say(final ? 'Thank you. Your feedback is submitted. You can edit it until the page closes.' : 'Draft saved.' + skippedNote, 'ok');
+      var skippedNote = res && res.skipped ? ' Changes to comments you had already submitted were not saved; press Submit Course Feedback to send them.' : '';
+      say(final ? 'Thank you. Your Graduate Student Course Feedback for ' + page.offering + ' (' + page.quarter + ') is submitted. You can edit it until the page closes.' : 'Draft saved.' + skippedNote, 'ok');
     }).catch(function (e) { say(e.message, 'bad'); });
   }
 
   function notMine() {
-    document.getElementById('title').textContent = 'Not your course?';
-    document.getElementById('main').innerHTML = '<div class="card"><p>Thank you for telling us. If you know who taught it, add their name and we will send the page to them.</p>' +
+    var courseLabel = page && page.offering ? page.offering : 'this course';
+    document.title = 'Grad Student Course Feedback: Not Your Course? · UW Anthropology';
+    document.getElementById('title').textContent = 'Graduate Student Course Feedback: Not Your Course?';
+    document.getElementById('sub').textContent = page && page.quarter ? page.offering + ' · ' + page.quarter : 'Report an incorrect instructor assignment';
+    document.getElementById('main').innerHTML = '<div class="card"><p>Thank you for telling us that you did not teach ' + esc(courseLabel) + ' for Graduate Student Course Feedback. If you know who taught it, add their name and we will send the course feedback page to them.</p>' +
       '<label for="who">Who taught it? <span class="help">Optional</span></label><input type="text" id="who">' +
-      '<button class="primary" id="send">Let us know</button><div id="msg" role="status" aria-live="polite"></div></div>';
+      '<button class="primary" id="send">Report Wrong Course</button><div id="msg" role="status" aria-live="polite"></div></div>';
     document.getElementById('send').onclick = function () {
       call('notMyCourse', DATA.token, document.getElementById('who').value).then(function () {
-        document.getElementById('main').innerHTML = '<div class="card"><p>Thank you. We\'ll correct our records and send the page to the right person. There\'s nothing more you need to do.</p></div>';
+        document.getElementById('main').innerHTML = '<div class="card"><p>Thank you. We have closed this Graduate Student Course Feedback page and will send it to the right instructor. There is nothing more you need to do.</p></div>';
       }).catch(function (e) { say(e.message, 'bad'); });
     };
   }

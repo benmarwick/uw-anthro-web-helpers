@@ -4,7 +4,7 @@
    ============================================================ */
 
 function mailOptions_(p) {
-  const o = { htmlBody: p.htmlBody, name: 'UW Anthropology Graduate Program' };
+  const o = { htmlBody: p.htmlBody, name: p.name || 'UW Anthropology Graduate Program' };
   if (C_().GPC_EMAIL) o.replyTo = C_().GPC_EMAIL;
   return o;
 }
@@ -19,7 +19,7 @@ function sendTemplate_(id, to, firstName, params, reference) {
     firstName: firstName || 'colleague', gpcName: C_().GPC_NAME || 'The Graduate Program Coordinator',
     privacyUrl: C_().PRIVACY_URL, reference: reference || id
   });
-  const emailParams = { to: to, subject: out.subject, body: out.text, htmlBody: out.html };
+  const emailParams = { to: to, subject: out.subject, body: out.text, htmlBody: out.html, name: out.senderName };
   try {
     rawSendEmail_(emailParams);
     logInfo_('EmailEngine.sendTemplate', 'Sent ' + id, { template: id, reference: reference });

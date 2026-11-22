@@ -33,9 +33,21 @@
     .skip-link { position: absolute; top: -40px; left: 0; background: var(--uw-purple); color: var(--uw-white); padding: 8px 16px; z-index: 100; text-decoration: none; border-radius: 0 0 4px 0; }
     .skip-link:focus { top: 0; }
 
-    .header { background: var(--uw-purple); color: var(--uw-white); padding: 24px; border-radius: 8px 8px 0 0; }
+    .header { background: var(--uw-purple); color: var(--uw-white); padding: 24px; border-radius: 8px 8px 0 0; border-bottom: 4px solid var(--uw-gold); }
+    .header .eyebrow { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #e8e3d3; margin-bottom: 6px; }
     .header h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
-    .header p { opacity: 0.9; font-size: 0.95rem; }
+    .header p { opacity: 0.95; font-size: 0.95rem; }
+
+    .scope-box { background: #f3eefc; border: 1px solid var(--uw-gray-300); border-left: 6px solid var(--uw-purple); border-radius: 6px; padding: 14px 16px; margin-bottom: 24px; }
+    .scope-box-title { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--uw-purple); margin-bottom: 10px; }
+    .scope-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .scope-col { background: var(--uw-white); border: 1px solid var(--uw-gray-200); border-radius: 4px; padding: 10px 12px; font-size: 0.88rem; color: var(--uw-gray-700); }
+    .scope-col.not-this { border-left: 4px solid #8a5300; background: #fffbf2; }
+    .scope-col h3 { font-size: 0.9rem; font-weight: 600; color: var(--uw-purple); margin-bottom: 6px; }
+    .scope-col.not-this h3 { color: #8a5300; }
+    .scope-col ul { margin: 4px 0 0; padding-left: 18px; }
+    .scope-col li { margin: 3px 0; }
+    @media (max-width: 640px) { .scope-grid { grid-template-columns: 1fr; } }
 
     /* Progress bar with proper ARIA */
     .progress-bar { display: flex; margin-top: 16px; }
@@ -156,8 +168,9 @@
   <a href="#main-content" class="skip-link">Skip to main content</a>
   <div class="container">
     <header class="header" role="banner">
-      <h1>TA Evaluation System</h1>
-      <p><?= row.courseCode ?> (<?= row.term ?>) — <?= row.taName ?></p>
+      <div class="eyebrow">UW Anthropology · TA / ASE Employment Evaluation (Personnel File)</div>
+      <h1>TA Evaluation System: <?= action === 'prof_eval' ? 'Instructor Evaluation' : (action === 'ta_respond' ? 'TA Self-Evaluation' : 'Instructor Sign-Off') ?></h1>
+      <p><?= row.courseCode ?> (<?= row.term ?>) · TA: <?= row.taName ?> · Your role: <?= action === 'ta_respond' ? 'Teaching Assistant (ASE)' : 'Course Instructor / TA Supervisor' ?></p>
       <nav class="progress-bar" aria-label="Evaluation progress" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="<?= action === 'prof_eval' ? 1 : (action === 'ta_respond' ? 2 : 3) ?>" aria-valuetext="Step <?= action === 'prof_eval' ? '1 of 3: Professor Evaluation' : (action === 'ta_respond' ? '2 of 3: TA Response' : '3 of 3: Professor Sign-off') ?>">
         <div class="progress-step <?= action === 'prof_eval' ? 'active' : (['ta_respond', 'prof_sign'].includes(action) ? 'completed' : '') ?>" data-step="1" aria-label="Step 1: Professor Evaluation <?= action === 'prof_eval' ? '(current)' : 'completed' ?>">
           Professor Evaluation
@@ -250,6 +263,34 @@
           <span class="status-badge status-<?= row.status.toLowerCase().includes('pending') ? 'pending' : (row.status === 'PDF_GENERATING' ? 'generating' : 'completed') ?>" aria-live="polite">
             <?= row.status.replace(/_/g, ' ') ?>
           </span>
+        </div>
+
+        <div class="scope-box" role="region" aria-label="Form purpose and scope">
+          <div class="scope-box-title">TA / ASE Employment Evaluation · <?= row.courseCode ?> (<?= row.term ?>) · Step <?= action === 'prof_eval' ? '1 of 3 (Instructor Evaluation)' : (action === 'ta_respond' ? '2 of 3 (TA Response)' : '3 of 3 (Instructor Sign-Off)') ?></div>
+          <div class="scope-grid">
+            <div class="scope-col">
+              <h3>What you are doing here</h3>
+              <ul>
+                <? if (action === 'prof_eval') { ?>
+                <li>Evaluating <strong><?= row.taName ?></strong>'s paid <strong>Teaching Assistant (ASE) job duties</strong> in <strong><?= row.courseCode ?> (<?= row.term ?>)</strong>.</li>
+                <li>This evaluation becomes part of the TA's official <strong>UAW ASE personnel file</strong> (EO 28, Policy 5.1, Contract Article 22).</li>
+                <? } else if (action === 'ta_respond') { ?>
+                <li>Reviewing your professor's evaluation of your paid <strong>Teaching Assistant (ASE)</strong> work in <strong><?= row.courseCode ?> (<?= row.term ?>)</strong>, adding your self-evaluation, and uploading your time sheet.</li>
+                <li>Filed in your official <strong>UAW ASE personnel file</strong> (EO 28, Contract Article 22).</li>
+                <? } else { ?>
+                <li>Reviewing <strong><?= row.taName ?></strong>'s TA self-evaluation and time sheet for <strong><?= row.courseCode ?> (<?= row.term ?>)</strong> and adding your final sign-off.</li>
+                <li>Once signed, the finalized PDF goes into the TA's <strong>UAW ASE personnel file</strong>.</li>
+                <? } ?>
+              </ul>
+            </div>
+            <div class="scope-col not-this">
+              <h3>Separate systems (not this form)</h3>
+              <ul>
+                <li><strong>Not Graduate Student Course Feedback:</strong> Feedback on graduate students enrolled in your class for academic credit uses the separate forest-green Course Feedback form.</li>
+                <li><strong>Not a Graduate Student Annual Review or Check-In:</strong> Faculty advisor degree-progress reviews (Policy 3.7) use the separate deep-navy or teal forms.</li>
+              </ul>
+            </div>
+          </div>
         </div>
 
         <? if (action === 'prof_eval') { ?>
@@ -535,7 +576,7 @@
       }
 
       function getButtonText(action) {
-        var map = { prof_eval: 'Submit Evaluation', ta_respond: 'Submit Response', prof_sign: 'Sign & Finalize' };
+        var map = { prof_eval: 'Submit TA Evaluation', ta_respond: 'Submit TA Self-Evaluation', prof_sign: 'Sign & Finalize TA Evaluation' };
         return map[action] || 'Submit';
       }
 
@@ -772,7 +813,7 @@
     <div id="draftIndicator" class="draft-indicator" aria-live="polite" aria-atomic="true"></div>
 
     <div class="actions">
-      <button type="submit" id="submitBtn" class="btn btn-primary">Submit Evaluation</button>
+      <button type="submit" id="submitBtn" class="btn btn-primary">Submit TA Evaluation</button>
     </div>
   </form>
   <? } ?>
@@ -852,7 +893,7 @@
     </div>
 
     <div class="actions">
-      <button type="submit" id="submitBtn" class="btn btn-primary">Submit Response</button>
+      <button type="submit" id="submitBtn" class="btn btn-primary">Submit TA Self-Evaluation</button>
     </div>
   </form>
   <? } ?>
@@ -924,7 +965,7 @@
     </div>
 
     <div class="actions">
-      <button type="submit" id="submitBtn" class="btn btn-primary">Sign & Finalize</button>
+      <button type="submit" id="submitBtn" class="btn btn-primary">Sign & Finalize TA Evaluation</button>
     </div>
   </form>
   <? } ?>

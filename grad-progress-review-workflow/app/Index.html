@@ -1,8 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><base target="_top"><meta charset="utf-8"><?!= include_('Styles') ?></head>
-<body>
-<header class="top"><h1 id="title">Annual review</h1><p id="sub"></p></header>
+<body class="theme-annual">
+<header class="top">
+  <div class="eyebrow" id="eyebrow">UW Anthropology · Graduate Student Annual Review (Policy 3.7)</div>
+  <h1 id="title">Graduate Student Annual Review</h1>
+  <p id="sub"></p>
+</header>
 <main id="main"><p>Loading…</p></main>
 <?!= include_('Common') ?>
 <script>
@@ -96,12 +100,77 @@
 
   function section(title, body) { return '<h2>' + esc(title) + '</h2>' + body; }
 
+  function reviewMeta() {
+    var cycle = R.cycleLabel || R.cycle || '';
+    var isAnnual = R.type === 'ANNUAL';
+    var isMa = !isAnnual && R.program === 'MA';
+    var roleLabel = R.stage === 'advisor' ? 'Faculty Advisor' : 'Graduate Student';
+    var processName = isAnnual
+      ? cycle + ' PhD Annual Review'
+      : (isMa ? (cycle ? cycle + ' ' : '') + 'MA Quarterly Check-In' : (cycle ? cycle + ' ' : '') + 'PhD Interim Progress Check-In');
+    var eyebrow = isAnnual
+      ? 'UW Anthropology · Graduate Student Annual Review (Policy 3.7)'
+      : (isMa ? 'UW Anthropology · Graduate Student MA Quarterly Check-In (Policy 3.7)' : 'UW Anthropology · Graduate Student PhD Interim Check-In (Policy 3.7)');
+    var stageLabel = {
+      student: isAnnual ? 'Student Self-Report' : 'Student Check-In',
+      advisor: isAnnual ? 'Advisor Evaluation' : 'Advisor Check-In',
+      ack: 'Letter Acknowledgement'
+    }[R.stage];
+    var submitLabel = {
+      student: isAnnual ? 'Submit Annual Review Report' : 'Submit MA Quarterly Check-In',
+      advisor: isAnnual ? 'Submit Advisor Annual Review' : (isMa ? 'Submit Advisor MA Check-In' : 'Submit Advisor Interim Check-In'),
+      ack: 'Submit Letter Acknowledgement'
+    }[R.stage];
+    var shortTag = isAnnual ? 'Grad Student Annual Review' : (isMa ? 'Grad Student MA Check-In' : 'Grad Student Interim Check-In');
+    return { cycle: cycle, isAnnual: isAnnual, isMa: isMa, roleLabel: roleLabel, processName: processName, eyebrow: eyebrow, stageLabel: stageLabel, submitLabel: submitLabel, shortTag: shortTag };
+  }
+
+  function scopeBox(m) {
+    var doing = '';
+    var separate = '';
+    if (R.stage === 'advisor' && m.isAnnual) {
+      doing = '<ul><li>Completing the <strong>' + esc(m.processName) + '</strong> for your advisee <strong>' + esc(R.studentName) + '</strong> in your role as <strong>Faculty Advisor</strong> (UW Graduate School Policy 3.7).</li>' +
+        '<li>Read ' + esc(R.studentName) + '\'s annual report below, meet with them, and submit your advisor evaluation and recommended rating.</li>' +
+        '<li>Shared with the student, the GPC, and the subfield calibration group, and archived in the final Annual Review PDF.</li></ul>';
+      separate = '<ul><li><strong>Not a TA / ASE Employment Evaluation:</strong> Do not evaluate paid TA or RA job duties here. TA evaluations use the separate purple TA Evaluation System.</li>' +
+        '<li><strong>Not Graduate Student Course Feedback:</strong> Single-class coursework feedback from instructors uses the separate forest-green Course Feedback form.</li></ul>';
+    } else if (R.stage === 'advisor' && m.isMa) {
+      doing = '<ul><li>Completing the <strong>' + esc(m.processName) + '</strong> for your advisee <strong>' + esc(R.studentName) + '</strong> as their <strong>Faculty Advisor</strong> (UW Graduate School Policy 3.7).</li>' +
+        '<li>Review their quarterly note below and record milestone determinations, action items, and your verdict.</li></ul>';
+      separate = '<ul><li><strong>Not a TA / ASE Employment Evaluation:</strong> Paid TA/RA duties are evaluated separately in the purple TA Evaluation System.</li>' +
+        '<li><strong>Not Graduate Student Course Feedback:</strong> Single-class instructor feedback uses the separate forest-green Course Feedback form.</li></ul>';
+    } else if (R.stage === 'advisor') {
+      doing = '<ul><li>Completing a <strong>' + esc(m.processName) + '</strong> for your advisee <strong>' + esc(R.studentName) + '</strong> as their <strong>Faculty Advisor</strong>.</li>' +
+        '<li>Record progress on agreed benchmarks, milestone determinations, action items, and your verdict.</li></ul>';
+      separate = '<ul><li><strong>Not a TA / ASE Employment Evaluation:</strong> Paid TA/RA duties are evaluated separately in the purple TA Evaluation System.</li>' +
+        '<li><strong>Not Graduate Student Course Feedback:</strong> Single-class instructor feedback uses the separate forest-green Course Feedback form.</li></ul>';
+    } else if (R.stage === 'student') {
+      doing = '<ul><li>Completing your <strong>' + esc(m.processName) + '</strong> self-report (UW Graduate School Policy 3.7).</li>' +
+        '<li>Your advisor reads your report before you meet. Each box states who reads it, and "Only for the GPC" is never shown to your advisor.</li></ul>';
+      separate = '<ul><li><strong>Not a TA / ASE Employment Evaluation:</strong> TA self-evaluations and time sheets are submitted separately in the purple TA Evaluation System.</li>' +
+        '<li><strong>Separate from course grades:</strong> This covers overall degree progress and next-year planning.</li></ul>';
+    } else {
+      doing = '<ul><li>Reviewing your advisor\'s evaluation and official <strong>' + esc(m.processName) + '</strong> letter, and confirming you have read them.</li>' +
+        '<li>Confirming does not mean agreeing; you may add a written response or ask to meet with the GPC.</li></ul>';
+      separate = '<ul><li><strong>Not a TA / ASE Employment Evaluation:</strong> TA evaluations are signed separately in the purple TA Evaluation System.</li></ul>';
+    }
+    return '<div class="scope-box" role="region" aria-label="Form purpose and scope">' +
+      '<div class="scope-box-title">' + esc(m.processName) + ' · ' + esc(m.stageLabel) + ' · Role: ' + esc(m.roleLabel) + '</div>' +
+      '<div class="scope-grid">' +
+      '<div class="scope-col"><h3>What you are doing here</h3>' + doing + '</div>' +
+      '<div class="scope-col not-this"><h3>Separate systems (not this form)</h3>' + separate + '</div>' +
+      '</div></div>';
+  }
+
   function render() {
-    var stageName = { student: R.type === 'ANNUAL' ? 'Your report' : 'Your check-in', advisor: R.type === 'ANNUAL' ? 'Advisor evaluation' : 'Advisor check-in', ack: 'Your letter' }[R.stage];
-    document.getElementById('title').textContent = (R.type === 'ANNUAL' ? 'Annual review ' + R.cycle : 'Check-in') + ': ' + stageName;
-    document.getElementById('sub').textContent = R.studentName + (R.due ? ' · due ' + R.due : '');
-    var h = '';
-    if (R.returned) h += '<div class="warnbox"><strong>The GPC asked you to look again at your evaluation:</strong> ' + nl2br(R.returnNote) + '</div>';
+    var m = reviewMeta();
+    document.body.className = m.isAnnual ? 'theme-annual' : 'theme-checkin';
+    document.title = m.shortTag + ' (' + m.roleLabel + '): ' + R.studentName + ' · UW Anthropology';
+    document.getElementById('eyebrow').textContent = m.eyebrow;
+    document.getElementById('title').textContent = m.processName + ': ' + m.stageLabel;
+    document.getElementById('sub').textContent = 'Student: ' + R.studentName + ' · Your role: ' + m.roleLabel + (R.due ? ' · Due ' + R.due : '');
+    var h = scopeBox(m);
+    if (R.returned) h += '<div class="warnbox"><strong>The GPC asked you to look again at your annual review evaluation:</strong> ' + nl2br(R.returnNote) + '</div>';
     if (R.flags && R.flags.length && R.stage === 'advisor') h += '<div class="note"><strong>Flags</strong><ul>' + R.flags.map(function (f) { return '<li>' + esc(f.text) + '</li>'; }).join('') + '</ul></div>';
     var draft = R.draft || {};
     var injected = [];   // fields filled in on this page rather than loaded from a saved draft; sent on the first save
@@ -116,11 +185,10 @@
         h += '<div class="note"><strong>On file:</strong> ' + esc(of.program || '') + (of.subfield ? ' · ' + esc(of.subfield) : '') +
           (of.entryQuarter ? ' · entered ' + esc(of.entryQuarter) : '') + ' · advisor' + ((of.advisors || []).length === 1 ? '' : 's') + ': ' + esc((of.advisors || []).join(', ') || 'none recorded') +
           ' · committee chair: ' + esc(of.chair || 'none recorded') + (of.gsr ? ' · GSR: ' + esc(of.gsr) : '') + (of.leaveEnds ? ' · on leave until ' + esc(of.leaveEnds) : '') + '</div>';
-        var m = pre.mygrad || {};
-        h += '<div class="note"><strong>From MyGrad:</strong> candidacy ' + esc(m.candidacyDate || 'not yet') + ' · ANTH 800 credits ' + esc(m.anth800Credits || 0) +
-          ' · doctoral committee ' + esc(m.hasDocComm || '?') + ' · UW degrees ' + esc(m.uwDegrees || 'none') + '. Correct anything wrong in the first box.</div>';
-        h += '<div class="note">Your advisor reads your report before you meet. Each box says who reads it.</div>';
-        if (R.courseFeedback) h += section('Your Course Feedback Record', recordHtml(R.courseFeedback));
+        var mg = pre.mygrad || {};
+        h += '<div class="note"><strong>From MyGrad:</strong> candidacy ' + esc(mg.candidacyDate || 'not yet') + ' · ANTH 800 credits ' + esc(mg.anth800Credits || 0) +
+          ' · doctoral committee ' + esc(mg.hasDocComm || '?') + ' · UW degrees ' + esc(mg.uwDegrees || 'none') + '. Correct anything wrong in the first box.</div>';
+        if (R.courseFeedback) h += section('Your Course Feedback Record (read-only)', recordHtml(R.courseFeedback));
       }
     }
     if (R.stage === 'advisor') {
@@ -130,7 +198,7 @@
         injected.push('agreement');
       }
       var sr = R.studentReport || {};
-      h += section("The student's report", Object.keys(sr).filter(function (k) { return k !== 'prefill' && k !== 'signatureName'; }).map(function (k) {
+      h += section(R.studentName + "'s report (read-only)", Object.keys(sr).filter(function (k) { return k !== 'prefill' && k !== 'signatureName'; }).map(function (k) {
         return '<h3>' + esc(k) + '</h3>' + showValue(sr[k]); }).join('') || '<p class="muted">Nothing submitted.</p>');
       if (R.development && Object.keys(R.development).length) h += section('Development modules (you and the student only)', Object.keys(R.development).map(function (k) { return '<h3>' + esc(k) + '</h3>' + showValue(R.development[k]); }).join(''));
       if (R.cvUrl) h += section("The student's CV", '<p><a href="' + esc(R.cvUrl) + '" target="_blank" rel="noopener">Open the CV</a> (shared with your UW account)</p>');
@@ -143,13 +211,15 @@
       h += section('Final rating', esc(R.finalRating)) + section('Your letter', '<div class="card">' + nl2br(R.letterText) + '</div>');
       h += '<div class="note">You can respond in writing, ask to meet the GPC, use informal resolution with the GPC or the Office of the Ombud, and then the College of Arts &amp; Sciences grievance procedure (Policy 3.8).</div>';
     }
-    h += '<h2>' + esc(stageName) + '</h2><form id="form" onsubmit="return false">' + FIELDS.map(function (f) { return fieldHtml(f, draft[f.key]); }).join('') + '</form>';
+    h += '<h2>' + esc(m.stageLabel) + '</h2><form id="form" onsubmit="return false">' + FIELDS.map(function (f) { return fieldHtml(f, draft[f.key]); }).join('') + '</form>';
     if (R.stage === 'student' && R.type === 'ANNUAL') h += '<h3>CV (recommended)</h3><form id="cvform"><label for="cv">CV with the past year highlighted (PDF, 10 MB or smaller)</label><input type="file" id="cv" name="cv" accept="application/pdf"><button type="button" id="cvup">Upload CV</button></form>';
-    h += '<div class="status"><button id="save">Save draft</button><button id="submit" class="primary">Submit</button><div id="msg" role="status" aria-live="polite"></div></div>';
+    h += '<div class="status"><button id="save">Save draft</button><button id="submit" class="primary">' + esc(m.submitLabel) + '</button><div id="msg" role="status" aria-live="polite"></div></div>';
     document.getElementById('main').innerHTML = h;
     bindForm(document.getElementById('form'), FIELDS);
     document.getElementById('save').onclick = function () { send(false); };
-    document.getElementById('submit').onclick = function () { if (confirm('Submit now? You will not be able to change it afterwards.')) send(true); };
+    document.getElementById('submit').onclick = function () {
+      if (confirm('Submit your ' + m.processName + ' (' + m.stageLabel + ') for ' + R.studentName + '? You will not be able to change it afterwards.')) send(true);
+    };
     var up = document.getElementById('cvup');
     if (up) up.onclick = function () {
       say('Uploading…');
@@ -206,7 +276,10 @@
       Object.keys(changes).forEach(function (k) { BASELINE[k] = changes[k]; });
       if (final) {
         clearInterval(AUTOSAVE);
-        document.getElementById('main').innerHTML = '<div class="card"><h2>Thank you</h2><p>Your ' + (R.stage === 'ack' ? 'acknowledgement' : 'submission') + ' is saved. You\'ll get an email when there is a next step.</p></div>';
+        var label = (typeof reviewMeta === 'function' && typeof esc === 'function')
+          ? '<strong>' + esc(reviewMeta().processName + ' (' + reviewMeta().stageLabel + ')') + '</strong> for <strong>' + esc(R.studentName) + '</strong>'
+          : (R.stage === 'ack' ? 'acknowledgement' : 'submission');
+        document.getElementById('main').innerHTML = '<div class="card"><h2>Thank you</h2><p>Your ' + label + ' is saved. You will receive an email when there is a next step.</p></div>';
         return;
       }
       if (!quiet) say('Draft saved.', 'ok');

@@ -109,9 +109,10 @@ const reviewData = {
   excluded: [{ reason: 'Individual or research credits', n: 1 }, { reason: 'Outside the departments in this phase', n: 1 }],
   sample: Object.assign({ offering: 'ANTH 512', to: 'bea.rowan.sample@uw.edu' }, (function () {
     const o = run(`renderEmailTemplate_('CF-1', { course: 'ANTH 512', quarter: quarterLabel_('${Q}'), n: 2, url: '(link to the page, created at launch)',
-      notMineUrl: '(link, created at launch)', dueLong: dateLong_(courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES).due) },
+      notMineUrl: '(link, created at launch)', dueLong: dateLong_(courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES).due),
+      dueShort: dateShort_(courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES).due) },
       { firstName: 'Bea', gpcName: CONFIG.GPC_NAME, privacyUrl: CONFIG.PRIVACY_URL, reference: 'REQ-4' })`);
-    return { subject: o.subject, text: o.text };
+    return { senderName: o.senderName, subject: o.subject, text: o.text };
   })())
 };
 const regMsg = { type: 'mygrad-data', mode: 'registrations', quarter: Q, students: Object.keys(STUDENTS), registrations, failures: [] };
@@ -219,6 +220,21 @@ const reviewStudent = {
 /* ---------- Student's course feedback page ---------- */
 const myFeedback = { email: 'robin.park.sample@uw.edu', records: [], quarters: [{ quarter: run(`quarterLabel_('${Q}')`), record: recAut }] };
 
+/* ---------- Advisor annual review, advisor MA check-in, and advisor course feedback ---------- */
+const reviewAdvisorAnnual = {
+  reviewId: 'REV-4', type: 'ANNUAL', program: 'PHD', cycle: run('CONFIG.CYCLE_YEAR'), cycleLabel: String(run('CONFIG.CYCLE_YEAR')),
+  stage: 'advisor', status: 'ADVISOR_PENDING', due: run(`dateLong_('${cyc.advisorDue}')`),
+  studentName: 'Robin Park', coAdvised: false, returned: false, levels: CF_LEVELS, ratings: run('REVIEW_RATINGS_'), flags: [],
+  studentReport: reviewStudent.draft, development: {}, draft: {}, courseFeedback: recStudent
+};
+const reviewAdvisorCheckin = {
+  reviewId: 'IN-1', type: 'INTERIM', program: 'MA', cycle: Q, cycleLabel: run(`quarterLabel_('${Q}')`),
+  stage: 'advisor', status: 'ADVISOR_PENDING', due: run(`dateLong_('${win.due}')`),
+  studentName: 'Toby Moss', coAdvised: false, returned: false, levels: CF_LEVELS, ratings: run('REVIEW_RATINGS_'), flags: [],
+  studentReport: { research: 'Completed fieldwork methods course and drafted heritage management site proposal.' }, development: {}, draft: {}
+};
+const adviseesFeedback = [{ name: 'Robin Park', quarters: [{ quarter: run(`quarterLabel_('${Q}')`), record: recAut }] }];
+
 /* ---------- Page assembly, as page_() in WebApp.gs ---------- */
 const read = f => fs.readFileSync(path.join(APP, f + '.html'), 'utf8');
 const STUB = `<script>
@@ -270,11 +286,14 @@ const pages = [
       document.getElementById('tsState').textContent = 'Time Schedule: ' + TSD.sections.length + ' sections for ' + TSD.quarter + '.';
       document.getElementById('preview').click();
     }, 200);`),
-  build('FeedbackForm', 'feedback-form', 'Course feedback', { token: 'sample', notMine: false }, { loadFeedbackPage: feedbackPage }),
-  build('Index', 'annual-report', 'Annual review', { token: 'sample' }, { loadReview: reviewStudent, saveReviewStage: true }),
-  build('ReviewRelease', 'review-release', 'Review and release', { quarter: Q }, { releasePageData: releaseData }),
-  build('Program', 'program', 'Program stage', {}, { programViewData: programData, alertTracker: alerts }),
-  build('Home', 'student-feedback', 'Your course feedback', { view: 'student' }, { myCourseFeedback: myFeedback })
+  build('FeedbackForm', 'feedback-form', 'Grad Student Course Feedback', { token: 'sample', notMine: false }, { loadFeedbackPage: feedbackPage }),
+  build('Index', 'annual-report', 'Grad Student Annual Review', { token: 'sample' }, { loadReview: reviewStudent, saveReviewStage: true }),
+  build('Index', 'advisor-annual', 'Grad Student Annual Review (Advisor)', { token: 'sample' }, { loadReview: reviewAdvisorAnnual, saveReviewStage: true }),
+  build('Index', 'advisor-checkin', 'Grad Student MA Check-In (Advisor)', { token: 'sample' }, { loadReview: reviewAdvisorCheckin, saveReviewStage: true }),
+  build('ReviewRelease', 'review-release', 'Grad Student Course Feedback: Review and Release', { quarter: Q }, { releasePageData: releaseData }),
+  build('Program', 'program', 'Grad Student Annual Review: Program Stage', {}, { programViewData: programData, alertTracker: alerts }),
+  build('Home', 'student-feedback', 'Grad Student Course Feedback', { view: 'student' }, { myCourseFeedback: myFeedback }),
+  build('Home', 'advisor-feedback', 'Grad Student Course Feedback (Advisor)', { view: 'advisor' }, { adviseesCourseFeedback: adviseesFeedback })
 ];
 console.log(JSON.stringify({ out: OUT, pages, preview: { summary: preview.summary, pages: preview.pages.length, missing: preview.missingInstructors, unmatched: preview.unmatched },
   flags: finchFlags.map(f => f.code), alertQuarter: alertQ }, null, 1));

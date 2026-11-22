@@ -1,15 +1,32 @@
 <style>
-  :root { --uw: #4b2e83; --gold: #b7a57a; --ink: #222; --muted: #595959; --line: #d0d0d0; --bg: #fafafa; --ok: #1a7f37; --bad: #b71c1c; --warn: #8a5300; }
+  :root { --uw: #4b2e83; --theme: #4b2e83; --theme-bg: #f3eefc; --gold: #b7a57a; --ink: #222; --muted: #595959; --line: #d0d0d0; --bg: #fafafa; --ok: #1a7f37; --bad: #b71c1c; --warn: #8a5300; }
+  body.theme-cf { --theme: #1e5631; --theme-bg: #eef6f0; }
+  body.theme-annual { --theme: #1b365d; --theme-bg: #eef3f9; }
+  body.theme-checkin { --theme: #14535b; --theme-bg: #edf6f7; }
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.5 Arial, Helvetica, sans-serif; color: var(--ink); background: #fff; }
-  header.top { background: var(--uw); color: #fff; padding: 14px 20px; }
-  header.top h1 { margin: 0; font-size: 20px; }
+  header.top { background: var(--theme); color: #fff; padding: 14px 20px; border-bottom: 4px solid var(--gold); }
+  header.top .eyebrow { font-size: 12px; font-weight: bold; letter-spacing: 0.07em; text-transform: uppercase; color: #e8e3d3; margin: 0 0 4px; }
+  header.top h1 { margin: 0; font-size: 21px; }
   header.top p { margin: 4px 0 0; color: #e8e3d3; font-size: 14px; }
+  header.top a { color: #fff; }
   main { max-width: 960px; margin: 0 auto; padding: 16px 20px 80px; }
-  h2 { font-size: 19px; color: var(--uw); margin: 28px 0 8px; border-bottom: 2px solid var(--gold); padding-bottom: 4px; }
+  h2 { font-size: 19px; color: var(--theme); margin: 28px 0 8px; border-bottom: 2px solid var(--gold); padding-bottom: 4px; }
   h3 { font-size: 16px; margin: 18px 0 6px; }
-  .note { background: #f3eefc; border-left: 4px solid var(--uw); padding: 10px 14px; margin: 12px 0; }
+  .note { background: var(--theme-bg); border-left: 4px solid var(--theme); padding: 10px 14px; margin: 12px 0; }
   .warnbox { background: #fff6e5; border-left: 4px solid var(--warn); padding: 10px 14px; margin: 12px 0; }
+  .scope-box { background: var(--theme-bg); border: 1px solid var(--line); border-left: 6px solid var(--theme); border-radius: 6px; padding: 14px 16px; margin: 0 0 18px; }
+  .scope-box-title { font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; color: var(--theme); margin: 0 0 10px; }
+  .scope-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .scope-col { background: #fff; border: 1px solid #d9d9d9; border-radius: 4px; padding: 10px 12px; font-size: 14px; }
+  .scope-col.not-this { border-left: 4px solid var(--warn); background: #fffbf2; }
+  .scope-col h3 { margin: 0 0 6px; font-size: 14px; color: var(--theme); }
+  .scope-col.not-this h3 { color: var(--warn); }
+  .scope-col p { margin: 4px 0 0; }
+  .scope-col ul { margin: 4px 0 0; padding-left: 18px; }
+  .scope-col li { margin: 3px 0; }
+  .scope-foot { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+  .scope-foot a { color: var(--theme); font-weight: bold; }
   .card { border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; margin: 14px 0; background: #fff; }
   .muted { color: var(--muted); font-size: 14px; }
   label { display: block; font-weight: bold; margin: 12px 0 4px; }
@@ -20,8 +37,8 @@
   fieldset { border: 1px solid var(--line); border-radius: 6px; margin: 10px 0; padding: 8px 12px; }
   legend { font-weight: bold; padding: 0 4px; }
   .radio { display: block; font-weight: normal; margin: 4px 0; }
-  button { font: inherit; padding: 9px 16px; border-radius: 4px; border: 1px solid var(--uw); background: #fff; color: var(--uw); cursor: pointer; margin: 6px 8px 6px 0; }
-  button.primary { background: var(--uw); color: #fff; }
+  button { font: inherit; padding: 9px 16px; border-radius: 4px; border: 1px solid var(--theme); background: #fff; color: var(--theme); cursor: pointer; margin: 6px 8px 6px 0; }
+  button.primary { background: var(--theme); color: #fff; }
   button:disabled { opacity: .55; cursor: not-allowed; }
   :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
   table.rows { width: 100%; border-collapse: collapse; margin: 6px 0; }
@@ -32,7 +49,8 @@
   .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
   .counter { font-size: 13px; color: var(--muted); text-align: right; }
   .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; background: #eee; font-size: 13px; margin-right: 6px; }
+  .role-pill { display: inline-block; padding: 2px 9px; border-radius: 10px; background: var(--theme-bg); color: var(--theme); border: 1px solid var(--theme); font-size: 13px; font-weight: bold; margin-right: 6px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } main { padding: 12px 14px 80px; } }
+  @media (max-width: 640px) { .grid2, .scope-grid { grid-template-columns: 1fr; } main { padding: 12px 14px 80px; } }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 </style>
