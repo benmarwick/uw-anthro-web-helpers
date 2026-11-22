@@ -93,7 +93,8 @@ const rosterData = {
     { requestId: 'REQ-3', offering: 'ANTH 466', instructors: 'Stone,Cal', emails: 'cal.stone.sample@uw.edu', status: 'NOT_MY_COURSE' }
   ],
   opensLong: run(`dateLong_(courseFeedbackWindow_('${Q}', CONFIG.CF_RELEASE_OFFSET_DAYS, CONFIG.CF_WINDOW_OVERRIDES).opens)`), launchOpen: false,
-  myGradUrl: 'https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist?orgid=14', timeScheduleUrl: ''
+  myGradUrl: 'https://webappssecure.grad.uw.edu/mgp-dept.stu.detail/home/studentlist?orgid=14', timeScheduleUrl: '',
+  sheetLinks: { spreadsheet: '#sheet', students: '#students', instructors: '#instructors' }
 };
 /* The "Check before launch" list: what launchReviewData returns for two pages not yet sent. The email
    text comes from the real CF-1 template. */
@@ -184,19 +185,19 @@ function pick(c) { return { contact: c.contact, written: c.written, discussion: 
 /* ---------- Instructor page ---------- */
 const feedbackPage = {
   offering: 'ANTH 512', quarter: run(`quarterLabel_('${Q}')`), due: run(`dateLong_('${win.due}')`), closed: false, readOnlyLock: false, lockOwner: '',
-  levels: CF_LEVELS, signature: '', minutes: '', status: 'DRAFT',
+  levels: CF_LEVELS, signature: 'Bea Rowan', minutes: '5 to 15', status: 'DRAFT',
   students: [
-    { email: 'robin.park.sample@uw.edu', name: 'Robin Park', program: 'PhD', subfield: 'Sociocultural', year: run(`yearInProgram_('AUT2024', '${Q}')`), course: 'ANTH 512', isAdvisee: true,
+    { email: 'robin.park.sample@uw.edu', name: 'Robin Park', program: 'PhD', subfield: 'Sociocultural', year: run(`yearInProgram_('AUT2024', '${Q}')`), candidacy: 'PhD candidate since June 2026', course: 'ANTH 512', isAdvisee: true,
       contact: 'enough', ...pick(parkComments[0]), followup: false, followupNote: '', status: 'DRAFT', returnedReason: '', editable: true },
-    { email: 'toby.moss.sample@uw.edu', name: 'Toby Moss', program: 'PhD', subfield: 'Archaeology', year: run(`yearInProgram_('AUT2025', '${Q}')`), course: 'ANTH 512', isAdvisee: false,
-      contact: '', written: '', discussion: '', literature: '', strength: '', nextStep: '', followup: false, followupNote: '', status: '', returnedReason: '', editable: true }
+    { email: 'toby.moss.sample@uw.edu', name: 'Toby Moss', program: 'PhD', subfield: 'Archaeology', year: run(`yearInProgram_('AUT2025', '${Q}')`), candidacy: 'pre-candidacy', course: 'ANTH 512', isAdvisee: false,
+      contact: 'not_enough', written: '', discussion: '', literature: '', strength: '', nextStep: '', followup: false, followupNote: '', status: 'DRAFT', returnedReason: '', editable: true }
   ]
 };
 
 /* ---------- Student's annual report ---------- */
 const cyc = run('annualCycleDates_(CONFIG.CYCLE_YEAR)');
 const reviewStudent = {
-  reviewId: 'REV-3', type: 'ANNUAL', program: 'PHD', cycle: run('CONFIG.CYCLE_YEAR'), stage: 'student', status: 'STUDENT_PENDING', due: run(`dateLong_('${cyc.studentDue}')`),
+  reviewId: 'REV-3', type: 'ANNUAL', program: 'PHD', cycle: run('CONFIG.CYCLE_YEAR'), cycleLabel: String(run('CONFIG.CYCLE_YEAR')), stage: 'student', status: 'STUDENT_PENDING', due: run(`dateLong_('${cyc.studentDue}')`),
   studentName: 'Robin Park', coAdvised: false, returned: false, levels: CF_LEVELS, ratings: run('REVIEW_RATINGS_'), flags: [],
   draft: {
     research: 'Finished the first round of interviews with home-care workers (18 of a planned 30) and coded half of them. Drafted the methods section of the prospectus.',

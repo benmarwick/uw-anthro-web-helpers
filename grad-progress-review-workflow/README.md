@@ -355,31 +355,37 @@ The design follows Graduate School Policy 3.7, the [Provost and Graduate School 
 
 ## Screenshots
 
-The screenshots below predate the November 22, 2026 visual themes (forest green for course feedback, deep navy for annual reviews, deep teal for check-ins) and two-column scope boxes. The first three are from the deployed app, with invented sample data (three students and sample instructors) uploaded through the Roster page's CSV option.
+All eight screenshots below were rendered on November 22, 2026 from the app's real `.html` files with invented sample data via [`app/tests/screenshots/build.js`](app/tests/screenshots/build.js). Every person, course assignment, and email address shown is invented. The color themes and two-column scope boxes distinguish the three graduate-review workflows from paid TA/ASE employment evaluations (UW purple): forest green for Course Feedback, deep navy for Annual Reviews, and deep teal for Progress Check-Ins.
 
-The Roster page after the CSV uploads and Preview.
+The Roster page after CSV upload and Preview, showing the join table and the sample CF-1 instructor email (`From: UW Anthropology: Grad Student Course Feedback`, subject prefix `[Grad Student Course Feedback]`).
 
-![Live Roster page with a join preview](screenshots/live-roster-preview.png)
+![Roster page with a join preview and sample email](screenshots/live-roster-preview.png)
 
-The instructor's page, opened from the CF-1 email link, with the answers submitted.
+The instructor's Course Feedback page, opened from the CF-1 email link, with the forest-green header, two-column scope box, enrollment pills, candidacy status, and filled responses.
 
-![Live instructor course feedback page](screenshots/live-feedback-form.png)
+![Instructor course feedback page](screenshots/live-feedback-form.png)
 
-Review and Release (GPC), after the instructor submitted.
+Review and Release (GPC), after the instructor submitted course feedback.
 
-![Live review and release page](screenshots/live-review-release.png)
+![Review and release page](screenshots/live-review-release.png)
 
-The next three need a launched annual cycle or a student's own account, so they are built from the app's real pages with sample data by [`app/tests/screenshots/build.js`](app/tests/screenshots/build.js). Every person and email address shown is invented.
-
-The student's annual report, top of the page: the MyGrad prefill note and the released Course Feedback Record above the form.
+The student's Annual Review report (top of the page): the deep-navy header, scope box, MyGrad prefill note, and released Course Feedback Record above the form.
 
 ![Student annual report](screenshots/annual-report.png)
 
-Program stage (GPC): a review with the time-limit and GPA flags, the starting letter and the narrative check; an escalated review; and the Alert tracker.
+The advisor's Annual Review page (top of the page): the deep-navy header, advisor scope box, student report, and Course Feedback Record.
+
+![Advisor annual review page](screenshots/advisor-annual.png)
+
+The advisor's MA Quarterly Check-In page: the deep-teal header, check-in scope box, student report, and advisor check-in form.
+
+![Advisor MA quarterly check-in page](screenshots/advisor-checkin.png)
+
+Program stage (GPC): the calibration note, a review with the time-limit and GPA flags, the starting letter and narrative check, an escalated review, and the Alert tracker.
 
 ![Program stage page](screenshots/program.png)
 
-The student's course feedback for one quarter.
+The student's released Course Feedback for one quarter.
 
 ![Student course feedback page](screenshots/student-feedback.png)
 
