@@ -89,13 +89,75 @@
     });
     return out;
   }
-  /* Read-only rendering of a saved section. */
-  function showValue(v) {
+  /* Turns a camelCase or snake_case key into a readable sentence-case label as a fallback. */
+  function humanizeKey(k) {
+    var s = String(k || '').replace(/_/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').trim();
+    if (!s) return '';
+    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  }
+  /* Read-only rendering of a saved section. Optional fieldDef supplies column headers (rows) or sub-field labels (group). */
+  function showValue(v, fieldDef) {
     if (v === true) return 'Yes'; if (v === false) return 'No';
-    if (Array.isArray(v)) return v.length ? '<table class="rows"><tbody>' + v.map(function (r) {
-      return '<tr>' + (typeof r === 'object' ? Object.keys(r).map(function (k) { return '<td>' + esc(r[k]) + '</td>'; }).join('') : '<td>' + esc(r) + '</td>') + '</tr>'; }).join('') + '</tbody></table>' : '<span class="muted">None</span>';
-    if (v && typeof v === 'object') return Object.keys(v).map(function (k) { return '<div><strong>' + esc(k) + ':</strong> ' + nl2br(v[k]) + '</div>'; }).join('');
+    if (Array.isArray(v)) {
+      if (!v.length) return '<span class="muted">None</span>';
+      var hasObj = v.some(function (r) { return r && typeof r === 'object'; });
+      if (!hasObj) return '<table class="rows"><tbody>' + v.map(function (r) { return '<tr><td>' + esc(r) + '</td></tr>'; }).join('') + '</tbody></table>';
+      var cols = [];
+      if (fieldDef && Array.isArray(fieldDef.columns) && fieldDef.columns.length) {
+        cols = fieldDef.columns.slice();
+        var seen = {};
+        cols.forEach(function (c) { seen[c.key] = true; });
+        v.forEach(function (r) {
+          if (r && typeof r === 'object') Object.keys(r).forEach(function (k) {
+            if (!seen[k]) { seen[k] = true; cols.push({ key: k, label: humanizeKey(k) }); }
+          });
+        });
+      } else {
+        var seenKeys = {};
+        v.forEach(function (r) {
+          if (r && typeof r === 'object') Object.keys(r).forEach(function (k) {
+            if (!seenKeys[k]) { seenKeys[k] = true; cols.push({ key: k, label: humanizeKey(k) }); }
+          });
+        });
+      }
+      var thead = '<thead><tr>' + cols.map(function (c) { return '<th scope="col">' + esc(c.label) + '</th>'; }).join('') + '</tr></thead>';
+      var tbody = '<tbody>' + v.map(function (r) {
+        return '<tr>' + (r && typeof r === 'object'
+          ? cols.map(function (c) { return '<td>' + esc(r[c.key] == null ? '' : r[c.key]) + '</td>'; }).join('')
+          : '<td colspan="' + cols.length + '">' + esc(r) + '</td>') + '</tr>';
+      }).join('') + '</tbody>';
+      return '<table class="rows">' + thead + tbody + '</table>';
+    }
+    if (v && typeof v === 'object') {
+      var subFields = (fieldDef && Array.isArray(fieldDef.fields)) ? fieldDef.fields : [];
+      var subMap = {}, ordered = [];
+      subFields.forEach(function (sf) { subMap[sf.key] = sf; if (Object.prototype.hasOwnProperty.call(v, sf.key)) ordered.push(sf.key); });
+      Object.keys(v).forEach(function (k) { if (!subMap[k]) ordered.push(k); });
+      return ordered.map(function (k) {
+        var lab = subMap[k] ? (subMap[k].viewLabel || subMap[k].label) : humanizeKey(k);
+        var val = v[k];
+        var rendered = val === true ? 'Yes' : val === false ? 'No' : (val === '' || val == null ? '<span class="muted">Not answered</span>' : nl2br(val));
+        return '<div><strong>' + esc(lab) + ':</strong> ' + rendered + '</div>';
+      }).join('');
+    }
     return v === '' || v == null ? '<span class="muted">Not answered</span>' : nl2br(v);
+  }
+  /* Renders a saved payload object as read-only <h3> + value blocks in fieldDefs order. */
+  function renderReadOnlyFields(data, fieldDefs, skipKeys, extraLabels) {
+    var obj = data || {}, skip = {}, defs = {}, order = [], labels = extraLabels || {};
+    (skipKeys || []).forEach(function (k) { skip[k] = true; });
+    (fieldDefs || []).forEach(function (f) {
+      defs[f.key] = f;
+      if (!skip[f.key] && Object.prototype.hasOwnProperty.call(obj, f.key)) order.push(f.key);
+    });
+    Object.keys(obj).forEach(function (k) {
+      if (!skip[k] && !defs[k]) order.push(k);
+    });
+    return order.map(function (k) {
+      var f = defs[k];
+      var heading = f ? (f.viewLabel || f.label) : (labels[k] || humanizeKey(k));
+      return '<h3>' + esc(heading) + '</h3>' + showValue(obj[k], f);
+    }).join('');
   }
   /* The Course Feedback Record, for any reader. */
   function recordHtml(rec) {

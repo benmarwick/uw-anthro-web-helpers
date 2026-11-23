@@ -16,6 +16,12 @@
 <?!= include_('Common') ?>
 <script>
   var D = null;
+  var GPC_NOTE_LABELS = {
+    gpcOnly: 'Student note (GPC only)',
+    gpcOnlyAdvising: 'Advising note (GPC only)',
+    advisingChallenges: 'Advisor note on advising',
+    calibrationNotes: 'Calibration notes'
+  };
   var CHECKS = ['Nothing is about the person rather than the work.', 'Nothing is outside academic progress (TA or RA job performance, health, personal circumstances).',
     'Nothing is unclear.', 'Nothing is faint praise or hedged, so that the student could not tell what it means.',
     'Nothing describes possible misconduct under the Student Conduct Code (if it does, return it and consult Community Standards & Student Conduct first).'];
@@ -81,7 +87,9 @@
     var t = e.target, id;
     if ((id = t.getAttribute('data-save'))) call('saveProgramStage', id, payload(id)).then(function () { say('Saved.', 'ok'); }).catch(function (er) { say(er.message, 'bad'); });
     if ((id = t.getAttribute('data-gpconly'))) call('gpcOnlyNotes', id).then(function (n) {
-      document.getElementById('g_' + id).innerHTML = '<div class="note">' + (Object.keys(n).length ? Object.keys(n).map(function (k) { return '<p><strong>' + esc(k) + ':</strong> ' + nl2br(n[k]) + '</p>'; }).join('') : 'No GPC-only notes.') + '</div>';
+      document.getElementById('g_' + id).innerHTML = '<div class="note">' + (Object.keys(n).length ? Object.keys(n).map(function (k) {
+        return '<p><strong>' + esc(GPC_NOTE_LABELS[k] || humanizeKey(k)) + ':</strong> ' + nl2br(n[k]) + '</p>';
+      }).join('') : 'No GPC-only notes.') + '</div>';
     }).catch(function (er) { say(er.message, 'bad'); });
     if ((id = t.getAttribute('data-release'))) {
       var all = Array.prototype.every.call(document.querySelectorAll('[data-chk="' + id + '"]'), function (c) { return c.checked; });

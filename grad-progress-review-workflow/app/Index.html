@@ -18,10 +18,10 @@
     { key: 'status', label: 'Program, subfield, advisors and committee', help: 'Check what we have on file (shown above) and note anything to correct, including quarters on leave.', type: 'textarea' },
     { key: 'milestones', label: 'Milestones', help: 'Committee, MA, language or methods, qualifying or first-year review, prospectus, General Exam, IRB, fieldwork, candidacy, reading committee, Final Exam.', type: 'rows',
       columns: [{ key: 'milestone', label: 'Milestone' }, { key: 'doneOn', label: 'Done on', type: 'date' }, { key: 'plannedFor', label: 'Planned for' }] },
-    { key: 'behindSchedule', label: 'If a milestone is past its expected date: what happened, and your plan', type: 'textarea' },
+    { key: 'behindSchedule', label: 'If a milestone is past its expected date: what happened, and your plan', viewLabel: 'Milestone delays and plan', type: 'textarea' },
     { key: 'coursework', label: 'Courses this year', help: 'Filled in from your MyGrad transcript. Add courses planned and any incompletes.', type: 'rows',
       columns: [{ key: 'quarter', label: 'Quarter' }, { key: 'course', label: 'Course' }, { key: 'title', label: 'Title' }, { key: 'grade', label: 'Grade' }] },
-    { key: 'courseFeedbackResponse', label: 'Which one or two next steps from your course feedback will you act on this year, and how?', help: 'Optional. Your Course Feedback Record is shown above.', type: 'textarea' },
+    { key: 'courseFeedbackResponse', label: 'Which one or two next steps from your course feedback will you act on this year, and how?', viewLabel: 'Next steps from course feedback', help: 'Optional. Your Course Feedback Record is shown above.', type: 'textarea' },
     { key: 'research', label: 'Research progress', help: 'Fieldwork, lab or collections work, analysis, chapter status, working title. About 500 words.', type: 'textarea', required: true, max: 4000 },
     { key: 'publications', label: 'Publications and other outputs', type: 'rows', columns: [{ key: 'citation', label: 'Citation' },
       { key: 'stage', label: 'Stage', type: 'select', options: ['in preparation', 'submitted', 'in review', 'accepted', 'published'] },
@@ -40,23 +40,23 @@
     { key: 'actionItemsProgress', label: 'Action items from last year', type: 'rows', columns: [{ key: 'action', label: 'Action', type: 'readonly' },
       { key: 'status', label: 'Status', type: 'select', options: ['done', 'in progress', 'dropped'] }, { key: 'note', label: 'Note' }] },
     { key: 'careerCheckin', label: 'Career check-in', help: 'Your aspirations, what has changed and what support you want. Seen by you and your advisors only; not in the PDF.', type: 'textarea' },
-    { key: 'mentoringMap', label: 'Your mentoring network', help: 'Optional. Who supports you, by role. Seen by you and your advisors only.', type: 'rows',
+    { key: 'mentoringMap', label: 'Your mentoring network', viewLabel: 'Mentoring network', help: 'Optional. Who supports you, by role. Seen by you and your advisors only.', type: 'rows',
       columns: [{ key: 'role', label: 'Role', type: 'select', options: ['research', 'writing', 'career', 'emotional support', 'accountability', 'community'] }, { key: 'who', label: 'Who' }] },
     { key: 'challenges', label: 'Challenges', help: 'Optional. Your advisor will read this.', type: 'textarea' },
-    { key: 'actualMeetings', label: 'How many times did you meet your advisor this year?', type: 'number' },
+    { key: 'actualMeetings', label: 'How many times did you meet your advisor this year?', viewLabel: 'Advisor meetings this year', type: 'number' },
     { key: 'advising', label: 'Advising', help: 'Preferred meeting frequency; any committee changes needed. Your advisor sees this section.', type: 'textarea' },
-    { key: 'asks', label: 'What would help you most this year?', type: 'textarea' },
-    { key: 'gpcOnly', label: 'Only for the GPC (optional)', help: 'Your advisor will not see this, and it is never printed in the PDF. It is part of your education record, which you can see. You can also use the department\'s anonymous form or talk to the Office of the Ombud.', type: 'textarea' },
+    { key: 'asks', label: 'What would help you most this year?', viewLabel: 'Support requested for next year', type: 'textarea' },
+    { key: 'gpcOnly', label: 'Only for the GPC (optional)', viewLabel: 'Student note (GPC only)', help: 'Your advisor will not see this, and it is never printed in the PDF. It is part of your education record, which you can see. You can also use the department\'s anonymous form or talk to the Office of the Ombud.', type: 'textarea' },
     { key: 'signatureName', label: 'Type your name to sign', type: 'text', required: true }
   ];
   var STUDENT_MA = [
-    { key: 'research', label: 'How did this quarter go, and what comes next?', type: 'textarea', required: true },
+    { key: 'research', label: 'How did this quarter go, and what comes next?', viewLabel: 'Quarterly reflection and next steps', type: 'textarea', required: true },
     { key: 'careerCheckin', label: 'Career check-in', help: 'Seen by you and your advisor only.', type: 'textarea' },
-    { key: 'gpcOnly', label: 'Only for the GPC (optional)', help: 'Your advisor will not see this.', type: 'textarea' },
+    { key: 'gpcOnly', label: 'Only for the GPC (optional)', viewLabel: 'Student note (GPC only)', help: 'Your advisor will not see this.', type: 'textarea' },
     { key: 'signatureName', label: 'Type your name to sign', type: 'text', required: true }
   ];
   var ADVISOR_ANNUAL = [
-    { key: 'meetingDate', label: 'Date you met the student', help: 'The meeting is expected before you evaluate.', type: 'date', required: true },
+    { key: 'meetingDate', label: 'Date you met the student', viewLabel: 'Date of advisor meeting', help: 'The meeting is expected before you evaluate.', type: 'date', required: true },
     { key: 'milestoneDeterminations', label: 'Milestone determinations', help: 'For each milestone attempted this year. Printed in the letter as your written decision.', type: 'rows',
       columns: [{ key: 'milestone', label: 'Milestone' }, { key: 'result', label: 'Result', type: 'select', options: ['satisfied', 'not yet satisfied', 'not satisfied'] }, { key: 'reason', label: 'One-line reason' }] },
     { key: 'mentorChecklist', label: 'Mentor checklist', type: 'group', fields: [
@@ -66,21 +66,21 @@
       { key: 'roadblocks', label: 'Roadblocks I can remove' }] },
     { key: 'actionItems', label: 'Action items', help: 'Printed in the letter and carried into next year\'s form and any check-in.', type: 'rows',
       columns: [{ key: 'action', label: 'Action' }, { key: 'owner', label: 'Owner', type: 'select', options: ['student', 'advisor', 'committee', 'program'] }, { key: 'due', label: 'Due', type: 'date' }] },
-    { key: 'agreement', label: "Do you agree with the student's self-assessment?", help: 'If not, say how you advised the student.', type: 'rows',
+    { key: 'agreement', label: "Do you agree with the student's self-assessment?", viewLabel: "Agreement with student's self-assessment", help: 'If not, say how you advised the student.', type: 'rows',
       columns: [{ key: 'area', label: 'Area', type: 'readonly' }, { key: 'agree', label: 'Agree?', type: 'select', options: ['agree', 'disagree'] }, { key: 'comment', label: 'Comment' }] },
     { key: 'accomplishments', label: 'Notable accomplishments', help: 'Specific work, with an example. Fed into the letter.', type: 'textarea', required: true },
     { key: 'developmentAreas', label: 'Areas for development', type: 'rows', columns: [{ key: 'area', label: 'Area' }, { key: 'seriousness', label: 'Seriousness', type: 'select', options: ['minor', 'moderate', 'serious'] }] },
     { key: 'timelineComments', label: 'Comments on the timeline', help: 'Required if a milestone is overdue.', type: 'textarea' },
     { key: 'goalsAdded', label: 'Goals added or amended for next year', type: 'textarea' },
-    { key: 'careerSkillsComment', label: 'Comment on the career check-in (optional, no rating)', type: 'textarea' },
+    { key: 'careerSkillsComment', label: 'Comment on the career check-in (optional, no rating)', viewLabel: 'Comment on the career check-in', type: 'textarea' },
     { key: 'recommendedRating', label: 'Recommended rating', type: 'select', options: ['Satisfactory', 'Satisfactory with concerns', 'Unsatisfactory'], required: true },
-    { key: 'concerns', label: 'If there are concerns', help: 'Each is required when the rating is below Satisfactory (Policy 3.7.2).', type: 'group', fields: [
+    { key: 'concerns', label: 'If there are concerns', viewLabel: 'Concerns (benchmark, deadline, support, and consequence)', help: 'Each is required when the rating is below Satisfactory (Policy 3.7.2).', type: 'group', fields: [
       { key: 'benchmark', label: 'The specific benchmark' }, { key: 'deadline', label: 'The deadline' }, { key: 'support', label: 'The support you and the department will give' },
       { key: 'consequence', label: 'The consequence if the benchmark is not met' }] },
-    { key: 'checkinMonths', label: 'Check-in in', help: 'Three months is required if the student is missing a milestone or has a GPA below 3.0.', type: 'select', options: ['3', '6'] },
-    { key: 'letterParagraph', label: 'Paragraph for the letter (optional)', type: 'textarea' },
-    { key: 'discussedCourseFeedback', label: 'We discussed the Course Feedback Record', type: 'check' },
-    { key: 'advisingChallenges', label: 'Is anything making it hard to advise this student well? (optional)', help: 'The GPC reads this, and the student sees it with the letter.', type: 'textarea' },
+    { key: 'checkinMonths', label: 'Check-in in', viewLabel: 'Follow-up check-in interval (months)', help: 'Three months is required if the student is missing a milestone or has a GPA below 3.0.', type: 'select', options: ['3', '6'] },
+    { key: 'letterParagraph', label: 'Paragraph for the letter (optional)', viewLabel: 'Paragraph for the letter', type: 'textarea' },
+    { key: 'discussedCourseFeedback', label: 'We discussed the Course Feedback Record', viewLabel: 'Course Feedback Record discussed', type: 'check' },
+    { key: 'advisingChallenges', label: 'Is anything making it hard to advise this student well? (optional)', viewLabel: 'Advisor note on advising', help: 'The GPC reads this, and the student sees it with the letter.', type: 'textarea' },
     { key: 'signatureName', label: 'Type your name to sign', help: 'Co-advisors can add to this draft; one of you signs.', type: 'text', required: true }
   ];
   var ADVISOR_CHECKIN = [
@@ -88,9 +88,15 @@
     { key: 'milestoneDeterminations', label: 'Milestone determinations', type: 'rows', columns: [{ key: 'milestone', label: 'Milestone' },
       { key: 'result', label: 'Result', type: 'select', options: ['satisfied', 'not yet satisfied', 'not satisfied'] }, { key: 'reason', label: 'Reason' }] },
     { key: 'actionItems', label: 'Action items', type: 'rows', columns: [{ key: 'action', label: 'Action' }, { key: 'owner', label: 'Owner', type: 'select', options: ['student', 'advisor', 'committee', 'program'] }, { key: 'due', label: 'Due', type: 'date' }] },
-    { key: 'verdict', label: 'Your verdict', type: 'select', options: ['resolved', 'continuing', 'escalate'], required: true, help: '"escalate" sends the check-in to the GPC.' },
+    { key: 'verdict', label: 'Your verdict', viewLabel: 'Advisor verdict', type: 'select', options: ['resolved', 'continuing', 'escalate'], required: true, help: '"escalate" sends the check-in to the GPC.' },
     { key: 'signatureName', label: 'Type your name to sign', type: 'text', required: true }
   ];
+  var EXTRA_LABELS = {
+    compactCheck: 'Advisor-advisee compact check',
+    planToCompletion: 'Plan to completion',
+    skillsAssessment: 'Skills self-assessment',
+    careerSkillsComment: 'Comment on the career check-in'
+  };
   var ACK = [
     { key: 'acknowledged', label: 'I have read my advisor\'s evaluation and the letter. (Acknowledging does not mean agreeing.)', type: 'check', required: true },
     { key: 'responseText', label: 'Your written response (optional)', help: 'It will be attached to your review.', type: 'textarea' },
@@ -197,16 +203,17 @@
         draft.agreement = ['milestones', 'research', 'coursework', 'professional activity', 'next year\'s plan'].map(function (a) { return { area: a, agree: '', comment: '' }; });
         injected.push('agreement');
       }
+      var studentFields = R.type === 'ANNUAL' ? STUDENT_ANNUAL : STUDENT_MA;
       var sr = R.studentReport || {};
-      h += section(R.studentName + "'s report (read-only)", Object.keys(sr).filter(function (k) { return k !== 'prefill' && k !== 'signatureName'; }).map(function (k) {
-        return '<h3>' + esc(k) + '</h3>' + showValue(sr[k]); }).join('') || '<p class="muted">Nothing submitted.</p>');
-      if (R.development && Object.keys(R.development).length) h += section('Development modules (you and the student only)', Object.keys(R.development).map(function (k) { return '<h3>' + esc(k) + '</h3>' + showValue(R.development[k]); }).join(''));
+      h += section(R.studentName + "'s report (read-only)", renderReadOnlyFields(sr, studentFields, ['prefill', 'signatureName'], EXTRA_LABELS) || '<p class="muted">Nothing submitted.</p>');
+      if (R.development && Object.keys(R.development).length) h += section('Development modules (you and the student only)', renderReadOnlyFields(R.development, studentFields.concat(FIELDS), [], EXTRA_LABELS));
       if (R.cvUrl) h += section("The student's CV", '<p><a href="' + esc(R.cvUrl) + '" target="_blank" rel="noopener">Open the CV</a> (shared with your UW account)</p>');
       if (R.courseFeedback) h += section('Course Feedback Record (read-only)', recordHtml(R.courseFeedback));
     }
     if (R.stage === 'ack') {
       FIELDS = ACK;
-      h += section("Your advisor's evaluation", Object.keys(R.advisor || {}).filter(function (k) { return k !== 'signatureName'; }).map(function (k) { return '<h3>' + esc(k) + '</h3>' + showValue(R.advisor[k]); }).join(''));
+      var advisorFields = R.type === 'ANNUAL' ? ADVISOR_ANNUAL : ADVISOR_CHECKIN;
+      h += section("Your advisor's evaluation", renderReadOnlyFields(R.advisor || {}, advisorFields, ['signatureName'], EXTRA_LABELS));
       if (R.advisingChallenges) h += section("Your advisor's note on advising", nl2br(R.advisingChallenges));
       h += section('Final rating', esc(R.finalRating)) + section('Your letter', '<div class="card">' + nl2br(R.letterText) + '</div>');
       h += '<div class="note">You can respond in writing, ask to meet the GPC, use informal resolution with the GPC or the Office of the Ombud, and then the College of Arts &amp; Sciences grievance procedure (Policy 3.8).</div>';

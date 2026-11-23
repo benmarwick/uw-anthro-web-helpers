@@ -394,9 +394,17 @@ This web app runs two connected graduate-student academic progress processes in 
 
 [grad-progress-review-workflow/](https://github.com/benmarwick/uw-anthro-web-helpers/tree/main/grad-progress-review-workflow), with full documentation, quick links, and privacy notice in its [README](https://github.com/benmarwick/uw-anthro-web-helpers/blob/main/grad-progress-review-workflow/README.md).
 
-Advisor annual review view (showing the student's self-report, the compiled Course Feedback Record, and the advisor evaluation form; sample data):
+Course feedback instructor view (forest green; showing the two-column scope box, enrollment and advisee pills, candidacy status, stage-relative ratings, and comment fields; sample data):
 
-![Graduate Review System advisor annual review page showing the student report, compiled Course Feedback Record, and advisor evaluation form](grad-progress-review-workflow/screenshots/advisor-annual.png)
+![Graduate Student Course Feedback instructor page in forest green](grad-progress-review-workflow/screenshots/live-feedback-form.png)
+
+Advisor annual review view (deep navy; showing the two-column scope box, the student's self-report, the compiled Course Feedback Record, and the advisor evaluation form; sample data):
+
+![Graduate Review System advisor annual review page in deep navy](grad-progress-review-workflow/screenshots/advisor-annual.png)
+
+Advisor MA quarterly check-in view (deep teal; showing the check-in scope box, the student's quarterly note, milestone determinations, action items, and verdict; sample data):
+
+![Graduate Review System advisor MA quarterly check-in page in deep teal](grad-progress-review-workflow/screenshots/advisor-checkin.png)
 
 ### License
 
@@ -410,4 +418,4 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 
 ### Acknowledgments
 
-The code in this repository was developed and tested with assistance from generative AI tools, including Mimo Pro 2.5, DeepSeek V4, Qwen 3.7-Plus, ChatGPT 5.2, Claude Sonnet 5, and Gemini 3.1 Pro. I used [Purple](https://purple.uw.edu/), [OpenCode](https://opencode.ai/) and [OpenRouter](https://openrouter.ai/).   
+The code in this repository was developed and tested with assistance from generative AI tools, including Mimo Pro 2.5, DeepSeek V4, Qwen 3.7-Plus, ChatGPT 5.2, Claude Sonnet 5, Claude Opus 5.5, Gemini 3.1 Pro, and Gemini 4 Neon. I used [Purple](https://purple.uw.edu/), [OpenCode](https://opencode.ai/), [Claude Code](https://claude.com/product/claude-code), [Antigravity](https://antigravity.google/), and [OpenRouter](https://openrouter.ai/).   

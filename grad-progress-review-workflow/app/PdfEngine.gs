@@ -10,29 +10,56 @@ const PDF_LABELS_ = {
   courseFeedbackResponse: 'Next steps from course feedback', research: 'Research progress', publications: 'Publications and other outputs',
   presentations: 'Presentations', grants: 'Grants and fellowships', appointments: 'Teaching and research appointments', service: 'Service and outreach',
   lastGoals: "Last year's goals", nextPlan: "Next year's plan", funding: 'Funding and TA requests', actionItemsProgress: 'Action items from last year',
-  compactCheck: 'Compact check', challenges: 'Challenges', advising: 'Advising', asks: 'Asks for faculty', signatureName: 'Signed',
+  compactCheck: 'Compact check', challenges: 'Challenges', actualMeetings: 'Advisor meetings this year', advising: 'Advising', asks: 'Asks for faculty', signatureName: 'Signed',
   meetingDate: 'Date of meeting', milestoneDeterminations: 'Milestone determinations', mentorChecklist: 'Mentor checklist', actionItems: 'Action items',
   planToCompletion: 'Plan to completion', agreement: 'Agreement with the self-assessment', accomplishments: 'Notable accomplishments',
   developmentAreas: 'Areas for development', timelineComments: 'Comments on the timeline', goalsAdded: 'Goals added or amended',
   recommendedRating: 'Recommended rating', concerns: 'Benchmark, deadline, support and consequence', letterParagraph: 'Paragraph for the letter',
-  discussedCourseFeedback: 'Discussed course feedback', finalRating: 'Final rating', letterText: 'Letter', acknowledged: 'Acknowledged',
+  discussedCourseFeedback: 'Discussed course feedback', benchmarkProgress: 'Progress on each benchmark', verdict: 'Advisor verdict',
+  finalRating: 'Final rating', letterText: 'Letter', acknowledged: 'Acknowledged',
   responseText: 'Student response', meetGpc: 'Would like to meet with the GPC'
 };
+
+const PDF_SUBFIELD_LABELS_ = {
+  milestone: 'Milestone', doneOn: 'Done on', plannedFor: 'Planned for',
+  quarter: 'Quarter', course: 'Course', title: 'Title', grade: 'Grade',
+  citation: 'Citation', stage: 'Stage', peerReviewed: 'Peer reviewed', type: 'Type',
+  venue: 'Venue', date: 'Date',
+  funder: 'Funder', amount: 'Amount', outcome: 'Outcome',
+  role: 'Role', courseOrProject: 'Course or project',
+  goal: 'Goal', status: 'Status', comment: 'Comment', category: 'Category',
+  action: 'Action', note: 'Note', owner: 'Owner', due: 'Due',
+  result: 'Result', reason: 'Reason',
+  deadlinesKnown: 'Knows upcoming milestone deadlines', feasiblePlan: 'Has a feasible plan',
+  standardDiscussed: 'Discussed standard for next milestone', roadblocks: 'Roadblocks advisor can remove',
+  area: 'Area', agree: 'Agree', seriousness: 'Seriousness',
+  benchmark: 'Benchmark', deadline: 'Deadline', support: 'Support', consequence: 'Consequence'
+};
+
+function humanizePdfKey_(k) {
+  const s = String(k || '').replace(/_/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
+}
+
+function pdfSubLabel_(k) {
+  return PDF_SUBFIELD_LABELS_[k] || humanizePdfKey_(k);
+}
 
 function pdfValue_(v) {
   if (v === true) return 'Yes';
   if (v === false) return 'No';
-  if (Array.isArray(v)) return v.map(function(x) { return typeof x === 'object' ? Object.keys(x).map(function(k) { return k + ': ' + x[k]; }).join('; ') : String(x); }).join('\n');
-  if (v && typeof v === 'object') return Object.keys(v).map(function(k) { return k + ': ' + (typeof v[k] === 'object' ? JSON.stringify(v[k]) : v[k]); }).join('\n');
+  if (Array.isArray(v)) return v.map(function(x) { return x && typeof x === 'object' ? Object.keys(x).map(function(k) { return pdfSubLabel_(k) + ': ' + x[k]; }).join('; ') : String(x); }).join('\n');
+  if (v && typeof v === 'object') return Object.keys(v).map(function(k) { return pdfSubLabel_(k) + ': ' + (typeof v[k] === 'object' ? JSON.stringify(v[k]) : v[k]); }).join('\n');
   return String(v);
 }
 
-function addPdfSection_(body, title, data) {
+function addPdfSection_(body, title, data, labelOverrides) {
   const keys = Object.keys(data || {});
   if (!keys.length) return;
+  const overrides = labelOverrides || {};
   body.appendParagraph(title).setHeading(DocumentApp.ParagraphHeading.HEADING2);
   keys.forEach(function(k) {
-    body.appendParagraph(PDF_LABELS_[k] || k).setHeading(DocumentApp.ParagraphHeading.HEADING3);
+    body.appendParagraph(overrides[k] || PDF_LABELS_[k] || humanizePdfKey_(k)).setHeading(DocumentApp.ParagraphHeading.HEADING3);
     body.appendParagraph(pdfValue_(data[k]));
   });
 }
@@ -55,7 +82,8 @@ function generateReviewPdf_(reviewId, opts) {
     body.appendParagraph('UW Department of Anthropology: ' + (r.Type === 'ANNUAL' ? 'Annual Review ' : 'Check-in ') + r.Cycle).setHeading(DocumentApp.ParagraphHeading.HEADING1);
     body.appendParagraph('Student: ' + model.studentName + '    Reference: ' + model.reviewId);
     if (model.skippedStage) body.appendParagraph('Stage completed without a response: ' + model.skippedStage);
-    addPdfSection_(body, "Student's report", model.student);
+    const studentLabels = r.Type === 'ANNUAL' ? null : { research: 'Quarterly reflection and next steps' };
+    addPdfSection_(body, "Student's report", model.student, studentLabels);
     addPdfSection_(body, "Advisor's evaluation", model.advisor);
     addPdfSection_(body, 'Program decision and letter', model.program);
     addPdfSection_(body, 'Acknowledgement and response', model.response);

@@ -451,8 +451,8 @@ test('26. review flags are not sent to the student at the student or acknowledge
 
 /* ---------- The edited pages still parse ---------- */
 
-test('Index.html and Program.html scripts parse', () => {
-  ['Index.html', 'Program.html'].forEach(f => {
+test('Index.html, Common.html, and Program.html scripts parse', () => {
+  ['Common.html', 'Index.html', 'Program.html'].forEach(f => {
     const html = read(f);
     const blocks = html.match(/<script>([\s\S]*?)<\/script>/g) || [];
     assert.ok(blocks.length > 0, f + ' has a script');
@@ -461,4 +461,82 @@ test('Index.html and Program.html scripts parse', () => {
       assert.doesNotThrow(() => new vm.Script(body, { filename: f }), f);
     });
   });
+});
+
+test('read-only review views render human-readable headings, table headers, and sub-field labels', () => {
+  const commonJs = read('Common.html').match(/<script>([\s\S]*?)<\/script>/)[1];
+  const indexJs = read('Index.html').match(/<script>([\s\S]*?)<\/script>/)[1];
+  const defsEnd = indexJs.indexOf('function section(');
+  assert.ok(defsEnd > 0, 'Index.html field definitions found');
+  const env = {};
+  vm.createContext(env);
+  vm.runInContext(commonJs, env);
+  vm.runInContext(indexJs.slice(0, defsEnd).replace(/<\?!= dataJson \?>/g, '{}'), env);
+
+  const annualStudent = env.renderReadOnlyFields(
+    { nextPlan: [{ category: 'funding', goal: 'Apply for grants' }], research: 'Coded interviews.', prefill: {}, signatureName: 'Robin' },
+    env.STUDENT_ANNUAL, ['prefill', 'signatureName'], env.EXTRA_LABELS
+  );
+  assert.match(annualStudent, /<h3>Research progress<\/h3>/);
+  assert.match(annualStudent, /<h3>Next year&#39;s plan<\/h3>/);
+  assert.match(annualStudent, /<th scope="col">Category<\/th><th scope="col">Goal<\/th>/);
+  assert.ok(annualStudent.indexOf('Research progress') < annualStudent.indexOf('Next year&#39;s plan'), 'fields follow form order');
+  assert.ok(!/<h3>research<\/h3>/i.test(annualStudent) && !/<h3>nextPlan<\/h3>/.test(annualStudent));
+
+  const maStudent = env.renderReadOnlyFields(
+    { research: 'Completed fieldwork methods course.' },
+    env.STUDENT_MA, ['prefill', 'signatureName'], env.EXTRA_LABELS
+  );
+  assert.match(maStudent, /<h3>Quarterly reflection and next steps<\/h3>/);
+  assert.ok(!/<h3>research<\/h3>/i.test(maStudent));
+
+  const devHtml = env.renderReadOnlyFields(
+    { careerCheckin: 'Museum curation', mentoringMap: [{ role: 'writing', who: 'Dr. Lee' }] },
+    env.STUDENT_ANNUAL.concat(env.ADVISOR_ANNUAL), [], env.EXTRA_LABELS
+  );
+  assert.match(devHtml, /<h3>Career check-in<\/h3>/);
+  assert.match(devHtml, /<h3>Mentoring network<\/h3>/);
+  assert.match(devHtml, /<th scope="col">Role<\/th><th scope="col">Who<\/th>/);
+
+  const advisorAck = env.renderReadOnlyFields(
+    {
+      meetingDate: '2027-05-01',
+      mentorChecklist: { deadlinesKnown: 'Yes', feasiblePlan: 'Yes' },
+      concerns: { benchmark: 'Prospectus approved', deadline: '2027-06-15' },
+      discussedCourseFeedback: true,
+      signatureName: 'Dr. Rowan'
+    },
+    env.ADVISOR_ANNUAL, ['signatureName'], env.EXTRA_LABELS
+  );
+  assert.match(advisorAck, /<h3>Date of advisor meeting<\/h3>/);
+  assert.match(advisorAck, /<strong>The student knows the upcoming milestone deadlines:<\/strong> Yes/);
+  assert.match(advisorAck, /<strong>The specific benchmark:<\/strong> Prospectus approved/);
+  assert.match(advisorAck, /<h3>Course Feedback Record discussed<\/h3>Yes/);
+  assert.ok(!/deadlinesKnown|meetingDate|discussedCourseFeedback/.test(advisorAck));
+
+  const checkinAck = env.renderReadOnlyFields(
+    { benchmarkProgress: 'On track', verdict: 'resolved' },
+    env.ADVISOR_CHECKIN, ['signatureName'], env.EXTRA_LABELS
+  );
+  assert.match(checkinAck, /<h3>Progress on each benchmark<\/h3>/);
+  assert.match(checkinAck, /<h3>Advisor verdict<\/h3>/);
+});
+
+test('Program.html GPC-only note labels and PdfEngine.gs labels avoid raw keys', () => {
+  assert.match(read('Program.html'), /GPC_NOTE_LABELS\[k\] \|\| humanizeKey\(k\)/);
+  const env = { DocumentApp: { ParagraphHeading: { HEADING2: 'H2', HEADING3: 'H3' } } };
+  vm.createContext(env);
+  vm.runInContext(read('PdfEngine.gs'), env, { filename: 'PdfEngine.gs' });
+  const labels = vm.runInContext('PDF_LABELS_', env);
+  assert.equal(labels.benchmarkProgress, 'Progress on each benchmark');
+  assert.equal(labels.verdict, 'Advisor verdict');
+  assert.equal(labels.actualMeetings, 'Advisor meetings this year');
+  assert.equal(env.pdfValue_([{ category: 'funding', goal: 'Apply for grants' }]), 'Category: funding; Goal: Apply for grants');
+  const formattedGroup = env.pdfValue_({ deadlinesKnown: 'Yes', feasiblePlan: 'No' });
+  assert.match(formattedGroup, /Knows upcoming milestone deadlines: Yes/);
+  assert.match(formattedGroup, /Has a feasible plan: No/);
+  const lines = [];
+  const fakeBody = { appendParagraph(text) { lines.push(text); return { setHeading() {} }; } };
+  env.addPdfSection_(fakeBody, "Student's report", { research: 'Drafted proposal.' }, { research: 'Quarterly reflection and next steps' });
+  assert.deepEqual(lines, ["Student's report", 'Quarterly reflection and next steps', 'Drafted proposal.']);
 });
