@@ -520,6 +520,18 @@ test('read-only review views render human-readable headings, table headers, and 
   );
   assert.match(checkinAck, /<h3>Progress on each benchmark<\/h3>/);
   assert.match(checkinAck, /<h3>Advisor verdict<\/h3>/);
+
+  const phdStudentMilestone = env.STUDENT_ANNUAL.find(f => f.key === 'milestones');
+  const phdAdvisorMilestone = env.ADVISOR_ANNUAL.find(f => f.key === 'milestoneDeterminations');
+  const phdCheckinMilestone = env.ADVISOR_CHECKIN.find(f => f.key === 'milestoneDeterminations');
+  const maCheckinMilestone = env.ADVISOR_MA_CHECKIN.find(f => f.key === 'milestoneDeterminations');
+  [phdStudentMilestone, phdAdvisorMilestone, phdCheckinMilestone].forEach(f => {
+    assert.match(f.help, /required coursework/i);
+    assert.ok(!/internship|thesis project/i.test(f.help), 'MA-only milestones do not appear on PhD forms');
+  });
+  assert.match(maCheckinMilestone.help, /required coursework/i);
+  assert.match(maCheckinMilestone.help, /internship/i);
+  assert.match(maCheckinMilestone.help, /thesis project/i);
 });
 
 test('Program.html GPC-only note labels and PdfEngine.gs labels avoid raw keys', () => {

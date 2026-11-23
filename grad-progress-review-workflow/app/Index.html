@@ -14,9 +14,11 @@
   var R = null, FIELDS = [];
 
   var YN = ['Yes', 'No'];
+  var PHD_MILESTONES_HELP = 'Required coursework, committee, MA, language or methods, qualifying or first-year review, prospectus, General Exam, IRB, fieldwork, candidacy, reading committee, Final Exam.';
+  var MA_MILESTONES_HELP = 'Examples: required coursework, committee, internship, thesis project.';
   var STUDENT_ANNUAL = [
     { key: 'status', label: 'Program, subfield, advisors and committee', help: 'Check what we have on file (shown above) and note anything to correct, including quarters on leave.', type: 'textarea' },
-    { key: 'milestones', label: 'Milestones', help: 'Committee, MA, language or methods, qualifying or first-year review, prospectus, General Exam, IRB, fieldwork, candidacy, reading committee, Final Exam.', type: 'rows',
+    { key: 'milestones', label: 'Milestones', help: PHD_MILESTONES_HELP, type: 'rows',
       columns: [{ key: 'milestone', label: 'Milestone' }, { key: 'doneOn', label: 'Done on', type: 'date' }, { key: 'plannedFor', label: 'Planned for' }] },
     { key: 'behindSchedule', label: 'If a milestone is past its expected date: what happened, and your plan', viewLabel: 'Milestone delays and plan', type: 'textarea' },
     { key: 'coursework', label: 'Courses this year', help: 'Filled in from your MyGrad transcript. Add courses planned and any incompletes.', type: 'rows',
@@ -57,7 +59,7 @@
   ];
   var ADVISOR_ANNUAL = [
     { key: 'meetingDate', label: 'Date you met the student', viewLabel: 'Date of advisor meeting', help: 'The meeting is expected before you evaluate.', type: 'date', required: true },
-    { key: 'milestoneDeterminations', label: 'Milestone determinations', help: 'For each milestone attempted this year. Printed in the letter as your written decision.', type: 'rows',
+    { key: 'milestoneDeterminations', label: 'Milestone determinations', help: 'For each milestone attempted this year (e.g., ' + PHD_MILESTONES_HELP.charAt(0).toLowerCase() + PHD_MILESTONES_HELP.slice(1, -1) + '). Printed in the letter as your written decision.', type: 'rows',
       columns: [{ key: 'milestone', label: 'Milestone' }, { key: 'result', label: 'Result', type: 'select', options: ['satisfied', 'not yet satisfied', 'not satisfied'] }, { key: 'reason', label: 'One-line reason' }] },
     { key: 'mentorChecklist', label: 'Mentor checklist', type: 'group', fields: [
       { key: 'deadlinesKnown', label: 'The student knows the upcoming milestone deadlines', type: 'select', options: YN },
@@ -83,14 +85,18 @@
     { key: 'advisingChallenges', label: 'Is anything making it hard to advise this student well? (optional)', viewLabel: 'Advisor note on advising', help: 'The GPC reads this, and the student sees it with the letter.', type: 'textarea' },
     { key: 'signatureName', label: 'Type your name to sign', help: 'Co-advisors can add to this draft; one of you signs.', type: 'text', required: true }
   ];
-  var ADVISOR_CHECKIN = [
-    { key: 'benchmarkProgress', label: 'Progress on each benchmark', type: 'textarea' },
-    { key: 'milestoneDeterminations', label: 'Milestone determinations', type: 'rows', columns: [{ key: 'milestone', label: 'Milestone' },
-      { key: 'result', label: 'Result', type: 'select', options: ['satisfied', 'not yet satisfied', 'not satisfied'] }, { key: 'reason', label: 'Reason' }] },
-    { key: 'actionItems', label: 'Action items', type: 'rows', columns: [{ key: 'action', label: 'Action' }, { key: 'owner', label: 'Owner', type: 'select', options: ['student', 'advisor', 'committee', 'program'] }, { key: 'due', label: 'Due', type: 'date' }] },
-    { key: 'verdict', label: 'Your verdict', viewLabel: 'Advisor verdict', type: 'select', options: ['resolved', 'continuing', 'escalate'], required: true, help: '"escalate" sends the check-in to the GPC.' },
-    { key: 'signatureName', label: 'Type your name to sign', type: 'text', required: true }
-  ];
+  function makeAdvisorCheckin(isMa) {
+    return [
+      { key: 'benchmarkProgress', label: 'Progress on each benchmark', type: 'textarea' },
+      { key: 'milestoneDeterminations', label: 'Milestone determinations', help: isMa ? MA_MILESTONES_HELP : 'Examples: ' + PHD_MILESTONES_HELP.charAt(0).toLowerCase() + PHD_MILESTONES_HELP.slice(1), type: 'rows', columns: [{ key: 'milestone', label: 'Milestone' },
+        { key: 'result', label: 'Result', type: 'select', options: ['satisfied', 'not yet satisfied', 'not satisfied'] }, { key: 'reason', label: 'Reason' }] },
+      { key: 'actionItems', label: 'Action items', type: 'rows', columns: [{ key: 'action', label: 'Action' }, { key: 'owner', label: 'Owner', type: 'select', options: ['student', 'advisor', 'committee', 'program'] }, { key: 'due', label: 'Due', type: 'date' }] },
+      { key: 'verdict', label: 'Your verdict', viewLabel: 'Advisor verdict', type: 'select', options: ['resolved', 'continuing', 'escalate'], required: true, help: '"escalate" sends the check-in to the GPC.' },
+      { key: 'signatureName', label: 'Type your name to sign', type: 'text', required: true }
+    ];
+  }
+  var ADVISOR_CHECKIN = makeAdvisorCheckin(false);
+  var ADVISOR_MA_CHECKIN = makeAdvisorCheckin(true);
   var EXTRA_LABELS = {
     compactCheck: 'Advisor-advisee compact check',
     planToCompletion: 'Plan to completion',
@@ -198,7 +204,7 @@
       }
     }
     if (R.stage === 'advisor') {
-      FIELDS = R.type === 'ANNUAL' ? ADVISOR_ANNUAL : ADVISOR_CHECKIN;
+      FIELDS = R.type === 'ANNUAL' ? ADVISOR_ANNUAL : (m.isMa ? ADVISOR_MA_CHECKIN : ADVISOR_CHECKIN);
       if (R.type === 'ANNUAL' && !draft.agreement) {
         draft.agreement = ['milestones', 'research', 'coursework', 'professional activity', 'next year\'s plan'].map(function (a) { return { area: a, agree: '', comment: '' }; });
         injected.push('agreement');
@@ -212,7 +218,7 @@
     }
     if (R.stage === 'ack') {
       FIELDS = ACK;
-      var advisorFields = R.type === 'ANNUAL' ? ADVISOR_ANNUAL : ADVISOR_CHECKIN;
+      var advisorFields = R.type === 'ANNUAL' ? ADVISOR_ANNUAL : (m.isMa ? ADVISOR_MA_CHECKIN : ADVISOR_CHECKIN);
       h += section("Your advisor's evaluation", renderReadOnlyFields(R.advisor || {}, advisorFields, ['signatureName'], EXTRA_LABELS));
       if (R.advisingChallenges) h += section("Your advisor's note on advising", nl2br(R.advisingChallenges));
       h += section('Final rating', esc(R.finalRating)) + section('Your letter', '<div class="card">' + nl2br(R.letterText) + '</div>');
