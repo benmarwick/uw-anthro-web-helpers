@@ -1,5 +1,22 @@
 # Web Helpers for UW Administrative Workflows in the [Anthropology Department](https://anthropology.washington.edu/) and [Data Science Minor](https://dataminor.uw.edu/) 
 
+## Table of Contents
+
+- [Introduction](#introduction)
+  - [A Note on Student Privacy and Data Security](#a-note-on-student-privacy-and-data-security)
+  - [How to install a bookmarklet](#how-to-install-a-bookmarklet)
+- [Time Schedule Enrollment Dashboard Bookmarklet](#time-schedule-enrollment-dashboard-bookmarklet)
+- [Time Schedule Instructor Workload Dashboard Bookmarklet](#time-schedule-instructor-workload-dashboard-bookmarklet)
+- [MyGrad Table Audit Bookmarklet](#mygrad-table-audit-bookmarklet)
+- [Time Schedule Sections Bookmarklet](#time-schedule-sections-bookmarklet)
+- [MyGrad Anthropology Department Student Summary Bookmarklet](#mygrad-anthropology-department-student-summary-bookmarklet)
+- [EARS Data Science Minor Bookmarklet](#ears-data-science-minor-bookmarklet)
+- [TA Allocation Google Apps Script](#ta-allocation-google-apps-script)
+- [TA Evaluation System Google Apps Script](#ta-evaluation-system-google-apps-script)
+- [Graduate Review System Google Apps Script](#graduate-review-system-google-apps-script)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
 ## Introduction
 
 This repository contains scripts, e.g. to create browser bookmarklets or web apps, to help visualize and summarize data and simplify workflows relating to day-to-day operations of the UW Anthropology Department and the Data Science Minor. 
@@ -363,6 +380,10 @@ This app provides an online workflow the department's "[Academic Student Employe
 -   The instructor completes and signs the TA evaluation, the ASE adds a self-evaluation and uploads a time sheet, and the instructor reviews the self-evaluation and gives a final sign-off; each step is emailed to the next party as a new tokenized link.
 -   The completed evaluation is rendered as a signed PDF, emailed to both the instructor and the ASE, and archived in Google Drive. Every step is written to the audit log.
 
+Instructor sign-off view (showing the instructor's duty ratings and comments, the TA's self-evaluation, the uploaded time sheet, and final sign-off; sample data):
+
+![TA Evaluation System instructor sign-off form showing the evaluation, TA self-evaluation, time sheet download, and final signature](ta-evaluation-workflow/screenshots/3-instructor-signoff.png)
+
 ## Graduate Review System Google Apps Script
 
 #### Overview
@@ -372,6 +393,10 @@ This web app runs two connected graduate-student academic progress processes in 
 #### Scripts for the App
 
 [grad-progress-review-workflow/](https://github.com/benmarwick/uw-anthro-web-helpers/tree/main/grad-progress-review-workflow), with full documentation, quick links, and privacy notice in its [README](https://github.com/benmarwick/uw-anthro-web-helpers/blob/main/grad-progress-review-workflow/README.md).
+
+Advisor annual review view (showing the student's self-report, the compiled Course Feedback Record, and the advisor evaluation form; sample data):
+
+![Graduate Review System advisor annual review page showing the student report, compiled Course Feedback Record, and advisor evaluation form](grad-progress-review-workflow/screenshots/advisor-annual.png)
 
 ### License
 
