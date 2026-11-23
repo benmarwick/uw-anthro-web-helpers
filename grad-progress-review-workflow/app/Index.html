@@ -17,7 +17,14 @@
   var PHD_MILESTONES_HELP = 'Required coursework, committee, MA, language or methods, qualifying or first-year review, prospectus, General Exam, IRB, fieldwork, candidacy, reading committee, Final Exam.';
   var MA_MILESTONES_HELP = 'Examples: required coursework, committee, internship, thesis project.';
   var STUDENT_ANNUAL = [
-    { key: 'status', label: 'Program, subfield, advisors and committee', help: 'Check what we have on file (shown above) and note anything to correct, including quarters on leave.', type: 'textarea' },
+    { key: 'status', label: 'Program, subfield, advisors, and committee',
+      help: 'Please answer these questions in the box below:',
+      questions: [
+        'Is the information on file and from MyGrad (shown above) accurate for your program, subfield, advisors, committee chair, candidacy status, and UW degrees? If anything is wrong or missing, what needs to be corrected?',
+        'Who are the current members of your supervisory or reading committee, and are any changes planned?',
+        'Have you taken any quarters on leave this year, or do you plan to take leave next year?'
+      ],
+      type: 'textarea', required: true },
     { key: 'milestones', label: 'Milestones', help: PHD_MILESTONES_HELP, type: 'rows',
       columns: [{ key: 'milestone', label: 'Milestone' }, { key: 'doneOn', label: 'Done on', type: 'date' }, { key: 'plannedFor', label: 'Planned for' }] },
     { key: 'behindSchedule', label: 'If a milestone is past its expected date: what happened, and your plan', viewLabel: 'Milestone delays and plan', type: 'textarea' },
@@ -199,7 +206,7 @@
           ' · committee chair: ' + esc(of.chair || 'none recorded') + (of.gsr ? ' · GSR: ' + esc(of.gsr) : '') + (of.leaveEnds ? ' · on leave until ' + esc(of.leaveEnds) : '') + '</div>';
         var mg = pre.mygrad || {};
         h += '<div class="note"><strong>From MyGrad:</strong> candidacy ' + esc(mg.candidacyDate || 'not yet') + ' · ANTH 800 credits ' + esc(mg.anth800Credits || 0) +
-          ' · doctoral committee ' + esc(mg.hasDocComm || '?') + ' · UW degrees ' + esc(mg.uwDegrees || 'none') + '. Correct anything wrong in the first box.</div>';
+          ' · doctoral committee ' + esc(mg.hasDocComm || '?') + ' · UW degrees ' + esc(mg.uwDegrees || 'none') + '. Answer the questions in the first box below to confirm or correct this record.</div>';
         if (R.courseFeedback) h += section('Your Course Feedback Record (read-only)', recordHtml(R.courseFeedback));
       }
     }

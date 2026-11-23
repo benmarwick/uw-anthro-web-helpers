@@ -209,13 +209,23 @@ test('17. an hour of autosaves does not block Submit', () => {
   const token = seed(t, {});
   for (let i = 0; i < 120; i++) { t.newRequest(STUDENT); t.ctx.saveReviewStage(token, { research: 'r' + i }, false); }
   t.newRequest(STUDENT);
-  const res = t.plain(t.ctx.saveReviewStage(token, { nextPlan: [{ category: 'research', goal: 'write' }], signatureName: 'Sam' }, true));
+  const res = t.plain(t.ctx.saveReviewStage(token, { status: 'All accurate; no leave planned.', nextPlan: [{ category: 'research', goal: 'write' }], signatureName: 'Sam' }, true));
   assert.equal(res.next, 'ADVISOR_PENDING');
+});
+
+test('annual student self-report requires answering the status questions', () => {
+  const t = setup();
+  const token = seed(t, {});
+  t.newRequest(STUDENT);
+  assert.throws(
+    () => t.ctx.saveReviewStage(token, { research: 'Coded interviews.', nextPlan: [{ category: 'research', goal: 'write' }], signatureName: 'Sam' }, true),
+    /program, subfield, advisors, and committee/i
+  );
 });
 
 test('17/18. a save that waited for the lock sees the newer row and refuses a stale submit', () => {
   const t = setup();
-  const token = seed(t, { Student_Payload: JSON.stringify({ research: 'x', nextPlan: [{ goal: 'g' }], signatureName: 'Sam' }) });
+  const token = seed(t, { Student_Payload: JSON.stringify({ status: 'All accurate.', research: 'x', nextPlan: [{ goal: 'g' }], signatureName: 'Sam' }) });
   t.newRequest(STUDENT);
   t.ctx.reviewById_('AR-1');   // fills the per-request cache before the lock
   /* Another request submits while this one waits for the lock. */
@@ -520,6 +530,15 @@ test('read-only review views render human-readable headings, table headers, and 
   );
   assert.match(checkinAck, /<h3>Progress on each benchmark<\/h3>/);
   assert.match(checkinAck, /<h3>Advisor verdict<\/h3>/);
+
+  const phdStudentStatus = env.STUDENT_ANNUAL.find(f => f.key === 'status');
+  assert.equal(phdStudentStatus.type, 'textarea');
+  assert.equal(phdStudentStatus.required, true);
+  assert.ok(Array.isArray(phdStudentStatus.questions) && phdStudentStatus.questions.length >= 2);
+  const statusHtml = env.fieldHtml(phdStudentStatus, '');
+  assert.match(statusHtml, /<ul class="help-list"><li>/);
+  assert.match(statusHtml, /<textarea id="f_status" data-key="status" aria-describedby="f_status_h">/);
+  assert.ok(statusHtml.indexOf('<ul class="help-list">') < statusHtml.indexOf('<textarea id="f_status"'), 'questions appear above the free-text box');
 
   const phdStudentMilestone = env.STUDENT_ANNUAL.find(f => f.key === 'milestones');
   const phdAdvisorMilestone = env.ADVISOR_ANNUAL.find(f => f.key === 'milestoneDeterminations');

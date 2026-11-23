@@ -188,6 +188,7 @@ function executeEscalationRetry_(payload) {
 
 function executeCompletionRetry_(payload) {
   const { profEmail, taEmail, subject, htmlBody, body, fileId, evaluationId } = payload;
+  const cc = payload.cc !== undefined ? payload.cc : completionCc_(profEmail, taEmail);
   let pdfBlob = null;
   if (fileId) {
     try {
@@ -197,7 +198,7 @@ function executeCompletionRetry_(payload) {
     }
   }
   if (pdfBlob) {
-    GmailApp.sendEmail([profEmail, taEmail].join(','), subject, body || '', mailOptions_({ htmlBody: htmlBody, attachments: [pdfBlob] }));
+    GmailApp.sendEmail([profEmail, taEmail].join(','), subject, body || '', mailOptions_({ htmlBody: htmlBody, attachments: [pdfBlob], cc: cc }));
   } else {
     generateAndDistributePdf_({ evaluationId: evaluationId }, { enqueue: false });
   }

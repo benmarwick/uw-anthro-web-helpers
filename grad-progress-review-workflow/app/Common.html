@@ -24,11 +24,20 @@
               columns: [{ key, label, type, options }] for rows, fields: [...] for group } */
   function fieldHtml(f, value) {
     var id = 'f_' + f.key, req = f.required ? ' <span aria-hidden="true">*</span>' : '';
+    var hasQuestions = Array.isArray(f.questions) && f.questions.length > 0;
+    var hasHelp = !!(f.help || hasQuestions);
     var help = f.help ? '<span class="help" id="' + id + '_h">' + esc(f.help) + '</span>' : '';
-    var desc = f.help ? ' aria-describedby="' + id + '_h"' : '';
+    var helpBlock = '';
+    if (hasHelp) {
+      helpBlock = '<div class="help" id="' + id + '_h">' +
+        (f.help ? '<div>' + esc(f.help) + '</div>' : '') +
+        (hasQuestions ? '<ul class="help-list">' + f.questions.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>' : '') +
+        '</div>';
+    }
+    var desc = hasHelp ? ' aria-describedby="' + id + '_h"' : '';
     var v = value == null ? '' : value;
     if (f.type === 'textarea') {
-      return '<label for="' + id + '">' + esc(f.label) + req + help + '</label><textarea id="' + id + '" data-key="' + f.key + '"' + desc +
+      return '<label for="' + id + '">' + esc(f.label) + req + '</label>' + helpBlock + '<textarea id="' + id + '" data-key="' + f.key + '"' + desc +
         (f.max ? ' maxlength="' + f.max + '"' : '') + '>' + esc(v) + '</textarea>' + (f.max ? '<div class="counter" data-for="' + id + '"></div>' : '');
     }
     if (f.type === 'select') {

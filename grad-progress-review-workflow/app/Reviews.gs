@@ -204,6 +204,7 @@ function validateReviewStage_(stage, type, program, f) {
   const missing = [];
   if (stage === 'student') {
     if (type === 'ANNUAL') {
+      if (!filled(f.status)) missing.push('program, subfield, advisors, and committee');
       if (!filled(f.research)) missing.push('research progress');
       if (!Array.isArray(f.nextPlan) || !f.nextPlan.length) missing.push("next year's plan");
     } else if (!filled(f.research)) missing.push('how the quarter went');

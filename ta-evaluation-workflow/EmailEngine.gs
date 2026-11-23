@@ -159,7 +159,7 @@ function sendProfEvaluationInvite_(params) {
     ],
     button: { label: 'Start TA Evaluation', link: link },
     after: [
-      para_(t_('Please finish by '), b_(formatDueLong_(due)), t_('. ' + taName + ' will then review your TA evaluation and respond, and you will be asked to sign off. You will both receive the signed PDF.')),
+      para_(t_('Please finish by '), b_(formatDueLong_(due)), t_('. ' + taName + ' will then review your TA evaluation and respond, and you will be asked to sign off. You, ' + taName + ', and the Graduate Program Coordinator will receive the signed PDF.')),
       t_('Please also discuss the evaluation with ' + taName + ', as the department\'s instructions ask.')
     ]
   });
@@ -188,7 +188,7 @@ function sendTAResponseInvite_(params) {
     ],
     button: { label: 'Review and Respond to TA Evaluation', link: link },
     after: [
-      para_(t_('Please respond by '), b_(formatDueLong_(due)), t_('. ' + profName + ' will then sign off, and you will both receive the signed PDF.'))
+      para_(t_('Please respond by '), b_(formatDueLong_(due)), t_('. ' + profName + ' will then sign off, and you, ' + profName + ', and the Graduate Program Coordinator will receive the signed PDF.'))
     ]
   });
 
@@ -214,12 +214,34 @@ function sendProfSignInvite_(params) {
     ],
     button: { label: 'Review and Sign TA Evaluation', link: link },
     after: [
-      para_(t_('Please sign by '), b_(formatDueLong_(due)), t_('. Within a few minutes of your signature, you and ' + taName + ' will receive the signed TA evaluation PDF.'))
+      para_(t_('Please sign by '), b_(formatDueLong_(due)), t_('. Within a few minutes of your signature, you, ' + taName + ', and the Graduate Program Coordinator will receive the signed TA evaluation PDF.'))
     ]
   });
 
   const emailParams = { to: profEmail, subject: subject, htmlBody: mail.htmlBody, body: mail.body };
   return sendEmailSafely_({ evaluationId, emailParams }, emailParams);
+}
+
+/* Extra recipient(s) copied on the signed completion PDF, excluding anyone already in To. */
+function completionCc_(profEmail, taEmail) {
+  const raw = C_().COMPLETION_CC_EMAIL;
+  if (!raw) return '';
+  const seen = {};
+  [profEmail, taEmail].forEach(function(addr) {
+    const n = normEmail_(addr);
+    if (n) seen[n] = true;
+  });
+  const list = Array.isArray(raw) ? raw : String(raw).split(',');
+  const out = [];
+  list.forEach(function(addr) {
+    const trimmed = String(addr || '').trim();
+    const n = normEmail_(trimmed);
+    if (n && !seen[n]) {
+      seen[n] = true;
+      out.push(trimmed);
+    }
+  });
+  return out.join(',');
 }
 
 function sendCompletionEmail_(profEmail, taEmail, pdfBlob, row) {
@@ -236,7 +258,8 @@ function sendCompletionEmail_(profEmail, taEmail, pdfBlob, row) {
     ]
   });
   const htmlBody = mail.htmlBody;
-  const options = mailOptions_({ htmlBody: htmlBody, attachments: [pdfBlob] });
+  const cc = completionCc_(profEmail, taEmail);
+  const options = mailOptions_({ htmlBody: htmlBody, attachments: [pdfBlob], cc: cc });
 
   try {
     GmailApp.sendEmail([profEmail, taEmail].join(','), subject, mail.body, options);
@@ -247,6 +270,7 @@ function sendCompletionEmail_(profEmail, taEmail, pdfBlob, row) {
       evaluationId: row.evaluationId,
       profEmail,
       taEmail,
+      cc,
       subject,
       htmlBody,
       body: mail.body,

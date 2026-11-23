@@ -2,6 +2,7 @@ const CONFIG = {
   TEMPLATE_DOC_ID: '1VHHpZR0YgQWLFgaOQJDFtjsdVdjDzt4DMxf5oIy4CFA',
   ARCHIVE_FOLDER_ID: '1bV7kjbGotyrnJlOau6PEW0uqEJeLLyHA',
   ADMIN_EMAIL: 'bmarwick@uw.edu',
+  COMPLETION_CC_EMAIL: 'agp-advisor@uw.edu',  // copied on the final signed PDF email (in addition to instructor and TA)
   SPREADSHEET_ID: '1hCvDujkSyjmbtH9ZOyntV6Va1c8ye7Hxt0RbSOFIxDc',  // Create a Google Sheet and paste its ID here
   REMINDER_INTERVAL_DAYS: 5,   // reminders 5 days apart; a row escalates only once its step is past due
   DUE_DAYS: 14,                // fallback due date (days after a step starts) when the term is not in QUARTER_END_DATES_ or has ended

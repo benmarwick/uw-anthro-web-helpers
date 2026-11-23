@@ -9,7 +9,7 @@ editor_options:
 
 A secure, event-driven, multi-step Teaching Assistant / Academic Student Employee (ASE) evaluation, response, digital signature, and PDF archiving system for the **University of Washington Department of Anthropology**, built on **Google Apps Script**, **Google Sheets**, **Google Docs**, **Google Drive**, and **Gmail**.
 
-The app digitizes the department's paper "[Academic Student Employee (ASE) Evaluation Form](examples/Academic%20Student%20Employee%20(ASE)%20Evaluation%20Form.pdf)": instructors rate an ASE's job duties, the ASE reviews the feedback and self-evaluates, the instructor gives a final sign-off, and the finished evaluation is rendered as a signed PDF that is emailed to both parties and archived in Google Drive.
+The app digitizes the department's paper "[Academic Student Employee (ASE) Evaluation Form](examples/Academic%20Student%20Employee%20(ASE)%20Evaluation%20Form.pdf)": instructors rate an ASE's job duties, the ASE reviews the feedback and self-evaluates, the instructor gives a final sign-off, and the finished evaluation is rendered as a signed PDF that is emailed to the instructor, the TA, and `agp-advisor@uw.edu`, and archived in Google Drive.
 
 ## Links
 
@@ -136,7 +136,7 @@ The `Status` column shows where each evaluation is. You do not need to forward a
 | `TA_RESPONSE_PENDING` | The TA reads the evaluation and writes a response |
 | `PROF_SIGN_PENDING` | The instructor reads the TA's response and signs |
 | `PDF_GENERATING` | Nobody. The instructor has signed and the system is making the PDF in the background, usually within a few minutes (at most about 10) |
-| `COMPLETED` | Nobody. Both people have received the signed PDF by email. A copy is in the archive Drive folder, linked in the `Final_PDF_Link` column |
+| `COMPLETED` | Nobody. The instructor, the TA, and `agp-advisor@uw.edu` have received the signed PDF by email. A copy is in the archive Drive folder, linked in the `Final_PDF_Link` column |
 | `ESCALATED` | You. The person did not act after two reminders (see Problems below) |
 
 The system sends a reminder after 5 days without action, and a second reminder 5 days later (day 10). Each reminder shows the due date and how long the step has been waiting; the second says it is the last automatic one. After two reminders, once the step is past its due date, it marks the row `ESCALATED` and emails the administrator (`ADMIN_EMAIL` in `Config.gs`). Reminders only run if the triggers are installed. Choose **TA Evaluation System \> Run Health Check** and confirm that it says **Triggers Healthy: Yes**. If it says **No**, choose **Create/Refresh All Triggers** once.
@@ -174,7 +174,7 @@ Each evaluation row in the master sheet moves through a strict state machine:
 | `TA_RESPONSE_PENDING` | Waiting for the TA to review feedback and self-evaluate |
 | `PROF_SIGN_PENDING` | Waiting for the professor's final sign-off |
 | `PDF_GENERATING` | PDF generation in progress |
-| `COMPLETED` | PDF generated and emailed to both parties |
+| `COMPLETED` | PDF generated and emailed to the instructor, the TA, and `agp-advisor@uw.edu` |
 | `ESCALATED` | Inactive too long; escalated to the department administrator |
 
 Flow:
@@ -183,7 +183,7 @@ Flow:
 2.  **Stage 1 — Professor Evaluation** (`prof_eval`): the professor completes the evaluation form via a tokenized web link, signs it, and submits. Status → `TA_RESPONSE_PENDING`; the TA gets an email invite.
 3.  **Stage 2 — TA Review & Response** (`ta_respond`): the TA views the professor's evaluation read-only, writes a self-evaluation (context / self-evaluation / looking ahead), uploads a time sheet showing the hours worked up to that day (or a short document explaining why they have none), signs, and submits. Status → `PROF_SIGN_PENDING`; the professor gets an email invite.
 4.  **Stage 3 — Professor Final Sign-off** (`prof_sign`): the professor reviews the full evaluation + TA response read-only, can download the TA's time sheet, and signs. Status → `PDF_GENERATING`, and the page replies straight away.
-5.  **PDF Generation** — in the background, a one-off trigger (`generatePendingPdfs`, about a minute after the sign-off) builds a styled, UW-branded PDF, saved to the archive Drive folder, and emailed to both the professor and TA. Status → `COMPLETED`. On failure, status reverts to `PROF_SIGN_PENDING` for retry and an alert is sent to the admin.
+5.  **PDF Generation** — in the background, a one-off trigger (`generatePendingPdfs`, about a minute after the sign-off) builds a styled, UW-branded PDF, saved to the archive Drive folder, and emailed to the professor, the TA, and `agp-advisor@uw.edu` (`COMPLETION_CC_EMAIL`). Status → `COMPLETED`. On failure, status reverts to `PROF_SIGN_PENDING` for retry and an alert is sent to the admin.
 6.  **Automation** — a daily trigger checks pending evaluations. After 5 days of inactivity it sends up to 2 reminders, 5 days apart; when reminders are exhausted the evaluation is marked `ESCALATED` and the department administrator is emailed.
 
 Every transition is written to the `Audit_Log` sheet and the `Data_Payload` JSON column is updated.
@@ -438,7 +438,7 @@ The PDF is **built programmatically** — no template doc. A temporary Google Do
 
 - **Distribution:** the file is saved to the archive Drive folder and the row's `Final_PDF_Link`/`Final_PDF_File_ID` are persisted *before* email dispatch, so a crash after upload won't duplicate the file.
 
-- **Completion:** emails the PDF to both professor and TA, sets `Completed_Date`, moves status to `COMPLETED`, clears `Secure_Token` and `Token_Expiry`, and audits `PDF_GENERATED`.
+- **Completion:** emails the PDF to the professor and TA with `COMPLETION_CC_EMAIL` (`agp-advisor@uw.edu`) copied, sets `Completed_Date`, moves status to `COMPLETED`, clears `Secure_Token` and `Token_Expiry`, and audits `PDF_GENERATED`.
 
 - **Failure:** reverts status to `PROF_SIGN_PENDING`, audits `PDF_FAILED`, emails the admin, and enqueues a `GENERATE_PDF` DLQ item for retry.
 
@@ -537,6 +537,7 @@ Key settings (all in the `CONFIG` object):
 | `TEMPLATE_DOC_ID` | Template doc (legacy; only health-checked) |
 | `ARCHIVE_FOLDER_ID` | Drive folder where final PDFs are saved |
 | `ADMIN_EMAIL` | Coordinator receiving escalations/alerts |
+| `COMPLETION_CC_EMAIL` | `agp-advisor@uw.edu` (copied on the final signed PDF email) |
 | `APP_URL` | Web App deployment URL (used to build email links) |
 | `REMINDER_INTERVAL_DAYS` / `MAX_REMINDERS` | `5` / `2` (reminders 5 days apart; escalation only after the step's due date) |
 | `DUE_DAYS` | `14` (fallback due date, counted from the start of a step, when its `Term` is unknown or already over) |
@@ -644,7 +645,7 @@ The department does not use the information for any other purpose, does not sell
 |------------------------------------|------------------------------------|
 | The instructor | Their own evaluation; the TA's response and time sheet at the sign-off step; the signed PDF |
 | The TA | The instructor's evaluation, read-only; their own response; the signed PDF, which names the time sheet they uploaded (they can ask the Graduate Program Coordinator for a copy) |
-| The Graduate Program Coordinator and the system account | Everything in the master spreadsheet and the archive folder, and the reminder, escalation and alert emails |
+| The Graduate Program Coordinator and the system account | Everything in the master spreadsheet and the archive folder, the reminder, escalation and alert emails, and a copy of each signed PDF email (`agp-advisor@uw.edu`) |
 | Other UW faculty and staff | Only when they have a legitimate UW-related business need, such as a reappointment decision |
 | The union (UAW 4121) | Only with the ASE's written consent (UAW ASE contract, Article 22, Section 6) |
 | Google | Google stores and processes the information as UW's service provider. The records are kept in UW Google: Google Sheets, Google Drive and Gmail, which [UW-IT lists as core services](https://uwconnect.uw.edu/it?id=kb_article_view&sysparm_article=KB0034358) covered by UW's agreement with Google. |
@@ -654,7 +655,7 @@ A link from an email does not open a form by itself. Each form opens only for th
 
 ### How the Information Is Stored and Protected
 
-The information is kept in one Google Sheet (the master spreadsheet) and one Google Drive folder (the signed PDFs, and the time sheets in its `Time sheets` subfolder), both owned by the system account in UW Google. The department shares them only with the Graduate Program Coordinator and the system account. Copies of the emails stay in the system account's Sent mail, and in the instructor's and TA's mailboxes, along with the attached PDF.
+The information is kept in one Google Sheet (the master spreadsheet) and one Google Drive folder (the signed PDFs, and the time sheets in its `Time sheets` subfolder), both owned by the system account in UW Google. The department shares them only with the Graduate Program Coordinator and the system account. Copies of the emails stay in the system account's Sent mail, and in the mailboxes of the instructor, the TA, and the Graduate Program Coordinator (`agp-advisor@uw.edu`), along with the attached PDF.
 
 Following the UW principles of collecting only what is needed and giving access only to those who need it ([APS 2.2](https://policy.uw.edu/directory/aps/section-00/aps-2-2-university-privacy-policy/), [UW Privacy Principles](https://it.uw.edu/guides/privacy/principles/)), the system:
 

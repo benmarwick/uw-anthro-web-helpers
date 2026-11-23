@@ -355,7 +355,7 @@ The design follows Graduate School Policy 3.7, the [Provost and Graduate School 
 
 ## Screenshots
 
-All eight screenshots below were rendered on November 22, 2026 from the app's real `.html` files with invented sample data via [`app/tests/screenshots/build.js`](app/tests/screenshots/build.js). Every person, course assignment, and email address shown is invented. The color themes and two-column scope boxes distinguish the three graduate-review workflows from paid TA/ASE employment evaluations (UW purple): forest green for Course Feedback, deep navy for Annual Reviews, and deep teal for Progress Check-Ins.
+All eight screenshots below were rendered from the app's real `.html` files with invented sample data via [`app/tests/screenshots/build.js`](app/tests/screenshots/build.js) (annual review and check-in screenshots refreshed full-page on November 23, 2026). Every person, course assignment, and email address shown is invented. The color themes and two-column scope boxes distinguish the three graduate-review workflows from paid TA/ASE employment evaluations (UW purple): forest green for Course Feedback, deep navy for Annual Reviews, and deep teal for Progress Check-Ins.
 
 The Roster page after CSV upload and Preview, showing the join table and the sample CF-1 instructor email (`From: UW Anthropology: Grad Student Course Feedback`, subject prefix `[Grad Student Course Feedback]`).
 
@@ -369,11 +369,11 @@ Review and Release (GPC), after the instructor submitted course feedback.
 
 ![Review and release page](screenshots/live-review-release.png)
 
-The student's Annual Review report (top of the page): the deep-navy header, scope box, MyGrad prefill note, and released Course Feedback Record above the form.
+The student's Annual Review report (full page): the deep-navy header, scope box, MyGrad prefill note, released Course Feedback Record, and full Student Self-Report form (including the required status questions, milestones, coursework, research progress, outputs, goals, and CV upload).
 
 ![Student annual report](screenshots/annual-report.png)
 
-The advisor's Annual Review page (top of the page): the deep-navy header, advisor scope box, student report, and Course Feedback Record.
+The advisor's Annual Review page (full page): the deep-navy header, advisor scope box, read-only student report, Course Feedback Record, and full Advisor Evaluation form (meeting date, milestone determinations, mentor checklist, action items, self-assessment agreement, accomplishments, development areas, recommended rating, concern benchmarks, and signature).
 
 ![Advisor annual review page](screenshots/advisor-annual.png)
 

@@ -48,7 +48,7 @@ function handleRequest_(e) {
     return renderCompleted_('This evaluation is finalized. Check your email for the PDF copy.');
   }
   if (row.status === C_().STATUSES.PDF_GENERATING) {
-    return renderCompleted_('This evaluation is signed. The PDF will be emailed to the instructor and the TA within a few minutes.');
+    return renderCompleted_('This evaluation is signed. The PDF will be emailed to the instructor, the TA, and the Graduate Program Coordinator within a few minutes.');
   }
   if (isTokenExpired_(row.tokenExpiry)) {
     return renderError_('This link has expired. Contact the coordinator for a new link.');
@@ -209,7 +209,7 @@ function submitForm(token, action, payload, timesheet) {
       success: true,
       newStatus: nextStatus,
       message: action === 'prof_sign'
-        ? 'Your sign-off is saved. The signed PDF will be emailed to you and the TA within a few minutes.'
+        ? 'Your sign-off is saved. The signed PDF will be emailed to you, the TA, and the Graduate Program Coordinator within a few minutes.'
         : 'Submitted successfully.'
     };
   } catch (err) {
